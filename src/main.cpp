@@ -16,15 +16,19 @@
 // Pins   
 #define ESP32_CAN_RX_PIN GPIO_NUM_22
 #define ESP32_CAN_TX_PIN GPIO_NUM_23
-#define ONEWIRE_GPIO_PIN GPIO_NUM_21
-#define SDA_PIN GPIO_NUM_18
-#define SCL_PIN GPIO_NUM_5
-#define DISPLAY_BUTTON GPIO_NUM_34
+
+
+#define MAX_NMEA0183_MESSAGE_SIZE 100
+
+//#define ONEWIRE_GPIO_PIN GPIO_NUM_21
+//#define SDA_PIN GPIO_NUM_18
+//#define SCL_PIN GPIO_NUM_5
+//#define DISPLAY_BUTTON GPIO_NUM_34
 
 // RS584 on Serial2 TX
-#define RS485_TX GPIO_NUM_17
-#define RS485_RX GPIO_NUM_16
-#define RS485_EN GPIO_NUM_4
+//#define RS485_TX GPIO_NUM_17
+//#define RS485_RX GPIO_NUM_16
+//#define RS485_EN GPIO_NUM_4
 
 
 
@@ -47,27 +51,13 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "listdevices.h"
 #include "N2KCollector.h"
 #include "N2KPrinter.h"
+#include "N2KToN183.h"
 #include "httpserver.h"
-#include "temperature.h"
 #include "logbook.h"
-#include "modbus.h"
 #include "dataoutput.h"
 
-// Display implementions
-#include "display.h"
-//#include "einkdisplay.h"
-//#include "OLEDDisplay.h"
-#include "TFTDisplay.h"
 
 #include "esp32-hal-psram.h"
-
-// select one
-//#define DISPLAY_MODULE OledDisplay
-//#define DISPLAY_MODULE EinkDisplay
-#define DISPLAY_MODULE TFTDisplay
-
-//#define DISPLAY_MODULE NullDisplay
-
 
 
 
@@ -92,33 +82,65 @@ LatLonDataOutput latLonDataOutput(n2kCollector);
 LeewayDataOutput leewayDataOutput(n2kCollector);
 
 
-Temperature temperature(&NMEA2000, ONEWIRE_GPIO_PIN);
-
-
-ModbusMaster modbusMaster(&Serial2, RS485_EN);
-Modbus modbus(&NMEA2000, modbusMaster);
-
-
 LogBook logbook(n2kCollector);
-
-
+Wifi wifi(OutputStream);
 WebServer webServer(OutputStream);
+EchoServer echoServer(OutputStream);
+NMEA0183Server nmeaServer(OutputStream, 10110, 10);
 
+tN2kDataToNMEA0183 tN2kDataToNMEA0183(&NMEA2000, 0);
 
-
-
-TFT_eSPI tftDisplayDriver = TFT_eSPI();
-TFTDisplay display(n2kCollector, modbus, webServer, tftDisplayDriver);
 
 unsigned long lastButtonPress = 0;
 unsigned long lastButtonRelease = 0;
 
 
 
+
+
+const unsigned long TransmitMessages[] PROGMEM={0};
+const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
+        126992L, //SystemTime(N2kMsg)
+        127245L, //Rudder(N2kMsg)
+        127250L, //Heading(N2kMsg)
+        127257L, //Attitude(N2kMsg)
+        127488L, //EngineRapid(N2kMsg)
+        127489L, //EngineDynamicParameters(N2kMsg)
+        127493L, //TransmissionParameters(N2kMsg)
+        127497L, //TripFuelConsumption(N2kMsg)
+        127501L, //BinaryStatus(N2kMsg)
+        127505L, //FluidLevel(N2kMsg)
+        127506L, //DCStatus(N2kMsg)
+        127508L, //DCBatteryStatus(N2kMsg)
+        127513L, //BatteryConfigurationStatus(N2kMsg)
+        128259L, //Speed(N2kMsg)
+        128267L, //WaterDepth(N2kMsg)
+        129026L, //COGSOG(N2kMsg)
+        129029L, //GNSS(N2kMsg)
+        129033L, //LocalOffset(N2kMsg)
+        129045L, //UserDatumSettings(N2kMsg)
+        129540L, //GNSSSatsInView(N2kMsg)
+        130310L, //OutsideEnvironmental(N2kMsg)
+        130311L, //EnvironmentalParameters(N2kMsg)
+        130312L, //Temperature(N2kMsg)
+        130313L, //Humidity(N2kMsg)
+        130314L, //Pressure(N2kMsg)
+        130316L, //TemperatureExt(N2kMsg)
+        129283L, //Xte(N2kMsg)
+        127258L, //MagneticVariation(N2kMsg)
+        130306L, //WindSpeed(N2kMsg)
+        128275L, //Log(N2kMsg)
+        129025L, //LatLon(N2kMsg)
+        128000L, //Leeway(N2kMsg)
+        0};
+
+
+
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
-    listDevices.HandleMsg(N2kMsg);
+   listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
     n2kCollector.HandleMsg(N2kMsg);
+    tN2kDataToNMEA0183.HandleMsg(N2kMsg);
 }
 
 void showHelp() {
@@ -129,72 +151,41 @@ void showHelp() {
   OutputStream->println("  - Send 'u' to print latest list of devices");
   OutputStream->println("  - Send 'o' to toggle output, can be high volume");
   OutputStream->println("  - Send 'd' to toggle packet dump, can be high volume");
-  OutputStream->println("  - Send 'm' to toggle modbus diagnostics");
-  OutputStream->println("  - Send 'b' to change brightness");
   OutputStream->println("  - Send 'S' to put to sleep");
+  OutputStream->println("  - Send 'A' to toggle Wifi AP");
    
+}
+
+
+void SendNMEA0183Message(const tNMEA0183Msg &NMEA0183Msg) {
+  
+  char buf[MAX_NMEA0183_MESSAGE_SIZE];
+  if ( !NMEA0183Msg.GetMessage(buf,MAX_NMEA0183_MESSAGE_SIZE) ) return;
+  nmeaServer.sendBufToClients(buf);
 }
 
 
 
 void setup() {
   Serial.begin(115200); 
-  Serial2.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX); // RS485 Modbus
   if ( !psramInit() ) {
     Serial.println("PSRAM not available.");
   } else {
     Serial.print("Total PSRAM: ");Serial.println(ESP.getPsramSize());
     Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
   }
-  modbusMaster.begin();
 
-  display.begin();
-  display.update(0);
-  display.setBacklightLevel(16);
+  // Start the wifi
+  wifi.begin();
+  echoServer.begin();
+  nmeaServer.begin();
 
-  if (!Wire.begin(SDA_PIN, SCL_PIN) ) {
-    Serial.println("I2C failed to start");
-  } else {
-    Serial.println("I2C scanning ");
-    for (uint8_t addr = 0; addr < 255; addr++) {
-        Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {
-            Serial.print(" ");
-            Serial.print(addr,HEX);
-        } else {
-            Serial.print(" --");
-        }
-        display.setBacklightLevel(16+addr/2);
-    }
-    Serial.println("Done ");
-  }
-  display.setBacklightLevel(144);
-
-  display.update("I2C scanned",0);
-
-
-
-
-
-
-
-  pinMode(DISPLAY_BUTTON, INPUT_PULLUP);
-
-  temperature.begin();
-  display.setBacklightLevel(160);
-  modbus.begin();
-  display.setBacklightLevel(176);
-
-  display.update("Sensors started",1);
- 
   webServer.addJsonOutputHandler(0,&listDevices);
   webServer.addJsonOutputHandler(1,&engineDataOutput);
   webServer.addJsonOutputHandler(2,&boatDataOutput);
   webServer.addJsonOutputHandler(3,&navigationDataOutput);
   webServer.addJsonOutputHandler(4,&environmentDataOutput);
   webServer.addJsonOutputHandler(5,&temperatureDataOutput);
-  webServer.addJsonOutputHandler(6,&temperature);  
-  webServer.addJsonOutputHandler(8,&modbus);
   webServer.addJsonOutputHandler(9,&xteDataOutput);  
   webServer.addJsonOutputHandler(10,&magneticVariationDataOutput);  
   webServer.addJsonOutputHandler(11,&logDataOutput);  
@@ -207,17 +198,12 @@ void setup() {
   webServer.addCsvOutputHandler(3,&navigationDataOutput);
   webServer.addCsvOutputHandler(4,&environmentDataOutput);
   webServer.addCsvOutputHandler(5,&temperatureDataOutput);
-  webServer.addCsvOutputHandler(6,&temperature);  
-  webServer.addCsvOutputHandler(6,&modbus);  
   webServer.addCsvOutputHandler(9,&xteDataOutput);  
   webServer.addCsvOutputHandler(10,&magneticVariationDataOutput);  
   webServer.addCsvOutputHandler(11,&logDataOutput);  
   webServer.addCsvOutputHandler(12,&latLonDataOutput);  
   webServer.addCsvOutputHandler(13,&leewayDataOutput);  
   webServer.begin();
-  display.setBacklightLevel(192);
-
-  display.update("Web server started",2);
 
   // Set Product information
   NMEA2000.SetProductInformation("00000003", // Manufacturer's Model SerialIO code
@@ -235,6 +221,8 @@ void setup() {
                                );
 
 
+  tN2kDataToNMEA0183.SetSendNMEA0183MessageCallback(SendNMEA0183Message);
+
 //  NMEA2000.SetN2kCANReceiveFrameBufSize(50);
   // Do not forward bus messages at all
   NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
@@ -243,16 +231,16 @@ void setup() {
   NMEA2000.EnableForward(false);
   NMEA2000.SetN2kCANReceiveFrameBufSize(150);
   NMEA2000.SetN2kCANMsgBufSize(8);
+  NMEA2000.ExtendTransmitMessages(TransmitMessages);
+  NMEA2000.ExtendReceiveMessages(ReceiveMessages);
 
   NMEA2000.SetMsgHandler(HandleNMEA2000Msg);
 
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 50);
-  display.setBacklightLevel(208);
+//  NMEA2000.SetMode(tNMEA2000::N2km_ListenOnly, 50);
   NMEA2000.Open();
-  display.update("NMEA2000 started",3);
 
   OutputStream->print("Running...");
-  display.setBacklightLevel(224);
   showHelp();
 
   
@@ -261,7 +249,6 @@ void setup() {
 //*****************************************************************************
 
 void showStatus() {
-  modbus.readStats();
   Serial.print("Total heap:  ");Serial.println(ESP.getHeapSize());
   Serial.print("Free heap:   ");Serial.println(ESP.getFreeHeap());
   // ESP32-WROOM chips which are common dont have PSRAM. 
@@ -269,6 +256,8 @@ void showStatus() {
   Serial.print("Has PSRAM:");Serial.println(psramFound());
   Serial.print("Total PSRAM: ");Serial.println(ESP.getPsramSize());
   Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
+
+  wifi.printStatus();
 }
 
 //*****************************************************************************
@@ -282,7 +271,6 @@ void showStatus() {
 //*****************************************************************************
 void CheckCommand() {
   static bool enableForward = false;
-  static bool modbusDiagnose = false;
   if (OutputStream->available()) {
     char chr = OutputStream->read();
     switch ( chr ) {
@@ -308,151 +296,37 @@ void CheckCommand() {
         }
         NMEA2000.EnableForward(enableForward); 
         break;
-      case 'm':
-        modbusDiagnose = !modbusDiagnose;
-        if (  modbusDiagnose ) {
-          Serial.println("Modbus Diagnostics enabled");   
-        } else {
-          Serial.println("Modbus Diagnostics disabled");   
-        }
-        modbus.setDiagnostics(modbusDiagnose);
-        break;
-
-      case 'b': 
-
-        display.incTargetBrightness();
-        break;
       case 'S':
         lastButtonPress = lastButtonRelease =  millis()-60000;
         break;
+      case 'A':
+        if ( wifi.isSoftAP() ) {
+          wifi.startSTA();
+        } else {
+          wifi.startAP();
+        }
+        break;
     }
   }
 }
 
-/*
-void onPress() {
-  display.nextPage();
-}
-void onLongRelease() {
-  display.endDim();
-}
-void onLongPress() {
-  display.startDim();
-}
-
-long checkPress() {
-  static bool  pressed = false;
-  static uint8_t bits = 0;
-  static unsigned long lastCalled = 0, startPress = 0;
-  unsigned long now = millis();
 
 
-  // called every 100ms
-  if ( now > lastCalled+10) {
-    lastCalled = now;
-
-    int dr = digitalRead(DISPLAY_BUTTON);
-    if (  dr == HIGH ) {
-      bits = bits<<1 & 0xfe;
-    } else {
-      bits = bits<<1 | 1;
-    }
-    // count the bits
-
-    // Serial.println(bits,BIN);
-
-    if (pressed && ((bits&0b00000111) == 0)  ) {
-      // released for the last 150ms
-      pressed = false;
-      if ( now > (startPress+3000) ) {
-        onLongRelease();
-      } else {
-        onPress();
-      }
-    } else if ( !pressed && ((bits&0b00000111) == 0b00000111) ) {
-      // touched for the last 300ms
-      pressed = true;
-      startPress = now;
-    } 
-    if ( pressed && (now > (startPress+3000))) {
-      onLongPress();
-    }
-  }
-  return startPress; 
-}
-*/
-
-/*
-bool checkTouch() {
-  static bool beingTouched = false;
-  static unsigned long lastChange = 0;
-  int touchValue = touchRead(Touch2);
-
-  unsigned long now = millis();
-  int8_t retValue = 0;
-  if ( now-lastChange < 100) {
-    // ignore
-  } else if ( beingTouched ) {
-    if (touchValue > TOUCH_THRESHOLD ) {
-      beingTouched = false;
-      lastChange = now;
-    }
-  } else {
-    if (touchValue < TOUCH_THRESHOLD ) {
-      beingTouched = true;
-      lastChange = now;
-      return true;
-    }
-  }
-  return false;
-}
-*/
 
 
-#ifndef USE_INTERRUPT
-
-
-bool checkPress() {
-  static bool beingPressed = false;
-  static unsigned long lastBtnChange = 0;
-  int dr = digitalRead(DISPLAY_BUTTON);
-  unsigned long now = millis();
-  if ( now-lastBtnChange < 100) {
-    // ignore
-  } else if ( beingPressed ) {
-    if ( dr == LOW ) {
-      beingPressed = false;
-      lastBtnChange = now;
-      lastButtonPress = now;      
-    }
-  } else {
-    if ( dr == HIGH ) {
-      beingPressed = true;
-      lastBtnChange = now;
-      lastButtonRelease = now;
-      return true;
-    }
-  }
-  return false;
-}
-#endif
 
 unsigned long start = 0;
-const char *timerMessages[9] = {
+const char *timerMessages[5] = {
 "NMEA2000.ParseMessages",
-"temperature.read",
-"temperature.output",
-"modbus.read",
-"modbus.output",
 "logbook.log",
 "CheckCommand",
-"checkPress",
-"display.update"  
+"EchoServer",
+"NmeaServerCheck"
 };
 int16_t totalCalls = 0;
 unsigned long lastPrint = 0;
-unsigned long counters[9] = {0,0,0,0,0,0,0,0,0};
-uint16_t calls[9] = {0,0,0,0,0,0,0,0,0};
+unsigned long counters[5] = {0,0,0,0,0};
+uint16_t calls[5] = {0,0,0,0,0};
 void startTimer() {
   start = millis();
 }
@@ -465,7 +339,7 @@ void endTimer(int i) {
     lastPrint = end;
     Serial.print(end);
     Serial.print(" times:");
-    for(int i = 0; i < 9; i++ ) {
+    for(int i = 0; i < 5; i++ ) {
       Serial.print(",");
       if (calls[i] == 0) {
         Serial.print("-");
@@ -480,42 +354,28 @@ void endTimer(int i) {
     totalCalls = 0;
   } 
 }
+
 //*****************************************************************************
 void loop() { 
+
   startTimer();
   NMEA2000.ParseMessages();
   endTimer(0);
 // Only on demand as it causes startup to take time to complete
 // listDevices.list();
   startTimer();
-  temperature.read();
-  endTimer(1);
-  startTimer();
-  temperature.output();
-  endTimer(2);
-  startTimer();
-  modbus.read();
-  endTimer(3);
-  startTimer();
-  modbus.output();
-  endTimer(4);
-  startTimer();
 
   logbook.log();
-  endTimer(5);
-//  logbook.demoMode();
+  endTimer(1);
   startTimer();
   CheckCommand();
-  endTimer(6);
+  endTimer(2);
   startTimer();
-#ifndef USE_INTERRUPT
-  if ( checkPress() ) {
-    Serial.println("Button Being pressed");
-    display.nextPage();
-  }
-  endTimer(7);
+
+  echoServer.handle();
+  endTimer(3);
   startTimer();
-#endif
-  display.update(lastButtonRelease);
-  endTimer(8);
+  nmeaServer.checkConnections();
+  endTimer(4);
+  tN2kDataToNMEA0183.Update();
 }

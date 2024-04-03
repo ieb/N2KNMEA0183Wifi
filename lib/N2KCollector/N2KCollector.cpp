@@ -5,7 +5,6 @@
 
 
 
-
 void N2KCollector::HandleMsg(const tN2kMsg &N2kMsg) {
       switch(N2kMsg.PGN) {
 //        case 60928L: AddressClaim(N2kMsg); break;

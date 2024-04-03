@@ -1,6 +1,7 @@
 #pragma once
 
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include "local_secrets.h"
@@ -61,6 +62,77 @@ class CsvOutput {
 
 #define MAX_DATASETS 14
 
+class Wifi {
+public:
+    Wifi(Stream *outputStream, const char * _configurationFile = "/config.txt") : 
+        outputStream{outputStream} {
+            configurationFile = _configurationFile;
+    };
+    void begin();
+    String getSSID() { return ssid; };
+    String getPassword() { return password; };
+    void startSTA(String wifi_ssid = WIFI_SSID, String wifi_pass = WIFI_PASS);
+    void startAP();
+    void printStatus();
+    bool isSoftAP() {
+        return softAP;
+    };
+private:    
+    Stream *outputStream;
+    const char *configurationFile;
+    String ssid;
+    String password;
+    bool softAP;
+    wifi_power_t maxWifiPower = WIFI_POWER_5dBm;
+    void loadIPConfig(String key);
+    void loadWifiPower(String key);
+
+};
+class EchoServer  {
+public: 
+    EchoServer(Stream *outputStream) : outputStream{outputStream} {};
+    void begin();
+    void handle();
+private:
+    WiFiServer server;
+    Stream *outputStream;
+    bool clientConnected = false;
+    WiFiClient client; 
+    String request;
+};
+
+using tWiFiClientPtr = std::shared_ptr<WiFiClient>;
+
+#define MAX_CLIENTS 10
+class NMEA0183Server  {
+public: 
+    NMEA0183Server(Stream *outputStream, uint16_t port, size_t maxClients ) : 
+            outputStream{outputStream}, 
+            server{port, MAX_CLIENTS} {};
+    void begin();
+    void checkConnections();
+    void sendBufToClients(const char *buf);
+private:
+    Stream *outputStream;
+    WiFiServer server;
+    WiFiClient wifiClients[MAX_CLIENTS];
+    uint8_t nclients = 0;
+};
+
+class NMEA0183Udp  {
+public: 
+    NMEA0183Udp(Stream *outputStream, uint16_t port=10110 ) : 
+            outputStream{outputStream} {
+                udpPort = port;
+            };
+    void begin();
+    void sendBufToClients(const char *buf);
+private:
+    Stream *outputStream;
+    WiFiUDP udp;
+    uint16_t udpPort = 10110;
+};
+
 class WebServer {
     public:
         WebServer(Stream *outputStream) : outputStream{outputStream} {};
@@ -75,8 +147,6 @@ class WebServer {
                 csvHandlers[id] = handler;
             }
         };
-        String getSSID() { return ssid; };
-        String getPassword() { return password; };
         String getBasicAuth() { return basicAuth; };
 
     private:    
@@ -87,8 +157,6 @@ class WebServer {
         CsvOutput *csvHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
         Stream *outputStream;
         String httpauth;
-        String ssid;
-        String password;
         String basicAuth;
 
 };

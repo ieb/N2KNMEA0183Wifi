@@ -10,23 +10,98 @@
 
 AsyncWebServer server(80);
 
-
-void WebServer::begin(const char * configurationFile) {
-      // Initialize SPIFFS
+void Wifi::begin() {
     if(!SPIFFS.begin(false)){
-        Serial.println("An Error has occurred while mounting SPIFFS");
+        outputStream->println("An Error has occurred while mounting SPIFFS");
         return;
     }
-    ssid = WIFI_SSID;
-    password = WIFI_PASS;
+    startSTA();
+    if ( WiFi.status() != WL_CONNECTED ) {
+        outputStream->print("Wifi Failed to connect ");
+        startAP();
+    } else {
+        // Print local IP address and start web server
+        outputStream->println("");
+        outputStream->println("WiFi connected.");
+        outputStream->print("IP Address: ");outputStream->println(WiFi.localIP());
+        outputStream->print("Subnet Mask: ");outputStream->println(WiFi.subnetMask());
+        outputStream->print("Gateway IP: ");outputStream->println(WiFi.gatewayIP());
+        outputStream->print("DNS Server: ");outputStream->println(WiFi.dnsIP());
+        softAP = false;
+
+    }
+}
+
+void Wifi::startSTA(String wifi_ssid, String wifi_pass) {
+    ssid = wifi_ssid;
+    password = wifi_pass;
     ConfigurationFile::get(configurationFile, "wifi.ssid:", ssid);
-    Serial.print("Wifi ssid ");Serial.println(ssid);
+    loadWifiPower(ssid);
+    outputStream->print("Wifi ssid ");outputStream->println(ssid);
 
     if ( !ConfigurationFile::get(configurationFile, ssid+".password:", password) ) {
-        Serial.println("Warning: no password configured, using default");
+        outputStream->println("Warning: no password configured, using default");
     }
+    loadIPConfig(ssid);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), password.c_str());
+    for  (int i = 0; i < 30; i++) {
+        if ( WiFi.status() == WL_CONNECTED ) {
+            // reduce power as all clients are going to be within 5m
+            WiFi.setTxPower(maxWifiPower);
+            break;
+        }
+        delay(500);
+        outputStream->print(".");
+    }    
+}
+
+void Wifi::startAP() {
+        WiFi.disconnect(true, true);
+        WiFi.mode(WIFI_AP);
+        password = "nopassword";
+        ssid = "boatsys";
+
+        ConfigurationFile::get(configurationFile, "softap.ssid:", ssid);
+        ConfigurationFile::get(configurationFile, "softap.password:", password);
+        loadWifiPower("softap");
+        outputStream->print("Start SoftAP on SSID boatsys PW ");
+        outputStream->print(ssid);
+        outputStream->print(" PW ");
+        outputStream->println(password);
+        WiFi.softAP(ssid.c_str(), password.c_str());
+        // reduce power as all clients are going to be within 5m
+        WiFi.setTxPower(maxWifiPower);
+
+        outputStream->print("IP address: ");
+        outputStream->println(WiFi.softAPIP());
+        outputStream->println("SoftAP runing.");
+        outputStream->print("IP Address: ");outputStream->println(WiFi.softAPIP());
+        outputStream->print("Broadcast IP: ");outputStream->println(WiFi.softAPBroadcastIP());
+        outputStream->print("Network IP: ");outputStream->println(WiFi.softAPNetworkID());
+        outputStream->print("Tx Power: ");outputStream->println(0.25*WiFi.getTxPower());
+        softAP = true;
+}
+
+// generally 2dbm is plenty for an access point in a few meters.
+void Wifi::loadWifiPower(String key) {
     String v;
-    if ( ConfigurationFile::get(configurationFile, ssid+".ip", v)) {
+    if ( ConfigurationFile::get(configurationFile, key+".power:", v) ) {
+        if ( v.equals("high") ) {
+            maxWifiPower = WIFI_POWER_19_5dBm;
+        } else if ( v.equals("med") ) {
+            maxWifiPower = WIFI_POWER_11dBm;
+        } else if ( v.equals("low") ) {
+            maxWifiPower = WIFI_POWER_2dBm;
+        }
+    } else {
+        maxWifiPower = WIFI_POWER_5dBm;
+    }
+}
+
+void Wifi::loadIPConfig(String key) {
+    String v;
+    if ( ConfigurationFile::get(configurationFile, key+".ip", v)) {
         IPAddress local_ip;
         local_ip.fromString(v);
         IPAddress subnet(255,255,255,0), 
@@ -34,57 +109,169 @@ void WebServer::begin(const char * configurationFile) {
             dns1(local_ip[0],local_ip[1],local_ip[2],1), 
             dns2;
         dns2 = IPADDR_NONE;
-        if (ConfigurationFile::get(configurationFile, ssid+".netmask", v) ) {
+        if (ConfigurationFile::get(configurationFile, key+".netmask", v) ) {
             subnet.fromString(v);
         }
-        if (ConfigurationFile::get(configurationFile, ssid+".gateway", v) ) {
+        if (ConfigurationFile::get(configurationFile, key+".gateway", v) ) {
             gateway.fromString(v);
         }
-        if (ConfigurationFile::get(configurationFile, ssid+".dns1", v) ) {
+        if (ConfigurationFile::get(configurationFile, key+".dns1", v) ) {
             dns1.fromString(v);
         }
-        if (ConfigurationFile::get(configurationFile, ssid+".dns2", v) ) {
+        if (ConfigurationFile::get(configurationFile, key+".dns2", v) ) {
             dns2.fromString(v);
         }
         WiFi.config(local_ip, gateway, subnet, dns1, dns2);
-        Serial.println("Network config loaded.");
+        outputStream->print("Network config loaded for ");
     } else {
 #ifdef IP_METHOD
         WiFi.config(WIFI_IP, WIFI_GATEWAY, WIFI_SUBNET, WIFI_DNS1);
-        Serial.println("Using network config defaults.");
+        outputStream->println("Using network config defaults.");
 #else
-        Serial.print("Using DHCP");
+        outputStream->print("Using DHCP");
 #endif
     }
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid.c_str(), password.c_str());
-    for  (int i = 0; i < 30; i++) {
-        if ( WiFi.status() == WL_CONNECTED ) {
-            break;
-        }
-        delay(500);
-        Serial.print(".");
-    }
-    if ( WiFi.status() != WL_CONNECTED ) {
-        WiFi.disconnect(true, true);
-        password = "nopassword";
-        ssid = "boatsys";
-        ConfigurationFile::get(configurationFile, "softap.password:", password);
-        outputStream->print("WiFi connect failed, switching to SofAP on SSID boatsys PW ");Serial.println(password);
-        WiFi.softAP(ssid.c_str(), password.c_str());
-        
-        Serial.print("IP address: ");
-        Serial.println(WiFi.softAPIP());
+}
+
+void Wifi::printStatus() {
+    if ( softAP ) {
+        outputStream->println("Wifi Access Point enabled");
+        outputStream->print("SSID:");outputStream->println(ssid);
+        outputStream->print("Password:");outputStream->println(password);
+        outputStream->print("IP Address:");outputStream->println(WiFi.softAPIP());
+        outputStream->print("Broadcast IP: ");outputStream->println(WiFi.softAPBroadcastIP());
+        outputStream->print("Network IP: ");outputStream->println(WiFi.softAPNetworkID());
+        outputStream->print("Tx Power: ");outputStream->println(0.25*WiFi.getTxPower());
     } else {
-        // Print local IP address and start web server
         outputStream->println("");
         outputStream->println("WiFi connected.");
-        Serial.print("IP Address: ");Serial.println(WiFi.localIP());
-        Serial.print("Subnet Mask: ");Serial.println(WiFi.subnetMask());
-        Serial.print("Gateway IP: ");Serial.println(WiFi.gatewayIP());
-        Serial.print("DNS Server: ");Serial.println(WiFi.dnsIP());
+        outputStream->print("IP Address: ");outputStream->println(WiFi.localIP());
+        outputStream->print("Subnet Mask: ");outputStream->println(WiFi.subnetMask());
+        outputStream->print("Gateway IP: ");outputStream->println(WiFi.gatewayIP());
+        outputStream->print("DNS Server: ");outputStream->println(WiFi.dnsIP());
+        outputStream->print("Broadcast: ");outputStream->println(WiFi.broadcastIP());
+        outputStream->print("Tx Power: ");outputStream->println(0.25*WiFi.getTxPower());
+    }
 
+}
+
+void EchoServer::begin() {
+    server.begin(7);
+}
+
+
+void EchoServer::handle() {
+    if (!clientConnected) {
+        client = server.accept();
+        if (!client) {
+            return;
+        }
+        outputStream->println("Echo Client Connected");
+        clientConnected = true;
+        request = "";
+    }
+    if (!client.connected()) {
+        outputStream->println("Echo Client disconnect");
+        clientConnected = false;
+        request = "";
+        return;
+    }
+    while ( client.available() ) {
+        char c = client.read();
+        if (c == '\n'){
+            client.println(request);
+            delay(1);
+            client.stop();
+            clientConnected = false;
+            outputStream->print("Echo Client done [");
+            outputStream->print(request);
+            outputStream->println("]");
+            request="";
+        } else {
+            request += c;
+        }
+    }
+}
+
+
+void NMEA0183Server::begin() {
+    server.begin(10110);
+    for (int i = 0; i < nclients; i++) {
+        wifiClients[i] = WiFiClient();
+    }
+}
+
+
+void NMEA0183Server::checkConnections() {
+
+   if (nclients < MAX_CLIENTS) {
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if ( !wifiClients[i] ) {
+            WiFiClient client  = server.accept();   // listen for incoming clients
+            if ( client ) {
+               wifiClients[i] = client;
+               outputStream->println("NMEA Connected");
+              nclients++;
+            }
+            break;
+        }
+    }
+  }
+
+ 
+  for (int i = 0; i < nclients; i++) {
+    if ( wifiClients[i] ) {
+      if ( !wifiClients[i].connected() ) {
+        wifiClients[i].stop();
+        wifiClients[i] = WiFiClient();
+        nclients--;
+        outputStream->println("NMEA Disconnected");
+      } else {
+        if ( wifiClients[i].available() ) {
+          char c = wifiClients[i].read();
+          if ( c==0x03 ) {
+            outputStream->println("NMEA Disconnected ^C");
+            wifiClients[i].stop();
+            wifiClients[i] = WiFiClient();
+            nclients--;
+          }
+        }
+      } 
+    }
+  }
+}
+
+
+void NMEA0183Server::sendBufToClients(const char *buf) {
+  for (int i = 0; i < nclients; i++) {
+    if ( wifiClients[i]  && wifiClients[i].connected() ) {
+        wifiClients[i].println(buf);
+    }
+   }
+}
+
+
+void NMEA0183Udp::begin() {
+
+}
+void NMEA0183Udp::sendBufToClients(const char *buf) {
+    outputStream->print("Send ");
+    outputStream->println(buf);
+    delay(100);
+    udp.beginPacket(WiFi.broadcastIP(),udpPort);
+    udp.print(buf);
+    udp.endPacket();
+
+}
+
+
+void WebServer::begin(const char * configurationFile) {
+      // Initialize SPIFFS
+    if(!SPIFFS.begin(false)){
+        outputStream->println("An Error has occurred while mounting SPIFFS");
+        return;
     }
 
     MDNS.begin("boatsystems");
@@ -117,19 +304,19 @@ void WebServer::begin(const char * configurationFile) {
 
     server.on("^\\/(.*)\\.html$", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String path = String("/") + request->pathArg(0) + String(".html");
-        Serial.print("GET ");Serial.println(path);
+        outputStream->print("GET ");outputStream->println(path);
         request->send(SPIFFS, path, "text/html", false, [this, request](const String& var){
             return this->handleTemplate(request, var);
         });
     });
     server.on("^\\/(.*)\\.js$", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String path = String("/") + request->pathArg(0) + String(".js");
-        Serial.print("GET ");Serial.println(path);
+        outputStream->print("GET ");outputStream->println(path);
         request->send(SPIFFS, path, "text/javascript");
     });
     server.on("^\\/(.*)\\.css$", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String path = String("/") + request->pathArg(0) + String(".css");
-        Serial.print("GET ");Serial.println(path);
+        outputStream->print("GET ");outputStream->println(path);
         request->send(SPIFFS, path, "text/css");
     });
 
@@ -141,7 +328,7 @@ void WebServer::begin(const char * configurationFile) {
         response->setCode(200);
         response->print("{ \"logbooks\": [ \"/api/logbookj.json\" ");
 
-        Serial.println("GET /api/logbook.json");
+        outputStream->println("GET /api/logbook.json");
         File f = SPIFFS.open("/logbook");
         File lf = f.openNextFile();
         while(lf) {
@@ -154,13 +341,13 @@ void WebServer::begin(const char * configurationFile) {
 
     server.on("^\\/logbook/(.*)$", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String path = String("/logbook/") + request->pathArg(0);
-        Serial.print("GET ");Serial.println(path);
+        outputStream->print("GET ");outputStream->println(path);
         request->send(SPIFFS, path, "text/plain");
     });
 
     server.on("^\\/logbook/(.*)$", HTTP_DELETE, [this](AsyncWebServerRequest *request) {
         String path = String("/logbook/") + request->pathArg(0);
-        Serial.print("DELETE ");Serial.println(path);
+        outputStream->print("DELETE ");outputStream->println(path);
         if ( SPIFFS.exists(path)) {
             SPIFFS.remove(path);
             request->send(200,"application/json","{ \"ok\":true,\"msg\":\"deleted\"}");
@@ -174,9 +361,9 @@ void WebServer::begin(const char * configurationFile) {
     server.on("^\\/api\\/data\\/([0-9]*).csv$", HTTP_GET, [this](AsyncWebServerRequest *request) {
         int id = request->pathArg(0).toInt();
         unsigned long start = millis();
-        Serial.print("http GET /api/data/");
-        Serial.print(id);
-        Serial.print(".csv");
+        outputStream->print("http GET /api/data/");
+        outputStream->print(id);
+        outputStream->print(".csv");
         
         if ( id >= 0 && id < MAX_DATASETS && this->csvHandlers[id] != NULL) {
             AsyncResponseStream *response = request->beginResponseStream("text/csv");
@@ -190,17 +377,17 @@ void WebServer::begin(const char * configurationFile) {
             response->setCode(404);
             request->send(response);
         }
-        Serial.print(" ");
-        Serial.println(millis() - start);
+        outputStream->print(" ");
+        outputStream->println(millis() - start);
     });
 
 
     server.on("^\\/api\\/data\\/([0-9]*).json$", HTTP_GET, [this](AsyncWebServerRequest *request) {
         int id = request->pathArg(0).toInt();
         unsigned long start = millis();
-        Serial.print("http GET /api/data/");
-        Serial.print(id);
-        Serial.print(".json");
+        outputStream->print("http GET /api/data/");
+        outputStream->print(id);
+        outputStream->print(".json");
         
         if ( id >= 0 && id < MAX_DATASETS && this->jsonHandlers[id] != NULL) {
             AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -214,12 +401,12 @@ void WebServer::begin(const char * configurationFile) {
             response->setCode(404);
             request->send(response);
         }
-        Serial.print(" ");
-        Serial.println(millis() - start);
+        outputStream->print(" ");
+        outputStream->println(millis() - start);
     });
     server.on("/api/data/all.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         unsigned long start = millis();
-        Serial.print("http GET /api/data/all");
+        outputStream->print("http GET /api/data/all");
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         response->addHeader("Access-Control-Allow-Origin", "*");
         response->setCode(200);
@@ -237,8 +424,8 @@ void WebServer::begin(const char * configurationFile) {
         }
         response->print("}");
         request->send(response);
-        Serial.print(" ");
-        Serial.println(millis() - start);
+        outputStream->print(" ");
+        outputStream->println(millis() - start);
     });
 
 
@@ -264,7 +451,7 @@ void WebServer::begin(const char * configurationFile) {
     server.on("/admin/reboot", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
             request->send(200, "application/json", "{ \"ok\":true, \"msg\":\"reboot in 1s\" }");
-            Serial.println("Rebooting in 1s, requested by Browser");
+            outputStream->println("Rebooting in 1s, requested by Browser");
             delay(1000);
             ESP.restart();
         }
@@ -300,12 +487,12 @@ void WebServer::begin(const char * configurationFile) {
             basicAuth += (char)((48+buffer[i]%(125-48)));
         }
         httpauth = "Basic "+base64::encode(basicAuth);
-        Serial.printf("Using generated http basic auth admin password: %s\n", basicAuth.c_str());
-        Serial.printf("Use Header: Authorization: %s\n", httpauth.c_str());
+        outputStream->printf("Using generated http basic auth admin password: %s\n", basicAuth.c_str());
+        outputStream->printf("Use Header: Authorization: %s\n", httpauth.c_str());
     } else {
         httpauth = "Basic "+base64::encode(basicAuth);
-        Serial.print("Configured http Authorzation header to be ");
-        Serial.println(httpauth);
+        outputStream->print("Configured http Authorzation header to be ");
+        outputStream->println(httpauth);
     }
 
 
