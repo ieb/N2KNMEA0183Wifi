@@ -23,6 +23,7 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <NMEA0183.h>
 #include <NMEA2000.h>
+#include <time.h>
 
 //------------------------------------------------------------------------------
 class tN2kDataToNMEA0183 : public tNMEA2000::tMsgHandler {
@@ -113,20 +114,113 @@ public:
     }
     buffer[p] = '\0';
   }
+  append(double value, double factor=1.0, uint8_t fixed=1) {
+    // 0.0 to 360.0
+    if ( value == -1E9 ) {
+      append("");
+    } else {
+      value = value * factor;
+      String v = String(value, fixed);
+      append(v.c_str());
+    }
+  }
 
   appendBearing(double bearing, uint8_t fixed=1) {
     // 0.0 to 360.0
-    bearing = bearing * 180.0/PI;
-    String v = String(bearing, fixed);
-    append(v.c_str());
-  }
-  appendRelativeAngle(double angle, uint8_t fixed=1) {
-    bearing = bearing * 180.0/PI;
-    if (bearing > 180) {
-      bearing = -(360-bearing);
+    if ( bearing == -1E9 ) {
+      append("");
+    } else {
+      bearing = bearing * 180.0/PI;
+      if (bearing < 0 ) bearing = bearing + 360.0;
+      else if (bearing > 360 ) bearing = bearing - 360;
+      String v = String(bearing, fixed);
+      append(v.c_str());
     }
-    String v = String(bearing, fixed);
-    append(v.c_str());    
+  }
+  appendRelativeAngle(double angle, const char * pos, const char * neg, uint8_t fixed=1) {
+    if ( bearing == -1E9 ) {
+      append("");
+      append("");
+    } else {
+      bearing = bearing * 180.0/PI;
+      if (bearing > 180) {
+        bearing = -(360-bearing);
+      }
+      String v = String(bearing, fixed);
+      append(v.c_str());
+      if ( bearing >= 0 ) {
+        append(pos);
+      } else {
+        append(neg);
+      }          
+    }
+  }
+
+  appendTimeUTC(double secondsSinceMidnight) {
+    int hh = (int)(secondsSinceMidnight/3600.0);
+    int mm = (int)((secondsSinceMidnight-(hh*3600.0))/60.0);
+    double ss = secondsSinceMidnight-(hh*3600.0)-(mm*60.0);
+    char buffer[10];
+    sprintf(buffer, "%02d%02d%02.5f", hh, mm, ss);
+    append(buffer);
+  }
+
+  appendLatitude(double latitude) {
+      //ddmm.mmmmm
+      char ns = 'N';
+      if ( latitude < 0 ) {
+        ns = 'S';
+        latitude = -latitude;
+      }
+      int dd = (int)latitude;
+      double mm = (latitude - dd)*60.0;
+      char buffer[11];
+      sprintf(buffer, "%02d%02.9f", hh, mm, ss);
+      append(buffer);
+      append(ns);
+  }
+  appendLongitude(double longitude) {
+      // dddmm.mmmmm
+      char ew = 'E';
+      if ( longitude < 0 ) {
+        ew = 'W';
+        longitude = -longitude;
+      }
+      int dd = (int)longitude;
+      double mm = (longitude - dd)*60.0;
+      char buffer[12];
+      sprintf(buffer, "%03d%02.9f", hh, mm, ss);
+      append(buffer);
+      append(ns);
+  }
+
+  appendDay(uint16_t daysSince1970) {
+    time_t d = (daysSince1970*3600000*24);
+    struct tm * tmd = gmtime(&d);
+    char buffer[3];
+    sprintf(buffer, "%02d",tmd->tm_mday);
+    append(buffer);
+  }
+  appendMonth(uint16_t daysSince1970) {
+    time_t d = (daysSince1970*3600000*24);
+    struct tm * tmd = gmtime(&d);
+    char buffer[3];
+    sprintf(buffer, "%02d",tmd->tm_mon+1);
+    append(buffer);
+  }
+  appendYear(uint16_t daysSince1970) {
+    time_t d = (daysSince1970*3600000*24);
+    struct tm * tmd = gmtime(&d);
+    char buffer[5];
+    sprintf(buffer, "%04d",tmd->tm_year+1900);
+    append(buffer);
+  }
+  appendDate(uint16_t daysSince1970) {
+    time_t d = (daysSince1970*3600000*24);
+    struct tm * tmd = gmtime(&d);
+    char buffer[7];
+    sprintf(buffer, "%02d%02d%02d",tmd->tm_mday,tmd->tm_mon+1,tmd->tm_year%100);
+    append(buffer);
   }
 
   const char * end() {
