@@ -4,7 +4,7 @@
 #include <NMEA2000.h>
 #include <N2kMessages.h>
 #include <N2kDeviceList.h>
-#include "httpserver.h"
+#include "network.h"
 
 
 class ListDevices: public tN2kDeviceList, public JsonOutput, public CsvOutput {

@@ -1,0 +1,20 @@
+<html>
+<head>
+</head>
+<body>
+    Open the console
+<script>
+    (() => {
+  const ws = new WebSocket('ws://192.168.1.11:80/ws/183')
+  ws.onopen = () => {
+    console.log('ws opened on browser')
+    ws.send('hello world')
+  }
+
+  ws.onmessage = (message) => {
+    console.log(`message received ${message}`)
+  }
+
+})()
+</script>
+</html>

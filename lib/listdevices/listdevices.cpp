@@ -1,5 +1,5 @@
 #include "listdevices.h"
-#include "httpserver.h"
+#include "network.h"
 
 
 ListDevices::ListDevices(tNMEA2000 *_pNMEA2000, Stream *outputStream) : 

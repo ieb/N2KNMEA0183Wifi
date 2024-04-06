@@ -26,10 +26,11 @@ ToDo
 * [x] Implement NMEA0183 bridge
 * [x] Reduce Wifi power to 2dbm, also helps avoid can brownouts and hangs.
 * [x] Test NMEA0183 with NKE, Navionics and NMea android apps.
-* [ ] Implement UDP server 
-* [ ] Wire Store into NMEA0183 outputs
+* [x] Implement UDP server 
+* [x] Implement WebSocket Server
+* [-] ~~Wire Store into NMEA0183 outputs~~
+* [x] Expose message stream over websockets
 * [ ] Emit NMEA0183 messages generated from calculations
-* [ ] Expose message stream over websockets
 * [ ] Port in web apps from Electron NMEA App
 
 

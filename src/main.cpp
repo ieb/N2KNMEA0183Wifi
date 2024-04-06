@@ -52,7 +52,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "N2KCollector.h"
 #include "N2KPrinter.h"
 #include "N2KToN183.h"
-#include "httpserver.h"
+#include "network.h"
 #include "logbook.h"
 #include "dataoutput.h"
 
@@ -86,7 +86,8 @@ LogBook logbook(n2kCollector);
 Wifi wifi(OutputStream);
 WebServer webServer(OutputStream);
 EchoServer echoServer(OutputStream);
-NMEA0183Server nmeaServer(OutputStream, 10110, 10);
+TcpServer nmeaServer(OutputStream, 10110, 10);
+UdpSender nmeaSender(OutputStream, 10110);
 
 
 NMEA0183N2KMessages messageEncoder;
@@ -161,6 +162,8 @@ void showHelp() {
 
 void SendNMEA0183Message(const char * buf) {
   nmeaServer.sendBufToClients(buf);
+  nmeaSender.sendBufToClients(buf);
+  webServer.sendN0183(buf);
 }
 
 
@@ -178,6 +181,9 @@ void setup() {
   wifi.begin();
   echoServer.begin();
   nmeaServer.begin();
+  nmeaSender.begin();
+  nmeaSender.setDestination(wifi.getBroadcastIP());
+
 
   webServer.addJsonOutputHandler(0,&listDevices);
   webServer.addJsonOutputHandler(1,&engineDataOutput);
@@ -304,6 +310,7 @@ void CheckCommand() {
         } else {
           wifi.startAP();
         }
+        nmeaSender.setDestination(wifi.getBroadcastIP());
         break;
     }
   }
