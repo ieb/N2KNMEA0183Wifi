@@ -1,8 +1,17 @@
-# Can Diagnose
+# N2K and NMEA0183 Wifi server exposing http, tcp and udp services.
 
-Runs on a ESP32 with a webserver exposing an API to diagnose and monitor CanBus traffic.
-Based on Datadisplay and DeviceAnalyser from the NMEA2000 libraries.
+* Runs on a ESP32. 
+* Connects to a NMEA2000 bus using the ESP CAN device and a CAN Driver as a CAN Node. 
+* Parses NMEA2000 messages and stores them with history. 
+* Emits NMEA0183 messages on tcp and udp.
+* Exposes a http admin interface for configuration.
+* Exposes the store over http.
+* Exposes updates to the store over websockets.
+* Hosts UI applications delivered over http.
+* Runs either as an WiFi station or as an Access Point.
 
+
+ToDo
 
 * [x] Setup Wifi
 * [x] Setup MDNS registration
@@ -11,33 +20,37 @@ Based on Datadisplay and DeviceAnalyser from the NMEA2000 libraries.
 * [x] Implement data api /api/data/<n> where n == 0-10.
 * [x] Expose set of standard CAN messages on /api/data
 * [x] Implement simple UI in Javascript hosted on SPIFFS, targetting eink and normal browsers (based on SignalK eink)
-* [x] Implement BPM280 source
-* [x] Implement calibration mechanism using DAC
-* [Fail] Implement ADC Source
-
-The ESP32 ADC source cannot be made reliable enough or accurate enough to be used to monitor a battery. 
-It is possible to get down to a 0.2% error with a callibrated lookup table, however the ADC mechamism (Sucessive Aproximation Register)
-produced noisy values that are frequetly as much as +- 3%. At 12.6v this is 0.4v which is unworkable. Offsetting the voltage with a precision opamp so the ESP32 reads from 11 to 15v would reduce this to 0.15v, however this is still to large to be usable. Multi sampling helps generate a stable reading, however this requires 64 samples with a /5 moving average so over at least 60s. This does give and acceptable accuracy, but the speed of measuring the voltage is close to unworkable.
-
-All attenuations were tried, and 1,2,4,16,32,64 clock divisions were tried to see if the rate of the SAR made any difference. It does not appear to change the results.
-
-On that basis, I am giving up on using the ESP32 ADC for this purpose.
-
-It still provides a good platform for a Wifi data server, and Can reader.
-
-* [x] Redesign PCB to use 16bit ADC over i2c  (ADS1115)
-* [x] Implement ADC sensor code.  
 * [x] Implement admin interface.
 * [x] Support configuration and calibration via web browser.
+* [x] Implement TCP server 
+* [x] Implement NMEA0183 bridge
+* [x] Reduce Wifi power to 2dbm, also helps avoid can brownouts and hangs.
+* [x] Test NMEA0183 with NKE, Navionics and NMea android apps.
+* [ ] Implement UDP server 
+* [ ] Wire Store into NMEA0183 outputs
+* [ ] Emit NMEA0183 messages generated from calculations
+* [ ] Expose message stream over websockets
+* [ ] Port in web apps from Electron NMEA App
+
+
+## Archived functionality
+
+The project was forked from CanDiagnose https://github.com/ieb/CanDiagnose wip branch which contains the functionality below.
+
+* [x] Implement BPM280 source  (moved to archive)
+* [x] Implement calibration mechanism using DAC (moved to archive)
+* [Fail] Implement ADC Source (esp adc not sufficiently accurate)
+* [x] Redesign PCB to use 16bit ADC over i2c  (ADS1115)
+* [x] Implement ADC sensor code (move to archive)
+* [x] Add OLED display  (moved to archive)
+* [x] Add touch sensor to control oled display (moved to archive)
+* [x] Bench Calibrate expecialy shunt (moved to archive)
+* [x] Install test and calibrate. - Failed, the distance between the board and the batteries is too great to get reliable shunt measurements. 
+* [x] Investigate using a shunt amplifier as used by VRA Alternator controller
+* [x] Implement remote battery sensor using Modbus  (see BatterySensor project) (moved to archive)
+* [x] Reimplement PCB to have no BME280 and no ADS1115 replacing with a RS485 interface to ModBus devices.  (see CanPressure for Can based pressure, humidity, temperature sensor) (moved to archive)
+* [x] Implement Modbus master (moved to archive)
 * [x] Support Configuraiton of single and differential ADC.
-* [x] Add OLED display 
-* [x] Add touch sensor to control oled display
-* [x] Bench Calibrate expecialy shunt
-* [x] Install test and calibrate. - Failed, the distance beween the board and the batteries is too great to get reliable shunt measurements.
-* [x] Investigate using a shunt amplifier as used by VRA Alternator controll
-* [x] Implement remote battery sensor using Modbus  (see BatterySensor project)
-* [x] Reimplement PCB to have no BME280 and no ADS1115 replacing with a RS485 interface to ModBus devices.  (see CanPressure for Can based pressure, humidity, temperature sensor)
-* [x] Implement Modbus master
 
 
 # Usage
@@ -48,13 +61,13 @@ There are 2 modes it can run in, a WiFi client or a AP. If its configured to be 
 Go to its ip on http://<ip> and you will see a data view of the data it is capturing.
 Go to http://<ip>/admin.html and you will see a admin view with the ability to upload a new configuration file and reboot.
 
-Both these views ae SPAs served from static files burned into the ESP32 Flash using APIs.
+Both these views are SPAs served from static files burned into the ESP32 Flash using APIs.
 
 Connecting to the serial port monitor allows lower level control and diagnostics, enter 'h<CR>' to get help.
 
 # Developing
 
-Project uses PlatformIO in VSCode.  WebUI is in  ui/einkweb with build files added to data/ to be built into a flash image using ./buidui.sh
+Project uses PlatformIO.  WebUI is in  ui/einkweb with build files added to data/ to be built into a flash image using ./buidui.sh
 
 ## PIO commands
 
@@ -79,27 +92,27 @@ See buildui.sh for SPIFFS image commands.
     |  G           i j k l m                 K  |
     ---------------------------------------------
 
-    a  SPI BL   GPIO13
-    b  SPI RST  GPIO12
-    c  SPI DC   GPIO26
-    d  SPI CS   GPIO25
-    e  SPI SCK  GPIO33
-    f  SPI MOSI GPIO32
-    g  SPI GND  
-    h  SPI 3V    
-    i  i2c GND      Display black/blue
-    j  i2c SCL  D5    Display green
-    k  i2c SDA  D18    Display white
-    l  i2c BTN  D19    Display yellow
-    m  i2c 3V       Display red
+    a  SPI BL   GPIO13  not in use
+    b  SPI RST  GPIO12  not in use
+    c  SPI DC   GPIO26  not in use
+    d  SPI CS   GPIO25  not in use
+    e  SPI SCK  GPIO33  not in use
+    f  SPI MOSI GPIO32  not in use
+    g  SPI GND          not in use
+    h  SPI 3V           not in use
+    i  i2c GND      Display black/blue not in use
+    j  i2c SCL  D5    Display green not in use
+    k  i2c SDA  D18    Display white not in use
+    l  i2c BTN  D19    Display yellow not in use
+    m  i2c 3V       Display red not in use
 
-    A  1wire 1w  D21
-    B  1wire GND
-    C  1wire 3V
-    D  RS-485 5.8V
-    E  RS-485 GND
-    F  RS-485 A 
-    G  RS-485 B
+    A  1wire 1w  D21  not in use
+    B  1wire GND  not in use
+    C  1wire 3V not in use
+    D  RS-485 5.8V not in use
+    E  RS-485 GND not in use
+    F  RS-485 A  not in use
+    G  RS-485 B not in use
     H  CAN 12V
     I  CAN 0V
     J  CAN CANH
@@ -113,8 +126,12 @@ See buildui.sh for SPIFFS image commands.
     CAN-RX  D22
     CAN-TX  D23
 
+# Displays
 
-# eInk Waveshare display
+Rather than using decicated hardware displays I have decided to switch to apps since the power consumption is better and they require no installation onboard.  Most of the display code is in the archive subfolder.
+
+
+## eInk Waveshare display
 
 This uses SPI output only with a bunch of additional pins.
 
@@ -127,7 +144,7 @@ This uses SPI output only with a bunch of additional pins.
 
  
 
-# 4 inch TFT display 480x320 24 bit colour driven by a ILI9488 driver.
+## 4 inch TFT display 480x320 24 bit colour driven by a ILI9488 driver. (archived)
 
 uses SPI + a PWM blacklight. Control via a TPP233 Touch switch. Library is TFT_eSPI library. Pin mappings defined as compile definitions.
 
@@ -146,7 +163,7 @@ In most cases attempts to update the screen, on screen causes flickering so doub
 
 Drawing to sprites also works in 1bpp, 4bpp or 16bpp.
 
-## TFT case
+### TFT case
 
 3d printed case, with 2 touch sensors and round shielded cable, as ribbon will emit too much interference to nearby devices. 
 
