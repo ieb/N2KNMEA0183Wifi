@@ -1,229 +1,88 @@
-/*
-N2kDataToNMEA0183.cpp
-
-Copyright (c) 2015-2018 Timo Lappalainen, Kave Oy, www.kave.fi
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
-Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
 
 #include "N2KToN183.h"
 #include <N2kMessages.h>
-#include <NMEA0183Messages.h>
-#include <math.h>
 
 
-const double radToDeg=180.0/M_PI;
 
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleMsg(const tN2kMsg &N2kMsg) {
-  switch (N2kMsg.PGN) {
-    case 127250UL: HandleHeading(N2kMsg);
-    case 127258UL: HandleVariation(N2kMsg);
-    case 128259UL: HandleBoatSpeed(N2kMsg);
-    case 128267UL: HandleDepth(N2kMsg);
-    case 129025UL: HandlePosition(N2kMsg);
-    case 129026UL: HandleCOGSOG(N2kMsg);
-    case 129029UL: HandleGNSS(N2kMsg);
-    case 130306UL: HandleWind(N2kMsg);
+
+
+
+// getters for stored values.
+double NMEA0183N2KHandler::getHeadingTrue() {
+    return headingTrue;
+}
+double NMEA0183N2KHandler::getHeadingMagnetic() {
+  return headingMagnetic;
+}
+const char *  NMEA0183N2KHandler::getFaaValid() {
+  if ( faaValid ) {
+    return "A";
+  } else {
+    return "V";
   }
 }
+double NMEA0183N2KHandler::getSog() {
+  return sog;
+}
+double NMEA0183N2KHandler::getCogt() {
+  return cogt;
+}
+double NMEA0183N2KHandler::getVariation() {
+  return variation;
+}
 
-//*****************************************************************************
-void tN2kDataToNMEA0183::Update() {
-  SendRMC();
+
+// The standard NMEA2000 function does not return integrty.
+bool NMEA0183N2KHandler::parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint16_t &DaysSince1970, double &SecondsSinceMidnight,
+                     double &Latitude, double &Longitude, double &Altitude,
+                     tN2kGNSStype &GNSStype, tN2kGNSSmethod &GNSSmethod,
+                     uint8_t &nSatellites, double &HDOP, double &PDOP, double &GeoidalSeparation,
+                     uint8_t &nReferenceStations, tN2kGNSStype &ReferenceStationType, uint16_t &ReferenceSationID,
+                     double &AgeOfCorrection, tN2kGNSSIntegrety &Integrety
+                     ) {
+  if (N2kMsg.PGN!=129029L) return false;
+  int Index=0;
+  unsigned char vb;
+  int16_t vi;
+
+  SID=N2kMsg.GetByte(Index);
+  DaysSince1970=N2kMsg.Get2ByteUInt(Index);
+  SecondsSinceMidnight=N2kMsg.Get4ByteUDouble(0.0001,Index);
+  Latitude=N2kMsg.Get8ByteDouble(1e-16,Index);
+  Longitude=N2kMsg.Get8ByteDouble(1e-16,Index);
+  Altitude=N2kMsg.Get8ByteDouble(1e-6,Index);
+  vb=N2kMsg.GetByte(Index); GNSStype=(tN2kGNSStype)(vb & 0x0f); GNSSmethod=(tN2kGNSSmethod)((vb>>4) & 0x0f);
+  vb=N2kMsg.GetByte(Index); Integrety=(tN2kGNSSIntegrety)(vb & 0x03); // Integrity 2 bit, reserved 6 bits
+  nSatellites=N2kMsg.GetByte(Index);
+  HDOP=N2kMsg.Get2ByteDouble(0.01,Index);
+  PDOP=N2kMsg.Get2ByteDouble(0.01,Index);
+  GeoidalSeparation=N2kMsg.Get4ByteDouble(0.01,Index);
+  nReferenceStations=N2kMsg.GetByte(Index);
+  if (nReferenceStations!=N2kUInt8NA && nReferenceStations>0) {
+    // Note that we return real number of stations, but we only have variabes for one.
+    vi=N2kMsg.Get2ByteUInt(Index); ReferenceStationType=(tN2kGNSStype)(vi & 0x0f); ReferenceSationID=(vi>>4);
+    AgeOfCorrection=N2kMsg.Get2ByteUDouble(0.01,Index);
+  }
+
+  return true;
+}
+
+
+
+double NMEA0183N2KHandler::updateWithTimeout(double v, double iv, unsigned long &lastUpdate, unsigned long period) {
   unsigned long now = millis();
-  if ( now-LastHeadingTime > 2000 ) Heading=N2kDoubleNA;
-  if ( now-LastCOGSOGTime > 2000 ) { COG=N2kDoubleNA; SOG=N2kDoubleNA; }
-  if ( now-LastPositionTime > 4000 ) { Latitude=N2kDoubleNA; Longitude=N2kDoubleNA; }
-  if ( now-LastWindTime > 2000 ) { WindSpeed=N2kDoubleNA; WindAngle=N2kDoubleNA; }
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::SendMessage(const tNMEA0183Msg &NMEA0183Msg) {
-  if ( pNMEA0183!=0 ) pNMEA0183->SendMessage(NMEA0183Msg);
-  if ( SendNMEA0183MessageCallback!=0 ) SendNMEA0183MessageCallback(NMEA0183Msg);
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleHeading(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  tN2kHeadingReference ref;
-  double _Deviation=0;
-  double _Variation;
-  tNMEA0183Msg NMEA0183Msg;
-
-  if ( ParseN2kHeading(N2kMsg, SID, Heading, _Deviation, _Variation, ref) ) {
-    if ( ref==N2khr_magnetic ) {
-      if ( !N2kIsNA(_Variation) ) Variation=_Variation; // Update Variation
-      if ( !N2kIsNA(Heading) && !N2kIsNA(Variation) ) Heading-=Variation;
+  if ( iv == -1e9 ) {
+    if ( (now - lastUpdate) > 10000 ) {
+      return -1e9;
+    } else {
+      return v;
     }
-    unsigned long now = millis();
-    LastHeadingTime=now;
-    if ( NMEA0183SetHDG(NMEA0183Msg,Heading,_Deviation,Variation) ) {
-      if ( now-LastHeadingSend > 1000 ) {
-        LastHeadingSend = now;
-        SendMessage(NMEA0183Msg);
-      }
-    }
+  } else {
+    lastUpdate = now;
+    return iv;
   }
 }
 
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleVariation(const tN2kMsg &N2kMsg) {
-unsigned char SID;
-tN2kMagneticVariation Source;
-
-  ParseN2kMagneticVariation(N2kMsg,SID,Source,DaysSince1970,Variation);
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleBoatSpeed(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  double WaterReferenced;
-  double GroundReferenced;
-  tN2kSpeedWaterReferenceType SWRT;
-
-  if ( ParseN2kBoatSpeed(N2kMsg,SID,WaterReferenced,GroundReferenced,SWRT) ) {
-    tNMEA0183Msg NMEA0183Msg;
-    double MagneticHeading=( !N2kIsNA(Heading) && !N2kIsNA(Variation)?Heading+Variation: NMEA0183DoubleNA);
-    if ( NMEA0183SetVHW(NMEA0183Msg,Heading,MagneticHeading,WaterReferenced) ) {
-      unsigned long now = millis();
-      if ( now-LastBoatSpeedSend > 1000 ) {
-        LastBoatSpeedSend = now;
-        SendMessage(NMEA0183Msg);
-      }
-    }
-  }
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleDepth(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  double DepthBelowTransducer;
-  double Offset;
-  double Range;
-
-  if ( ParseN2kWaterDepth(N2kMsg,SID,DepthBelowTransducer,Offset,Range) ) {
-      tNMEA0183Msg NMEA0183Msg;
-      unsigned long now = millis();
-      if ( now-LastDepthSend > 1000 ) {
-        LastDepthSend = now;
-        if ( NMEA0183SetDPT(NMEA0183Msg,DepthBelowTransducer,Offset) ) {
-          SendMessage(NMEA0183Msg);
-        }
-        if ( NMEA0183SetDBx(NMEA0183Msg,DepthBelowTransducer,Offset) ) {
-          SendMessage(NMEA0183Msg);
-        }
-      }
-  }
-}
-
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandlePosition(const tN2kMsg &N2kMsg) {
-
-  if ( ParseN2kPGN129025(N2kMsg, Latitude, Longitude) ) {
-    LastPositionTime=millis();
-  }
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleCOGSOG(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  tN2kHeadingReference HeadingReference;
-  tNMEA0183Msg NMEA0183Msg;
-
-  if ( ParseN2kCOGSOGRapid(N2kMsg,SID,HeadingReference,COG,SOG) ) {
-    LastCOGSOGTime=millis();
-    double MCOG=( !N2kIsNA(COG) && !N2kIsNA(Variation)?COG-Variation:NMEA0183DoubleNA );
-    if ( HeadingReference==N2khr_magnetic ) {
-      MCOG=COG;
-      if ( !N2kIsNA(Variation) ) COG-=Variation;
-    }
-    if ( NMEA0183SetVTG(NMEA0183Msg,COG,MCOG,SOG) ) {
-      unsigned long now = millis();
-      if ( now-LastCOGSOGSend > 1000 ) {
-        LastCOGSOGSend = now;
-        SendMessage(NMEA0183Msg);
-      }
-    }
-  }
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleGNSS(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  tN2kGNSStype GNSStype;
-  tN2kGNSSmethod GNSSmethod;
-  unsigned char nSatellites;
-  double HDOP;
-  double PDOP;
-  double GeoidalSeparation;
-  unsigned char nReferenceStations;
-  tN2kGNSStype ReferenceStationType;
-  uint16_t ReferenceSationID;
-  double AgeOfCorrection;
-
-  if ( ParseN2kGNSS(N2kMsg,SID,DaysSince1970,SecondsSinceMidnight,Latitude,Longitude,Altitude,GNSStype,GNSSmethod,
-                    nSatellites,HDOP,PDOP,GeoidalSeparation,
-                    nReferenceStations,ReferenceStationType,ReferenceSationID,AgeOfCorrection) ) {
-    LastPositionTime=millis();
-  }
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::HandleWind(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  tN2kWindReference WindReference;
-  tNMEA0183WindReference NMEA0183Reference=NMEA0183Wind_True;
-
-  if ( ParseN2kWindSpeed(N2kMsg,SID,WindSpeed,WindAngle,WindReference) ) {
-    tNMEA0183Msg NMEA0183Msg;
-    LastWindTime=millis();
-    if ( WindReference==N2kWind_Apparent ) NMEA0183Reference=NMEA0183Wind_Apparent;
-
-    if ( NMEA0183SetMWV(NMEA0183Msg, WindAngle*radToDeg, NMEA0183Reference , WindSpeed) ) {
-      unsigned long now = millis();
-      if ( now-LastWindSend > 1000 ) {
-        LastWindSend = now;
-        SendMessage(NMEA0183Msg);
-      }
-    }
-  }
-}
-
-//*****************************************************************************
-void tN2kDataToNMEA0183::SendRMC() {
-    if ( !N2kIsNA(Latitude) ) {
-      tNMEA0183Msg NMEA0183Msg;
-      if (NMEA0183SetGLL(NMEA0183Msg, SecondsSinceMidnight, Latitude, Longitude)) {
-        unsigned long now = millis();
-        if ( now-LastPositionSend > 1000 ) {
-          LastPositionSend = now;
-          SendMessage(NMEA0183Msg);
-        }
-      }
-
-//      if ( NMEA0183SetRMC(NMEA0183Msg,SecondsSinceMidnight,Latitude,Longitude,COG,SOG,DaysSince1970,Variation) ) {
-//        SendMessage(NMEA0183Msg);
-//      }
-    }
-}
 
 
 
@@ -233,19 +92,64 @@ void NMEA0183N2KHandler::handle(const tN2kMsg &N2kMsg) {
     case 127257UL: handle127257(N2kMsg); break; // attitude
     case 128259UL: handle128259(N2kMsg); break; // water speed
     case 128267UL: handle128267(N2kMsg); break; // depth
+    case 128275UL: handle128275(N2kMsg); break; 
+    case 129029UL: handle129029(N2kMsg); break; 
+    case 129026UL: handle129026(N2kMsg); break; 
+    case 129283UL: handle129283(N2kMsg); break; 
+    case 130306UL: handle130306(N2kMsg); break; 
+    case 130312UL: handle130312_sea(N2kMsg); break; 
+    case 130316UL: handle130316_air(N2kMsg); break; 
+    case 130314UL: handle130314_baro(N2kMsg); break; 
+    case 127245UL: handle127245(N2kMsg); break; 
+    case 127258UL: handle127258(N2kMsg); break;
+
+    //case 127488UL: /* rapid engine data */ break;
+    //case 127489UL: /* engine dynamic params */ break;
+    //case 127508UL: /* DC Battery status */ break;
+    //case 127506UL: /* DC Status */ break;
+    //case 130310UL: /* Outside Envronmental Params */ break;
+    //case 130311UL: /* Enviromental Params */ break;
+    //case 126992UL: /* System Time */ break;
+    //case 130313UL: /* Humidity */ break;
+    //case 127251UL: /* Rate of Turn */ break;
+    //case 126996UL: /* product info */ break;
+    //case 126998UL: /* config info */ break;
+    //case 126464UL: /* list transmit PGN */ break;
+    //case 130315UL: /* set pressure */ break;
+    //case 127505UL: /* fluid level */ break;
+    //case 126720UL: /* proprietary */ break;
+    //case 127237UL: /* headding track control */ break;
+    //case 65379UL: /* seapilot mode */ break;
+    //case 65384UL: /* ray unknown */ break;
+    //case 65359UL: /* pilot heading */ break;
+    //case 126993UL: /* heatbeat */ break;
+    //case 130916UL: /* ray unknown */ break;
+    //default:
+    //Serial.print("dropped ");Serial.println(N2kMsg.PGN);
+    //  break;
+
   }
 }
 
-bool NMEA0183N2KHandler::doSend(uint8_t n, unsigned long minPeriod) {
-  unsigned long now = millis();
-  if ( now-lastSend[n] > period ) {
-    lastSend[n]=now;
-    return true;
-  }
-  return false;
-}
 
-// heading
+/**
+ * variation
+ */ 
+void NMEA0183N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
+  unsigned char SID;
+  tN2kMagneticVariation _source;
+  uint16_t _daysSince1970;
+  double _variation;
+  if ( ParseN2kPGN127258(N2kMsg, SID, _source, _daysSince1970, _variation) ) {
+    if (_variation != -1e9 ) {
+        variation = _variation;
+    }
+    // nothing to emit.
+  }
+}
+/**
+ * heading
+ */
 void NMEA0183N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   tN2kHeadingReference ref;
@@ -253,44 +157,51 @@ void NMEA0183N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
   double _variation;
   double _heading = 0;
   if ( ParseN2kPGN127250(N2kMsg, SID, _heading, _deviation, _variation, ref) ) {
+    if ( _variation != -1e9 ) {
+      variation = _variation;
+    }
     if ( ref==N2khr_magnetic ) {
-      if ( doSend(SEND_HDG) ) {
-        encoder.start("$IIHDG");
-        encoder.appendBearing(_Heading);
-        encoder.appendRelativeAngle(_Deviation,"E","W");
-        encoder.appendRelativeAngle(_Variation,"E":"W");
-        send(encoder.end());
+      if ( _heading != -1e9 ) {
+        headingMagnetic = _heading;
+        if ( variation != -1e9 ) {
+          headingTrue = headingMagnetic - variation;
+        }
       }
-      if ( doSend(SEND_HDM) ) {
-        encoder.start("$IIHDM");
-        encoder.appendBearing(_Heading);
-        encoder.append("M");
-        send(encoder.end());
+
+      messageEncoder->sendHDG(_heading, _deviation, _variation);
+      messageEncoder->sendHDM(_heading);
+    } else {
+      // only set if we have no magnetic heading on the bus.
+      // normally the message is mag heading.
+      if ( _heading != -1e9 && headingMagnetic == -1e9 ) {
+        headingTrue = _heading;
+        if ( variation != -1e9 ) {
+          headingMagnetic =  headingTrue + variation;
+        }
       }
+      messageEncoder->sendHDT(_heading);
+
     }
   }
 }
 
 
+/**
+ * attitude
+ */ 
 void NMEA0183N2KHandler::handle127257(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _yaw=0;
   double _pitch=0;
   double _roll=0;
   if ( ParseN2kPGN127257(N2kMsg, SID, _yaw, _pitch, _roll) ) {
-    if ( ref==N2khr_magnetic ) {
-      if ( doSend(SEND_XDR_ROLL) ) {
-        encoder.start("$IIXDR");
-        encoder.append("A");
-        encoder.appendRelativeAngle(_roll);
-        encoder.append("D");
-        encoder.append("ROLL");
-        send(encoder.end());
-      }
-    }
+    messageEncoder->sendXDR_roll(_roll);
   }
 }
 
+/**
+ * water speed.
+ */ 
 void NMEA0183N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _waterSpeed;
@@ -298,21 +209,14 @@ void NMEA0183N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
   tN2kSpeedWaterReferenceType SWRT;
 
   if ( ParseN2kPGN128259(N2kMsg,SID,_waterSpeed,_groundSpeed,SWRT) ) {
-    if ( doSend(SEND_VHW) ) {
-      encoder.start("$IIVHW");
-      encoder.appendBearing(getHeadingTrue());
-      encoder.append("T");
-      encoder.appendBearing(getHeadingMagnetic());
-      encoder.append("M");
-      encoder.append(_speed,1.94384617179,2);
-      encoder.append("N");
-      encoder.append(_speed,3.6,2);
-      encoder.append("K");
-      send(encoder.end());
-    }
+    messageEncoder->sendVHW(getHeadingTrue(), getHeadingMagnetic(), _waterSpeed );
   }
 }
 
+
+/**
+ * depth
+ */ 
 void NMEA0183N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _depthBelowTransducer;
@@ -320,46 +224,31 @@ void NMEA0183N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
   double _range;
 
   if ( ParseN2kPGN128267(N2kMsg,SID,_depthBelowTransducer,_offset,_range) ) {
-    if ( doSend(SEND_DBT) ) { //depth
-      encoder.start("$IIDBT");
-      encoder.append(_depthBelowTransducer,3.28084,1);
-      encoder.append("f");
-      encoder.append(_depthBelowTransducer,1.0,1);
-      encoder.append("M");
-      encoder.append(_depthBelowTransducer,0.546807,1);
-      encoder.append("F");
-      send(encoder.end());
-    }
-    if ( doSend(SEND_DPT) ) { //depth
-      encoder.start("$IIDPT");
-      encoder.append(_depthBelowTransducer,1.0,2);
-      encoder.append(_offset,1.0,2);
-      send(encoder.end());
-    }
+    messageEncoder->sendDBT(_depthBelowTransducer);
+    messageEncoder->sendDPT(_depthBelowTransducer, _offset);
   }
 }
 
+/**
+ * log
+ */ 
 void NMEA0183N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
   uint16_t _daysSince1970;
-  double _secondsSinceMidnight  
+  double _secondsSinceMidnight; 
   uint32_t _log;
-  uint32_t _tripLog
+  uint32_t _tripLog;
 
   if ( ParseN2kPGN128275(N2kMsg, _daysSince1970, _secondsSinceMidnight, _log, _tripLog) ) {
-    if ( doSend(SEND_VLW) ) { // log
-      encoder.start("$IIVLW");
-      encoder.append((double)_log,0.000539957,2);
-      encoder.append("N");
-      encoder.append((double)_tripLog,0.000539957,2);
-      encoder.append("N");
-      send(encoder.end());
-    }
+    messageEncoder->sendVLW(_log, _tripLog);
   }
 }
 
 
+/*
+ * gnss
+ */
 void NMEA0183N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
-  unsigned char SID, 
+  unsigned char SID;
   uint16_t _daysSince1970;
   double _secondsSinceMidnight;
   double _latitude;
@@ -373,285 +262,185 @@ void NMEA0183N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
   double _geoidalSeparation;
   unsigned char _nReferenceStations;
   tN2kGNSStype _referenceStationType;
+  tN2kGNSSIntegrety _integrety;
   uint16_t _referenceSationID;
   double _ageOfCorrection;
 
 
-  if( ParseN2kPGN129029(N2kMsg, SID, _daysSince1970, _secondsSinceMidnight,
+
+  if( parsePGN129029(N2kMsg, SID, _daysSince1970, _secondsSinceMidnight,
                      _latitude, _longitude, _altitude,
                      _GNSStype, _GNSSmethod,
                      _nSatellites, _HDOP, _PDOP, _geoidalSeparation,
                      _nReferenceStations, _referenceStationType, _referenceSationID,
-                     _ageOfCorrection
+                     _ageOfCorrection,
+                     _integrety
                      ) ) {
-    if ( doSend(SEND_GGA) ) { // possition
-      encoder.start("$IIGGA");
-      encoder.appendTimeUTC(_secondsSinceMidnight);
-      encoder.appendLatitude(_latitude);
-      encoder.appendLongitude(_longitude);
-      encoder.append(_GNSSmethodId);
-      encoder.append(_nSatellites,1.0,0);
-      encoder.append(_HDOP,1.0,2);
-      encoder.append(_altitude,1.0,0);
-      encoder.append("M");
-      encoder.append(_geoidalSeparation,1.0,0);
-      encoder.append("M");
-      encoder.append("");
-      encoder.append("");
-      send(encoder.end());
+
+    unsigned long now = millis();
+    if ( _integrety == N2kGNSSIntegrety_Safe ) {
+      faaValid = true;
+      faaLastValid = now;
+      fixSecondsSinceMidnight = _secondsSinceMidnight;
+      latitude = _latitude;
+      longitude = _longitude;
+    } else if ( now - faaLastValid > 5000 ) {
+      faaValid = false;
+      fixSecondsSinceMidnight = _secondsSinceMidnight;
+      latitude = _latitude;
+      longitude = _longitude;
     }
-    if ( doSend(SEND_GGL) ) {
-      encoder.start("$IIGLL");
-      encoder.appendLatitude(_latitude);
-      encoder.appendLongitude(_longitude);
-      encoder.appendTimeUTC(_secondsSinceMidnight);
-      encoder.append(getFaaValid());
-      encoder.append(getFaaValid());
-      send(encoder.end());
-    }
-    if ( doSend(SEND_ZDA) ) {
-      encoder.start("$IIZDA");
-      encoder.appendTimeUTC(_secondsSinceMidnight);
-      encoder.appendDay(_daysSince1970);
-      encoder.appendMonth(_daysSince1970);
-      encoder.appendYear(_daysSince1970);
-      encoder.append("0");
-      encoder.append("0");
-      send(encoder.end());
-    }
-    if ( doSend(SEND_RMC) ) {
-      encoder.start("$IIRMC");
-      encoder.appendTimeUTC(_secondsSinceMidnight);
-      encoder.append(getFaaValid());
-      encoder.appendLatitude(_latitude);
-      encoder.appendLongitude(_longitude);
-      encoder.append(getSog(),1.94384617179,2);
-      encoder.appendBearing(getCogt());
-      encoder.appendDate(_daysSince1970);
-      encoder.appendRelativeAngle(getVariation(),"E","W");
-      send(encoder.end());
-    }
+
+    messageEncoder->sendGGA(fixSecondsSinceMidnight, latitude, longitude, (uint8_t)_GNSSmethod, 
+        (uint8_t)_nSatellites, _HDOP, _altitude, _geoidalSeparation);
+    messageEncoder->sendGLL(fixSecondsSinceMidnight, latitude, longitude, getFaaValid());
+    messageEncoder->sendZDA( _secondsSinceMidnight, _daysSince1970);
+    messageEncoder->sendRMC(fixSecondsSinceMidnight, latitude, longitude, getSog(), getCogt(), 
+      _daysSince1970, getVariation(), getFaaValid() );
   }
 }
 
 
+/**
+ * rapid cog/sog
+ */
 void NMEA0183N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
-
-bool ParseN2kPGN129026(const tN2kMsg &N2kMsg, 
-  unsigned char SID, 
-  tN2kHeadingReference _ref, 
-  double _cog, 
-  double _sog);
+  unsigned char SID;
+  tN2kHeadingReference _ref;
+  double _cog;
+  double _sog;
 
 
-  if ( ParseN2kPGN129026(N2kMsg, SID, _ref, _cog, _sog);
+  if ( ParseN2kPGN129026(N2kMsg, SID, _ref, _cog, _sog) ) {
     double _cogm = -1e9;
-    double _cogt = -1e9;_
-    if ( _ref == N2khr_magnetic) {
-
-    } else {
-
-    }
-
-
-  if ( ParseN2kCOGSOGRapid(N2kMsg,SID,HeadingReference,COG,SOG) ) {
-    LastCOGSOGTime=millis();
-    double MCOG=( !N2kIsNA(COG) && !N2kIsNA(Variation)?COG-Variation:NMEA0183DoubleNA );
-    if ( HeadingReference==N2khr_magnetic ) {
-      MCOG=COG;
-      if ( !N2kIsNA(Variation) ) COG-=Variation;
-    }
-    if ( NMEA0183SetVTG(NMEA0183Msg,COG,MCOG,SOG) ) {
-      unsigned long now = millis();
-      if ( now-LastCOGSOGSend > 1000 ) {
-        LastCOGSOGSend = now;
-        SendMessage(NMEA0183Msg);
+    double _cogt = -1e9;
+    double variation = getVariation();
+    if ( _cog != -1e9 ) {
+      if ( _ref == N2khr_magnetic) {
+        _cogm=_cog;
+        if ( variation != -1e9 ) {
+          _cogt = _cog - variation;
+        }
+      } else {
+        _cogt = _cog;
+        if ( variation != -1e9 ) {
+          _cogm = _cog + variation;
+        }
       }
     }
+
+    // update the stored value value
+    // only set the stored value to -1e9 after 10s.
+    // cog and sog can stop updating independently.
+
+    cogt = updateWithTimeout(cogt, _cogt, lastCogtUpdate, 10000);
+    cogm = updateWithTimeout(cogm, _cogm, lastCogmUpdate, 10000);
+    sog = updateWithTimeout(sog, _sog, lastSogUpdate, 10000);
+    messageEncoder->sendVTG(cogt, cogm, sog, getFaaValid());
   }
+}
 
-    if ( _ref e.ref.name === "True" ) {
-    if ( doSend(SEND_VTG) ) {
-      encoder.start("$IIVTG");
-      encoder.appendBearing(_cogt);
-      encoder.append("T");
-      encoder.appendBearing(_cogm);
-      encoder.append("M");
-      encoder.append(_sog, 1.94384617179, 2);
-      encoder.append("N");
-      encoder.append(_sog, 3.6, 2);
-      encoder.append("K");
-      encoder.append(getFaaValid());
-      send(encoder.end());
+
+/**
+ * xte
+ */
+void NMEA0183N2KHandler::handle129283(const tN2kMsg &N2kMsg) {
+  unsigned char SID; 
+  tN2kXTEMode _XTEMode; 
+  bool _navigationTerminated; 
+  double _xte;
+
+  if ( ParseN2kPGN129283(N2kMsg, SID, _XTEMode, _navigationTerminated, _xte) ) {
+    messageEncoder->sendXTE(_xte, getFaaValid());
+  }
+}
+
+/**
+ * wind
+ */
+void NMEA0183N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
+  unsigned char SID; 
+  double _windSpeed; 
+  double _windAngle;
+  tN2kWindReference _windReference;
+
+  if ( ParseN2kPGN130306(N2kMsg, SID, _windSpeed, _windAngle, _windReference) ) {
+    if ( _windReference == N2kWind_Apparent ) {
+      messageEncoder->sendVWR(_windAngle, _windSpeed);
+      messageEncoder->sendMVR(_windAngle, _windSpeed);
+    } else {
+      messageEncoder->sendVWT(_windAngle, _windSpeed);
+      messageEncoder->sendMVT(_windAngle, _windSpeed);
     }
+  }
+}
 
+
+/**
+ * sea temperature
+ */
+void NMEA0183N2KHandler::handle130312_sea(const tN2kMsg &N2kMsg) {
+  unsigned char SID;
+  unsigned char _tempInstance; 
+  tN2kTempSource _tempSource;
+  double _actualTemperature;
+  double _setTemperature;
+
+  if ( ParseN2kPGN130312(N2kMsg, SID, _tempInstance, _tempSource,
+                   _actualTemperature, _setTemperature) ) {
+    if ( _tempSource == N2kts_SeaTemperature) {
+      messageEncoder->sendMTW(_actualTemperature);
+    }
+  }
+}
+
+/**
+ * air temperature
+ */
+void NMEA0183N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
+  unsigned char SID;
+  unsigned char _tempInstance; 
+  tN2kTempSource _tempSource;
+  double _actualTemperature;
+  double _setTemperature;
+
+
+  if ( ParseN2kPGN130316(N2kMsg, SID, _tempInstance, _tempSource,
+                   _actualTemperature, _setTemperature) ) {
+    if ( _tempSource == N2kts_MainCabinTemperature) {
+      messageEncoder->sendXDR_airtemp(_actualTemperature);
+      messageEncoder->sendMTA(_actualTemperature);
+    }
+  }
+}
+void NMEA0183N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
+  unsigned char SID;
+  unsigned char _pressureInstance;
+  tN2kPressureSource _pressureSource;
+  double _pressure;
+  if( ParseN2kPGN130314(N2kMsg, SID, _pressureInstance,
+                     _pressureSource, _pressure) ) {
+    if ( _pressureSource == N2kps_Atmospheric ) {
+      messageEncoder->sendXDR_barometer(_pressure);
+    }
+  }
+}
+
+void NMEA0183N2KHandler::handle127245(const tN2kMsg &N2kMsg) {
+  double _rudderPosition;
+  unsigned char _instance;
+  tN2kRudderDirectionOrder _rudderDirectionOrder;
+  double _angleOrder;
+
+  if ( ParseN2kPGN127245(N2kMsg, _rudderPosition, _instance,
+                     _rudderDirectionOrder, _angleOrder) ) {
+      messageEncoder->sendRSA(_rudderPosition);
+  }
 }
 
 
 
-                case 129026: // sog cog rapid
-
-                    if ( message.ref.name === "True" ) {
-
-/*
-NKE
-Ground heading and speed:
-$IIVTG,x.x,T,x.x,M,x.x,N,x.x,K,A*hh
-         I I   I I   I I   I_I_Bottom speed in kph
-         I I   I I   I_I_Bottom speed in knots
-         I I   I_I_Magnetic bottom heading
-         I_I_True bottom heading 
-
-seems to work ok without the additional A (probably the FAA field)
-*/
-                        // cog is true
-                        this.setStore("cogt",this.limitDegrees(message.cog*180/Math.PI,0,360), 1);
-                        this.setStore("cogm",this.limitDegrees((message.cog+this.variation)*180/Math.PI,0,360), 1);
-                        this.setStore("sog", (message.sog*1.94384617179), 2);
-                        nmea0183Handler.updateSentence('IIVTG', ['$IIVTG',
-                            this.storeSentenceValues.cogt ,
-                            'T',
-                            this.storeSentenceValues.cogm,
-                            'M',
-                            this.storeSentenceValues.sog,
-                            'N',
-                            this.toFixed((message.sog*3.6), 2),
-                            'K',
-                            this.storeSentenceValues.faaValid || 'V']);
-                    }
-                    break;
-                case 129283: // XTE
-/*
-NKE
- Cross-track error:
- $IIXTE,A,A,x.x,a,N,A*hh
- I_Cross-track error in miles, L= left, R= right 
- Appears to work with A
-*/
-                    nmea0183Handler.updateSentence('IIXTE', ['$IIXTE',
-                        'A','A',
-                        this.toFixed((message.xte*0.000539957), 3),
-                        message.xte>=0?"L":"R",
-                        'N',
-                        this.storeSentenceValues.faaValid || 'V']);
-                    break;
-                case 130306: // wind
-
-/*
-NKE definitions.
-Apparent wind angle and speed:
-$IIVWR,x.x,a,x.x,N,x.x,M,x.x,K*hh
-         I I   I I   I I   I_I_Wind speed in kph
-         I I   I I   I_I_Wind speed in m/s
-         I I   I_I_Wind speed in knots
-         I_I_Apparent wind angle from 0° to 180°, L=port, R=starboard 
 
 
-$IIVWT,x.x,a,x.x,N,x.x,M,x.x,K*hh
-         | |   | |   | |   | |  Wind speed in kph
-         | |   | |   | |------- Wind speed in m/s
-         | |   | |------------- I_Wind speed in knots
-         | |------------------- True wind angle from 0° to 180°, L=port, R=starboard 
-
-Also need MWV sentence
-
-$IIMWV,x.x,a,x.x,N,a*hh
-         | |   | | |-------- Valid A, V = invalid. 
-         | |   | |---------- Wind speed In knots
-         | |---------------- Reference, R = Relative, T = True
-         |------------------ Wind Angle, 0 to 359 degrees
-
-*/
-
-                    var relativeAngle = this.limitDegrees(message.windAngle*180/Math.PI, -180, 180);
-                    var dir = "R";
-                    if ( relativeAngle < 0 ) {
-                        relativeAngle = -relativeAngle;
-                        dir = "L";
-                    }
 
 
-                    if (message.windReference.name === "Apparent" ) {
-                        nmea0183Handler.updateSentence('IIVWR', ['$IIVWR',
-                            this.toFixed(relativeAngle, 1),
-                            dir,
-                            this.toFixed((message.windSpeed*1.94384617179), 1),
-                            'N',
-                            this.toFixed((message.windSpeed), 1),
-                            'M',
-                            this.toFixed((message.windSpeed*3.6), 1),
-                            'K']);
-                        nmea0183Handler.updateSentence('IIMWVA', ['$IIMWV',
-                            this.toFixed(message.windAngle*180/Math.PI, 1),
-                            'R',
-                            this.toFixed((message.windSpeed*1.94384617179), 1),
-                            'N',
-                            'A']);
-                    } else if (message.windReference.name === "True" ) {
-
-                        nmea0183Handler.updateSentence('IIVWT', ['$IIVWT',
-                            this.toFixed(relativeAngle, 1),
-                            dir,
-                            this.toFixed((message.windSpeed*1.94384617179), 1),
-                            'N',
-                            this.toFixed((message.windSpeed), 1),
-                            'M',
-                            this.toFixed((message.windSpeed*3.6), 1),
-                            'K']);
-                        nmea0183Handler.updateSentence('IIMWVA', ['$IIMWV',
-                            this.toFixed(relativeAngle, 1),
-                            'T',
-                            this.toFixed((message.windSpeed*1.94384617179), 1),
-                            'N',
-                            'A']);
-                    }
-                    break;
-                case 127506: // DC Status
-                    // ignore for now, may be able to get from LifePO4 BT adapter
-                    break;
-                case 127508: // DC Bat status
-                    break;
-                case 130312:
-
-                    if ( message.source && message.source.id === 0) {
-                        nmea0183Handler.updateSentence('IIMTW', ['$IIMTW',
-                            (message.actualTemperature-273.15).toFixed(2),
-                            'C']);
-                    }
-                    break;
-                case 130316:
-                    if ( message.tempSource && message.tempSource.id == 4 ) {
-                        nmea0183Handler.updateSentence('IIXDRC', ['$IIXDR',
-                            'C',
-                            (message.actualTemperature-273.15).toFixed(2),
-                            'C',
-                            'TempAir']);
-                        nmea0183Handler.updateSentence('IIMTA', ['$IIMTA',
-                            (message.actualTemperature-273.15).toFixed(2),
-                            'C']);
-                    }
-                    break;
-                case 127505: // fluid level
-                    break;
-                case 127489: // Engine Dynamic params
-                    break;
-                case 127488: // Engine Rapiod
-                    break;
-                case 130314: // pressure
-                    if ( message.pressureSource && message.pressureSource.id === 0 ) {
-                        nmea0183Handler.updateSentence('IIXDRP', ['$IIXDR',
-                            'P',
-                            (message.actualPressure/100000).toFixed(5),
-                            'B',
-                            'Barometer']);
-                    }
-                    break;
-                case 127245: // rudder
-
-                    nmea0183Handler.updateSentence('IIRSA', ['$IIRSA',
-                        this.toFixed((message.rudderPosition*180/Math.PI), 1),
-                        'A',
-                        '',
-                        '']);
-                    break;
-            }

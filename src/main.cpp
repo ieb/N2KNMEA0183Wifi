@@ -88,7 +88,9 @@ WebServer webServer(OutputStream);
 EchoServer echoServer(OutputStream);
 NMEA0183Server nmeaServer(OutputStream, 10110, 10);
 
-tN2kDataToNMEA0183 tN2kDataToNMEA0183(&NMEA2000, 0);
+
+NMEA0183N2KMessages messageEncoder;
+NMEA0183N2KHandler n2kDataToNMEA0183(&messageEncoder);
 
 
 unsigned long lastButtonPress = 0;
@@ -140,7 +142,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
    listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
     n2kCollector.HandleMsg(N2kMsg);
-    tN2kDataToNMEA0183.HandleMsg(N2kMsg);
+    n2kDataToNMEA0183.handle(N2kMsg);
 }
 
 void showHelp() {
@@ -157,10 +159,7 @@ void showHelp() {
 }
 
 
-void SendNMEA0183Message(const tNMEA0183Msg &NMEA0183Msg) {
-  
-  char buf[MAX_NMEA0183_MESSAGE_SIZE];
-  if ( !NMEA0183Msg.GetMessage(buf,MAX_NMEA0183_MESSAGE_SIZE) ) return;
+void SendNMEA0183Message(const char * buf) {
   nmeaServer.sendBufToClients(buf);
 }
 
@@ -221,7 +220,7 @@ void setup() {
                                );
 
 
-  tN2kDataToNMEA0183.SetSendNMEA0183MessageCallback(SendNMEA0183Message);
+  messageEncoder.setSendBufferCallback(SendNMEA0183Message);
 
 //  NMEA2000.SetN2kCANReceiveFrameBufSize(50);
   // Do not forward bus messages at all
@@ -377,5 +376,4 @@ void loop() {
   startTimer();
   nmeaServer.checkConnections();
   endTimer(4);
-  tN2kDataToNMEA0183.Update();
 }
