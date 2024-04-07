@@ -51,7 +51,9 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "listdevices.h"
 #include "N2KCollector.h"
 #include "N2KPrinter.h"
-#include "N2KToN183.h"
+#include "performance.h"
+#include "N2KHandler.h"
+#include "NMEA0183N2KMessages.h"
 #include "network.h"
 #include "logbook.h"
 #include "dataoutput.h"
@@ -91,7 +93,8 @@ UdpSender nmeaSender(OutputStream, 10110);
 
 
 NMEA0183N2KMessages messageEncoder;
-NMEA0183N2KHandler n2kDataToNMEA0183(&messageEncoder);
+Performance performance(&messageEncoder);
+N2KHandler n2kHander(&messageEncoder, &performance);
 
 
 unsigned long lastButtonPress = 0;
@@ -143,7 +146,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
    listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
     n2kCollector.HandleMsg(N2kMsg);
-    n2kDataToNMEA0183.handle(N2kMsg);
+    n2kHander.handle(N2kMsg);
 }
 
 void showHelp() {

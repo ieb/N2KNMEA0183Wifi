@@ -1,5 +1,5 @@
 
-#include "N2KToN183.h"
+#include "N2KHandler.h"
 #include <N2kMessages.h>
 
 
@@ -7,33 +7,19 @@
 
 
 
-// getters for stored values.
-double NMEA0183N2KHandler::getHeadingTrue() {
-    return headingTrue;
-}
-double NMEA0183N2KHandler::getHeadingMagnetic() {
-  return headingMagnetic;
-}
-const char *  NMEA0183N2KHandler::getFaaValid() {
+const char *  N2KHandler::getFaaValid() {
   if ( faaValid ) {
     return "A";
   } else {
     return "V";
   }
 }
-double NMEA0183N2KHandler::getSog() {
-  return sog;
-}
-double NMEA0183N2KHandler::getCogt() {
-  return cogt;
-}
-double NMEA0183N2KHandler::getVariation() {
-  return variation;
-}
+
+
 
 
 // The standard NMEA2000 function does not return integrty.
-bool NMEA0183N2KHandler::parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint16_t &DaysSince1970, double &SecondsSinceMidnight,
+bool N2KHandler::parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint16_t &DaysSince1970, double &SecondsSinceMidnight,
                      double &Latitude, double &Longitude, double &Altitude,
                      tN2kGNSStype &GNSStype, tN2kGNSSmethod &GNSSmethod,
                      uint8_t &nSatellites, double &HDOP, double &PDOP, double &GeoidalSeparation,
@@ -69,7 +55,7 @@ bool NMEA0183N2KHandler::parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SI
 
 
 
-double NMEA0183N2KHandler::updateWithTimeout(double v, double iv, unsigned long &lastUpdate, unsigned long period) {
+double N2KHandler::updateWithTimeout(double v, double iv, unsigned long &lastUpdate, unsigned long period) {
   unsigned long now = millis();
   if ( iv == -1e9 ) {
     if ( (now - lastUpdate) > 10000 ) {
@@ -86,7 +72,7 @@ double NMEA0183N2KHandler::updateWithTimeout(double v, double iv, unsigned long 
 
 
 
-void NMEA0183N2KHandler::handle(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle(const tN2kMsg &N2kMsg) {
   switch (N2kMsg.PGN) {
     case 127250UL: handle127250(N2kMsg); break; // heading
     case 127257UL: handle127257(N2kMsg); break; // attitude
@@ -129,13 +115,15 @@ void NMEA0183N2KHandler::handle(const tN2kMsg &N2kMsg) {
     //  break;
 
   }
+
+  performance->update(aparentWindAngle, aparentWindSpeed, waterSpeed, roll, headingMagnetic, variation);
 }
 
 
 /**
  * variation
  */ 
-void NMEA0183N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   tN2kMagneticVariation _source;
   uint16_t _daysSince1970;
@@ -150,7 +138,7 @@ void NMEA0183N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
 /**
  * heading
  */
-void NMEA0183N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   tN2kHeadingReference ref;
   double _deviation=0;
@@ -189,12 +177,13 @@ void NMEA0183N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
 /**
  * attitude
  */ 
-void NMEA0183N2KHandler::handle127257(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle127257(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _yaw=0;
   double _pitch=0;
   double _roll=0;
   if ( ParseN2kPGN127257(N2kMsg, SID, _yaw, _pitch, _roll) ) {
+    roll = updateWithTimeout(roll, _roll, lastRollUpdate, 10000);
     messageEncoder->sendXDR_roll(_roll);
   }
 }
@@ -202,14 +191,15 @@ void NMEA0183N2KHandler::handle127257(const tN2kMsg &N2kMsg) {
 /**
  * water speed.
  */ 
-void NMEA0183N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _waterSpeed;
   double _groundSpeed;
   tN2kSpeedWaterReferenceType SWRT;
 
   if ( ParseN2kPGN128259(N2kMsg,SID,_waterSpeed,_groundSpeed,SWRT) ) {
-    messageEncoder->sendVHW(getHeadingTrue(), getHeadingMagnetic(), _waterSpeed );
+    waterSpeed = updateWithTimeout(waterSpeed, _waterSpeed, lastStwUpdate, 10000);
+    messageEncoder->sendVHW(headingTrue, headingMagnetic, _waterSpeed );
   }
 }
 
@@ -217,7 +207,7 @@ void NMEA0183N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
 /**
  * depth
  */ 
-void NMEA0183N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _depthBelowTransducer;
   double _offset;
@@ -232,7 +222,7 @@ void NMEA0183N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
 /**
  * log
  */ 
-void NMEA0183N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
   uint16_t _daysSince1970;
   double _secondsSinceMidnight; 
   uint32_t _log;
@@ -247,7 +237,7 @@ void NMEA0183N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
 /*
  * gnss
  */
-void NMEA0183N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   uint16_t _daysSince1970;
   double _secondsSinceMidnight;
@@ -295,8 +285,8 @@ void NMEA0183N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
         (uint8_t)_nSatellites, _HDOP, _altitude, _geoidalSeparation);
     messageEncoder->sendGLL(fixSecondsSinceMidnight, latitude, longitude, getFaaValid());
     messageEncoder->sendZDA( _secondsSinceMidnight, _daysSince1970);
-    messageEncoder->sendRMC(fixSecondsSinceMidnight, latitude, longitude, getSog(), getCogt(), 
-      _daysSince1970, getVariation(), getFaaValid() );
+    messageEncoder->sendRMC(fixSecondsSinceMidnight, latitude, longitude, sog, cogt, 
+      _daysSince1970, variation, getFaaValid() );
   }
 }
 
@@ -304,7 +294,7 @@ void NMEA0183N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
 /**
  * rapid cog/sog
  */
-void NMEA0183N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   tN2kHeadingReference _ref;
   double _cog;
@@ -314,7 +304,6 @@ void NMEA0183N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
   if ( ParseN2kPGN129026(N2kMsg, SID, _ref, _cog, _sog) ) {
     double _cogm = -1e9;
     double _cogt = -1e9;
-    double variation = getVariation();
     if ( _cog != -1e9 ) {
       if ( _ref == N2khr_magnetic) {
         _cogm=_cog;
@@ -344,7 +333,7 @@ void NMEA0183N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
 /**
  * xte
  */
-void NMEA0183N2KHandler::handle129283(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle129283(const tN2kMsg &N2kMsg) {
   unsigned char SID; 
   tN2kXTEMode _XTEMode; 
   bool _navigationTerminated; 
@@ -358,7 +347,7 @@ void NMEA0183N2KHandler::handle129283(const tN2kMsg &N2kMsg) {
 /**
  * wind
  */
-void NMEA0183N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
   unsigned char SID; 
   double _windSpeed; 
   double _windAngle;
@@ -366,6 +355,8 @@ void NMEA0183N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
 
   if ( ParseN2kPGN130306(N2kMsg, SID, _windSpeed, _windAngle, _windReference) ) {
     if ( _windReference == N2kWind_Apparent ) {
+      aparentWindAngle = updateWithTimeout(aparentWindAngle, _windAngle, lastAwaUpdate, 10000);
+      aparentWindSpeed = updateWithTimeout(aparentWindSpeed, _windSpeed, lastAwsUpdate, 10000);
       messageEncoder->sendVWR(_windAngle, _windSpeed);
       messageEncoder->sendMVR(_windAngle, _windSpeed);
     } else {
@@ -379,7 +370,7 @@ void NMEA0183N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
 /**
  * sea temperature
  */
-void NMEA0183N2KHandler::handle130312_sea(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle130312_sea(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   unsigned char _tempInstance; 
   tN2kTempSource _tempSource;
@@ -397,7 +388,7 @@ void NMEA0183N2KHandler::handle130312_sea(const tN2kMsg &N2kMsg) {
 /**
  * air temperature
  */
-void NMEA0183N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   unsigned char _tempInstance; 
   tN2kTempSource _tempSource;
@@ -413,7 +404,7 @@ void NMEA0183N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
     }
   }
 }
-void NMEA0183N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   unsigned char _pressureInstance;
   tN2kPressureSource _pressureSource;
@@ -426,7 +417,7 @@ void NMEA0183N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
   }
 }
 
-void NMEA0183N2KHandler::handle127245(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle127245(const tN2kMsg &N2kMsg) {
   double _rudderPosition;
   unsigned char _instance;
   tN2kRudderDirectionOrder _rudderDirectionOrder;

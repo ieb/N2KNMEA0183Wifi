@@ -1,4 +1,4 @@
-#include "N2KToN183.h"
+#include "NMEA0183N2KMessages.h"
 
 
 
@@ -42,7 +42,7 @@ void NMEA0183N2KMessages::sendHDG( double heading, double deviation, double vari
       appendBearing(heading);
       appendRelativeAngle(deviation,"E","W");
       appendRelativeAngle(variation,"E","W");
-      send(end());
+      send();
   }
 }
 
@@ -55,7 +55,7 @@ void NMEA0183N2KMessages::sendHDM(double heading) {
     start("$IIHDM");
     appendBearing(heading);
     append("M");
-    send(end());
+    send();
   }  
 }
 
@@ -70,7 +70,7 @@ void NMEA0183N2KMessages::sendHDT(double heading) {
     start("$IIHDT");
     appendBearing(heading);
     append("T");
-    send(end());
+    send();
   }
 }
 
@@ -81,7 +81,7 @@ void NMEA0183N2KMessages::sendXDR_roll(double roll) {
     appendRelativeSignedAngle(roll);
     append("D");
     append("ROLL");
-    send(end());
+    send();
   }
 }
 
@@ -104,7 +104,7 @@ void NMEA0183N2KMessages::sendVHW( double headingTrue, double headingMagnetic, d
     append("N");
     append(waterSpeed,3.6,2);
     append("K");
-    send(end());
+    send();
   }
 }
 
@@ -128,7 +128,7 @@ void NMEA0183N2KMessages::sendDBT( double depthBelowTransducer) {
       append("M");
       append(depthBelowTransducer,0.546807,1);
       append("F");
-      send(end());
+      send();
     }
 }
 /*
@@ -144,7 +144,7 @@ void NMEA0183N2KMessages::sendDPT(double depthBelowTransducer, double offset) {
     start("$IIDPT");
     append(depthBelowTransducer,1.0,2);
     append(offset,1.0,2);
-    send(end());
+    send();
   }
 }
 
@@ -164,7 +164,7 @@ void NMEA0183N2KMessages::sendVLW(double log, double tripLog) {
     append("N");
     append(tripLog,0.000539957,2);
     append("N");
-    send(end());
+    send();
   }
 }
 
@@ -186,7 +186,7 @@ void NMEA0183N2KMessages::sendGGA(double fixSecondsSinceMidnight,
     append("M");
     append("");
     append("");
-    send(end());
+    send();
   }
 }
 
@@ -211,7 +211,7 @@ void NMEA0183N2KMessages::sendGLL(double secondsSinceMidnight,
     appendTimeUTC(secondsSinceMidnight);
     append(faaValid);
     append(faaValid);
-    send(end());
+    send();
   }
 }
 
@@ -231,7 +231,7 @@ void NMEA0183N2KMessages::sendZDA( double secondsSinceMidnight, uint16_t daysSin
     appendDMY(daysSince1970);
     append("0");
     append("0");
-    send(end());
+    send();
   }
 }
 
@@ -250,7 +250,7 @@ void NMEA0183N2KMessages::sendRMC(double secondsSinceMidnight,
     appendDate(daysSince1970);
     appendRelativeAngle(variation,"E","W");
     append(faaValid);      
-    send(end());
+    send();
   }
 }
 
@@ -278,7 +278,7 @@ void NMEA0183N2KMessages::sendVTG(double cogt, double cogm, double sog, const ch
     append(sog, 3.6, 2);
     append("K");
     append(faaValid);
-    send(end());
+    send();
   }
 }
 
@@ -304,7 +304,7 @@ void NMEA0183N2KMessages::sendXTE(double xte,const char * faaValid) {
     append(dir);
     append("N");
     append(faaValid);
-    send(end());
+    send();
   }
 }
 
@@ -332,7 +332,7 @@ void NMEA0183N2KMessages::sendVWR( double windAngle, double windSpeed ) {
     append("M");
     append(windSpeed,3.6,1);
     append("K");
-    send(end());
+    send();
   }
 }
 void NMEA0183N2KMessages::sendMVR( double windAngle, double windSpeed ) {
@@ -343,7 +343,7 @@ void NMEA0183N2KMessages::sendMVR( double windAngle, double windSpeed ) {
     append(windSpeed,1.94384617179,1);
     append("N");
     append("A");
-    send(end());
+    send();
   }
 }
 /**
@@ -363,7 +363,7 @@ void NMEA0183N2KMessages::sendVWT( double windAngle, double windSpeed) {
     append("M");
     append(windSpeed,3.6,1);
     append("K");
-    send(end());
+    send();
   }
 }
 /**
@@ -383,7 +383,7 @@ void NMEA0183N2KMessages::sendMVT( double windAngle, double windSpeed) {
     append(windSpeed,1.94384617179,1);
     append("N");
     append("A");
-    send(end());
+    send();
   }
 }
 
@@ -392,7 +392,7 @@ void NMEA0183N2KMessages::sendMTW(double temperature) {
     start("$IIMTW");
     append(temperature-273.15,1.0,2);
     append("C");
-    send(end());
+    send();
   }
 }
 
@@ -403,7 +403,7 @@ void NMEA0183N2KMessages::sendXDR_airtemp(double temperature) {
     append(temperature-273.15,1.0,2);
     append("C");
     append("TempAir");
-    send(end());
+    send();
   }
 }
 void NMEA0183N2KMessages::sendMTA(double temperature) {
@@ -411,7 +411,7 @@ void NMEA0183N2KMessages::sendMTA(double temperature) {
     start("$IIMTA");
     append(temperature-273.15,1.0,2);
     append("C");
-    send(end());
+    send();
   }
 }
 
@@ -422,7 +422,7 @@ void NMEA0183N2KMessages::sendXDR_barometer(double pressure) {
     append(pressure,1.0E-6,5);
     append("B");
     append("Barometer");
-    send(end());
+    send();
   }
 }
 
@@ -433,7 +433,7 @@ void NMEA0183N2KMessages::sendRSA(double rudderPosition) {
     append("A");
     append("");
     append("");
-    send(end());
+    send();
   }
 }
 
@@ -491,7 +491,7 @@ void NMEA0183N2KMessages::appendBearing(double bearing, uint8_t fixed) {
   if ( bearing == -1e9 ) {
     append("");
   } else {
-    bearing = bearing * 180.0/PI;
+    bearing = bearing * 57.2957795131; // rad -> deg 180.0/PI;
     if (bearing < 0 ) bearing = bearing + 360.0;
     else if (bearing > 360 ) bearing = bearing - 360;
     String v = String(bearing, fixed);
@@ -503,7 +503,7 @@ void NMEA0183N2KMessages::appendRelativeAngle(double angle, const char * pos, co
     append("");
     append("");
   } else {
-    angle = angle * 180.0/PI;
+    angle = angle * 57.2957795131; // rad -> deg 180.0/PI;
     if (angle > 180) {
       angle = -(360-angle);
     }
@@ -523,7 +523,7 @@ void NMEA0183N2KMessages::appendRelativeSignedAngle(double angle, uint8_t fixed)
   if ( angle == -1E9 ) {
       append("");
   } else {
-    angle = angle * 180.0/PI;
+    angle = angle * 57.2957795131; // rad -> deg 180.0/PI; 
     if (angle > 180) {
       angle = -(360-angle);
     }
@@ -571,14 +571,14 @@ void NMEA0183N2KMessages::appendLongitude(double longitude) {
 }
 
 void NMEA0183N2KMessages::appendDMY(uint16_t daysSince1970) {
-  time_t d = (daysSince1970*3600000*24);
+  time_t d = ((uint32_t)(daysSince1970)*3600000UL*24UL);
   struct tm * tmd = gmtime(&d);
   sprintf(inbuffer, "%02d,%02d,%04d",tmd->tm_mday, tmd->tm_mon+1, tmd->tm_year+1900);
   checkBuffer("dmy");
   append(inbuffer);
 }
 void NMEA0183N2KMessages::appendDate(uint16_t daysSince1970) {
-  time_t d = (daysSince1970*3600000*24);
+  time_t d = ((uint32_t)(daysSince1970)*3600000UL*24UL);
   struct tm * tmd = gmtime(&d);
   sprintf(inbuffer, "%02d%02d%02d",tmd->tm_mday,tmd->tm_mon+1,tmd->tm_year%100);
   append(inbuffer);
@@ -619,4 +619,8 @@ const char * NMEA0183N2KMessages::end() {
   buffer[i++] = NMEA0183N2KMessages::asHex[(checkSum)&0x0f];
   buffer[i] = '\0';
   return &buffer[0];
+}
+
+void NMEA0183N2KMessages::send() {
+  sendCallback(end());
 }
