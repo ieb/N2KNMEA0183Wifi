@@ -8,8 +8,6 @@
 
 
 
-LogBook::LogBook(N2KCollector &n2kCollector): n2kCollector{n2kCollector} {
-};
 
 
 double LogBook::relativeAngleToDeg(double a) {
@@ -28,6 +26,7 @@ double LogBook::headingAngleToDeg(double a) {
 void LogBook::demoMode() {
     unsigned long now = millis();
     if ( (now-lastDemoUpdate) >  5000) {
+
         lastDemoUpdate = now;
          n2kCollector.log[0].lastModified = now;
          n2kCollector.log[0].source = 1;
@@ -45,22 +44,37 @@ void LogBook::demoMode() {
 
 }
 
+struct tLogBookRecord {
+    double secondsSinceMidnight;
+    uint16_t daysSince1970;
+    double latitude;
+    double longitude;
+    uint32_t log;
+    uint32_t tripLog;
+    double cog;
+    double sog;
+    double stw;
+    double hdg;
+    double aws;
+    double awa;
+    double pressure;
+    uint16_t rpm;
+    double coolant; 
+} tLogBookRecord;
 
-void LogBook::log() {
+
+
+void LogBook::log(tLogBookRecord *logBookRecord) {
     unsigned long now = millis();
     if ( (now-lastLogUpdate) >  logPeriod) {
-        LogData * log = n2kCollector.getLog();
-        GnssData * gnss = n2kCollector.getGnss();
 
     
         if ( gnss != NULL && gnss->lastModified > lastLogUpdate ) {
             // new gnss data is avaiable, this indicates that the NMEA2000 instruments are on 
             
-            uint16_t daySerial = gnss->daysSince1970; 
-            double seconds = gnss->secondsSinceMidnight;
             tmElements_t tm;
             // docu
-            double tofLog = seconds+daySerial*SECS_PER_DAY; 
+            double tofLog = logBookRecord->secondsSinceMidnight+logBookRecord->daysSince1970*SECS_PER_DAY; 
             breakTime((time_t)tofLog, tm);
             char filename[30]; 
             sprintf(&filename[0],"/logbook/log%04d%02d%02d.txt", tm.Year+1970, tm.Month, tm.Day);
@@ -82,93 +96,70 @@ void LogBook::log() {
             f.printf(",%lu",(unsigned long)tofLog);
             // lat, lon
 
-
-            double latitude, longitude;
-            int16_t age;
-            if ( n2kCollector.getLatLong(latitude, longitude, age)) {
-                f.printf(",%10.6f,%10.6f,%d",latitude, longitude,age);
-            } else {
-                f.printf(",,,");
-            }
-
-
-            //log,trip
-            if ( log != NULL && log->lastModified+30000 > now) {
-                f.printf(",%6.1f,%6.1f",M_TO_NM(log->log),M_TO_NM(log->tripLog));
-            } else {
-                f.print(",,");
-            }
-            // cog,sog  radians, m/s
-            int i;
-            for ( i = 0; i < MAX_COGSOG_SOURCES; i++) {
-                if (n2kCollector.cogSog[i].source != 255 && n2kCollector.cogSog[i].lastModified+30000 > now ) {
-                    if ( n2kCollector.cogSog[i].cog > -1000000) {
-                        f.printf(",%d,%4.1f",(int)headingAngleToDeg(n2kCollector.cogSog[i].cog),
-                             SPEED_MS_TO_KN(n2kCollector.cogSog[i].sog));
-                        break;
-                    }
-                } 
-            }
-            if ( i == MAX_COGSOG_SOURCES ) {
-                f.print(",,");
-            }
-            // stw m/s
-            for ( i=0; i < MAX_SPEED_SOURCES; i++) {
-                if (n2kCollector.speed[i].source != 255 && n2kCollector.speed[i].lastModified+30000 > now ) {
-                    f.printf(",%4.1f",SPEED_MS_TO_KN(n2kCollector.speed[i].stw));
-                    break;
-                } 
-            }
-            if ( i == MAX_SPEED_SOURCES ) {
-                f.print(",");
-            }
-            //hdg radians
-            for ( i=0; i < MAX_HEADDING_SOURCES; i++) {
-                if (n2kCollector.heading[i].source != 255 && n2kCollector.heading[i].lastModified+30000 > now ) {
-                    f.printf(",%d",(int)headingAngleToDeg(n2kCollector.heading[i].heading));
-                    break;
-                } 
-            }
-            if ( i == MAX_HEADDING_SOURCES ) {
-                f.print(",");
-            }
-
-
-            //aws, awa m/s, radians
-            for ( i=0; i < MAX_WIND_SOURCES; i++) {
-                if (n2kCollector.wind[i].source != 255 &&
-                         n2kCollector.wind[i].windReference == N2kWind_Apparent && 
-                         n2kCollector.wind[i].lastModified+30000 > now ) {
-                    f.printf(",%4.1f,%d",SPEED_MS_TO_KN(n2kCollector.wind[i].windSpeed),(int)relativeAngleToDeg(n2kCollector.wind[i].windAngle));
-                    break;
-                } 
-            }
-            if ( i == MAX_WIND_SOURCES ) {
-                f.print(",");
-            }
-            double pressure;
-
-            if ( n2kCollector.getPressure(pressure, age) ) {
-                f.printf(",%6.1f,%d",PASCAL_TO_MBAR(pressure),age);
-            } else {
-                f.print(",,");                
-            }
-            // rpm, ct, rpm, K
-            for ( i = 0; i < MAX_ENGINE_SOURCES; i++) {
-                if (n2kCollector.engine[i].source != 255 &&  n2kCollector.engine[i].lastModified+30000 > now ) { 
-                    f.printf(",%d,%d",(int)n2kCollector.engine[i].speed,(int)K_TO_C(n2kCollector.engine[i].CoolantTemp));
-                    break;
-                } 
-            }
-            if ( i == MAX_ENGINE_SOURCES ) {
-                f.print(",,");
-            }
+            append(f, logBookRecord->latitude,1.0,",%.6f"); //deg
+            append(f, logBookRecord->longitude,1.0,",%.6f"); //deg
+            // convert to NM first.
+            append(f, 0.0005399568035*logBookRecord->log, 1.0,",%.6f"); //NM
+            append(f, 0.0005399568035*logBookRecord->tripLog, 1.0,",%.6f"); //NM
+            appendBearing(f, logBookRecord->cog,",%.2f"); //deg
+            append(f, logBookRecord->sog,1.94384,",%.2f"); //Kn
+            append(f, logBookRecord->stw,1.94384,",%.2f"); //Kn
+            appendBearing(f, logBookRecord->hdg,",%.2f"); //Kn
+            append(f, logBookRecord->aws,1.94384,",%.2f"); //Kn
+            appendAngle(f, logBookRecord->awa,",%.2f"); //deg
+            append(f, logBookRecord->pressure,0.01,",%.1f"); //Kn
+            append(f, logBookRecord->rpm); //Kn
+            append(f, logBookRecord->coolant-273.15,",%.1f"); //C
             f.print("\n");
             f.close();
+
+
+
         } else {
             // instruments are off. We could add an entry but we dont really know what the time is
             // so we probably should not
         }
         lastLogUpdate = now;
+    }
+}
+
+void LogBook::append(File &f, double v, double f, const char * format) {
+    if ( v == -1e9 ) {
+        f.printf(",");
+    } else {
+        f.printf(format,v*f);
+    }
+}
+void LogBook::append(File &f, uint16_t v) {
+    if ( v == 0xffff ) {
+        f.printf(",");
+    } else {
+        f.printf(",%u",v);
+    }
+}
+void LogBook::appendBearing(File &f, double bearing, const char * format) {
+    if ( v == -1e9 ) {
+        f.printf(",");
+    } else {
+        bearing = bearing * 180/PI;
+        if ( bearing > 360 ) {
+            bearing = bearing-360;
+        } if ( bearing < 0 ) {
+            bearing = bearing + 360;
+        }
+        f.printf(format,bearing);
+    }
+}
+void LogBook::appendAngle(File &f, double angle, const char * format) {
+    if ( v == -1e9 ) {
+        f.printf(",");
+    } else {
+        angle = angle * 180/PI;
+        if ( angle > 180 ) {
+            angle = angle-360;
+        } if ( angle < -180 ) {
+            angle = angle + 360;
+        }
+        f.printf(format,angle);
     }
 }

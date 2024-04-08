@@ -5,6 +5,7 @@
 #include <N2kTypes.h>
 #include <time.h>
 #include "NMEA0183N2KMessages.h"
+#include "N2KMessageEncoder.h"
 #include "performance.h"
 
 
@@ -28,8 +29,9 @@ enum tN2kGNSSIntegrety {
 
 class N2KHandler  {
 public:
-  N2KHandler(NMEA0183N2KMessages * messageEncoder, Performance * performance) : 
+  N2KHandler(NMEA0183N2KMessages * messageEncoder, N2KMessageEncoder * pgnEncoder, Performance * performance) : 
     messageEncoder{messageEncoder}, 
+    pgnEncoder{pgnEncoder},
     performance{performance} {};
   void handle(const tN2kMsg &N2kMsg);
 
@@ -37,6 +39,7 @@ public:
 private:
 
     NMEA0183N2KMessages * messageEncoder;
+    N2KMessageEncoder * pgnEncoder;
     Performance * performance;
     // using specific properties vs an array let the compiler detect errors.
 
@@ -80,6 +83,16 @@ private:
     void handle130316_air(const tN2kMsg &N2kMsg);
     void handle130314_baro(const tN2kMsg &N2kMsg);
     void handle127245(const tN2kMsg &N2kMsg);
+    void handle127488(const tN2kMsg &N2kMsg);
+    void handle127489(const tN2kMsg &N2kMsg);
+    void handle127505(const tN2kMsg &N2kMsg);
+    void handle127508(const tN2kMsg &N2kMsg);
+    void handle128000(const tN2kMsg &N2kMsg);
+    void handle129025(const tN2kMsg &N2kMsg);
+    void handle130310(const tN2kMsg &N2kMsg);
+    void handle130311(const tN2kMsg &N2kMsg);
+    void handle130313(const tN2kMsg &N2kMsg);
+
 
     bool parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint16_t &DaysSince1970, double &SecondsSinceMidnight,
                      double &Latitude, double &Longitude, double &Altitude,

@@ -31,8 +31,9 @@ ToDo
 * [-] ~~Wire Store into NMEA0183 outputs~~
 * [x] Expose message stream over websockets
 * [x] Emit NMEA0183 messages generated from calculations
-* [ ] Verify performance messages
+* [x] Verify performance messages
 * [ ] Remove N2KCollector
+* [ ] Verify target VMG down wind.
 * [ ] Emit data for websockets in raw form tbd.
 * [ ] Emit raw pgn messages in some form.
 * [ ] Port in web apps from Electron NMEA App

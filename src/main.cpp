@@ -49,14 +49,12 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 // #include <NMEA2000_CAN.h>
 
 #include "listdevices.h"
-#include "N2KCollector.h"
 #include "N2KPrinter.h"
 #include "performance.h"
 #include "N2KHandler.h"
 #include "NMEA0183N2KMessages.h"
 #include "network.h"
 #include "logbook.h"
-#include "dataoutput.h"
 
 
 #include "esp32-hal-psram.h"
@@ -69,22 +67,10 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 
 Stream *OutputStream = &Serial;
 N2KPrinter n2kPrinter(OutputStream);
-N2KCollector n2kCollector(OutputStream);
 ListDevices listDevices(&NMEA2000, OutputStream);
-EngineDataOutput engineDataOutput(n2kCollector);
-BoatDataOutput boatDataOutput(n2kCollector);
-NavigationDataOutput navigationDataOutput(n2kCollector);
-EnvironmentDataOutput environmentDataOutput(n2kCollector);
-TemperatureDataOutput temperatureDataOutput(n2kCollector);
-XteDataOutput xteDataOutput(n2kCollector);
-MagneticVariationDataOutput magneticVariationDataOutput(n2kCollector);
-WindSpeedDataOutput windSpeedDataOutput(n2kCollector);
-LogDataOutput logDataOutput(n2kCollector);
-LatLonDataOutput latLonDataOutput(n2kCollector);
-LeewayDataOutput leewayDataOutput(n2kCollector);
 
 
-LogBook logbook(n2kCollector);
+LogBook logbook;
 Wifi wifi(OutputStream);
 WebServer webServer(OutputStream);
 EchoServer echoServer(OutputStream);
@@ -93,8 +79,9 @@ UdpSender nmeaSender(OutputStream, 10110);
 
 
 NMEA0183N2KMessages messageEncoder;
+N2KMessageEncoder pgnEncoder;
 Performance performance(&messageEncoder);
-N2KHandler n2kHander(&messageEncoder, &performance);
+N2KHandler n2kHander(&messageEncoder, &pgnEncoder, &performance);
 
 
 unsigned long lastButtonPress = 0;
@@ -145,7 +132,6 @@ const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
    listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
-    n2kCollector.HandleMsg(N2kMsg);
     n2kHander.handle(N2kMsg);
 }
 
@@ -189,28 +175,7 @@ void setup() {
 
 
   webServer.addJsonOutputHandler(0,&listDevices);
-  webServer.addJsonOutputHandler(1,&engineDataOutput);
-  webServer.addJsonOutputHandler(2,&boatDataOutput);
-  webServer.addJsonOutputHandler(3,&navigationDataOutput);
-  webServer.addJsonOutputHandler(4,&environmentDataOutput);
-  webServer.addJsonOutputHandler(5,&temperatureDataOutput);
-  webServer.addJsonOutputHandler(9,&xteDataOutput);  
-  webServer.addJsonOutputHandler(10,&magneticVariationDataOutput);  
-  webServer.addJsonOutputHandler(11,&logDataOutput);  
-  webServer.addJsonOutputHandler(12,&latLonDataOutput);  
-  webServer.addJsonOutputHandler(13,&leewayDataOutput);  
-
   webServer.addCsvOutputHandler(0,&listDevices);
-  webServer.addCsvOutputHandler(1,&engineDataOutput);
-  webServer.addCsvOutputHandler(2,&boatDataOutput);
-  webServer.addCsvOutputHandler(3,&navigationDataOutput);
-  webServer.addCsvOutputHandler(4,&environmentDataOutput);
-  webServer.addCsvOutputHandler(5,&temperatureDataOutput);
-  webServer.addCsvOutputHandler(9,&xteDataOutput);  
-  webServer.addCsvOutputHandler(10,&magneticVariationDataOutput);  
-  webServer.addCsvOutputHandler(11,&logDataOutput);  
-  webServer.addCsvOutputHandler(12,&latLonDataOutput);  
-  webServer.addCsvOutputHandler(13,&leewayDataOutput);  
   webServer.begin();
 
   // Set Product information

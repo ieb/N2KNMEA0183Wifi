@@ -75,7 +75,7 @@ void Performance::update(float awa, float aws, float stw, float roll, float hdm,
     if ( awa != -1e9 && stw != -1e9 ) {
         double aparentX = cos(awa) * aws;
         double aparentY = sin(awa) * aws;
-        this->twa =  atan2(aparentY, -stw + aparentX);
+        this->twa =  correctAngle(atan2(aparentY, -stw + aparentX));
         this->tws = sqrt(pow(aparentY, 2) + pow(-stw + aparentX, 2));
 
 
@@ -102,57 +102,120 @@ void Performance::update(float awa, float aws, float stw, float roll, float hdm,
             // downwind.
             twal = 90;
         }
+        float findTargetVMG = 0;
         float tws_kn = msToKnots(this->tws);
         for (int ttwa = twal; ttwa <= twah; ttwa++) {
             float tstw = calcPolarSpeed(tws_kn, ttwa, false);
             float tvmg = tstw*cos(DegToRad(ttwa));
-            if ( abs(tvmg) > abs(this->targetVmg) ) {
+            if ( abs(tvmg) > abs(findTargetVMG) ) {
+                findTargetVMG = tvmg;
                 this->targetVmg = tvmg;
                 this->targetTwa = ttwa;
                 this->targetStw = tstw;
             }
         }
-        if ( this->twa < 0) {
-            this->targetTwa = -DegToRad(this->targetTwa);
-        } else {
-            this->targetTwa = DegToRad(this->targetTwa);
+        if ( this->targetTwa != -1e9 ) {
+            if ( this->twa < 0) {
+                this->targetTwa = -DegToRad(this->targetTwa);
+            } else {
+                this->targetTwa = DegToRad(this->targetTwa);
+            }            
         }
 
         // calculate the polar vmg Ratio
-        if ( abs(this->targetVmg) > 1.0E-8 ) {
+        if ( this->targetVmg != -1e9 && abs(this->targetVmg) > 1.0E-8 ) {
             this->polarVmgRatio = this->vmg/this->targetVmg;
         }
 
         if ( hdm != -1e9 ) {
             // calculate other track, depending on what the heading is
             this->windDirectionMagnetic = correctBearing(hdm+this->twa);
-            this->oppositeTrackHeadingMagnetic = correctBearing(this->windDirectionTrue + this->targetTwa);
-            if (this->twa > 0 ) {
-                this->oppositeTrackMagnetic = correctBearing(this->oppositeTrackHeadingMagnetic + this->leeway*2);
-            } else {
-                this->oppositeTrackMagnetic = correctBearing(this->oppositeTrackHeadingMagnetic - this->leeway*2);
-            }
-
             if ( variation != -1e-9 ) {
                 this->windDirectionTrue = correctBearing(this->windDirectionMagnetic - variation);
-                this->oppositeTrackHeadingTrue = correctBearing(this->oppositeTrackHeadingTrue - variation);                
-                this->oppositeTrackTrue = correctBearing(this->oppositeTrackMagnetic - variation);
             }
+            if ( this->targetTwa != -1e9 ) {
+                this->oppositeTrackHeadingMagnetic = correctBearing(this->windDirectionTrue + this->targetTwa);
+                if (this->twa > 0 ) {
+                    this->oppositeTrackMagnetic = correctBearing(this->oppositeTrackHeadingMagnetic + this->leeway*2);
+                } else {
+                    this->oppositeTrackMagnetic = correctBearing(this->oppositeTrackHeadingMagnetic - this->leeway*2);
+                }
+                if ( variation != -1e-9 ) {
+                    this->oppositeTrackHeadingTrue = correctBearing(this->oppositeTrackHeadingMagnetic - variation);                
+                    this->oppositeTrackTrue = correctBearing(this->oppositeTrackMagnetic - variation);
+                }
+            }
+
         }
     }
 
 /*
 
-$PNKEP,01,15.16,N,28.07,K*66
-$PNKEP,02,-56295778396.97*76
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ error
-$PNKEP,03,999999610.21,0.00,103.10*5A
-^^^^^^^^^^^^^^^^^^^^^^^^^^ error
-$PNKEP,99,-109.45,5.11,-109.45,17.99,15.63,15.16,1.031*5C
-*/
+Inputs----------------------
+awa:3.52
+aws:12.73
+stw:4.58
+roll:0.12
+hdm:4.37
+variation:0.10
+Outputs----------------------
+leeway:0.00
+twa:3.42
+windDirectionMagnetic:1.50
+oppositeTrackHeadingMagnetic:4.55
+oppositeTrackMagnetic:4.55
+windDirectionTrue:1.40
+oppositeTrackHeadingTrue:4.45
+oppositeTrackTrue:4.45
+polarSpeed:8.30
+polarSpeedRatio:0.55
+polarVmg:-7.99
+vmg:-4.41
+targetVmg:-8.30
+targetVmg:-8.30
+targetTwa:3.14
+targetStw:8.30
+targetTwa:3.14
+^^^^^^^^^^^^^^^^ looks wrong may be a bug finding optimal VMG down wind.
+polarVmgRatio:0.53
+----------------------
+
+
+------------------*/
+
 
 
     if ( messageEncoder->doSend(SEND_KEP01)) {
+/*
+        Serial.println("Inputs----------------------");
+
+        Serial.print("awa:");Serial.println(awa);
+        Serial.print("aws:");Serial.println(aws);
+        Serial.print("stw:");Serial.println(stw);
+        Serial.print("roll:");Serial.println(roll);
+        Serial.print("hdm:");Serial.println(hdm);
+        Serial.print("variation:");Serial.println(variation);
+        Serial.println("Outputs----------------------");
+        Serial.print("leeway:");Serial.println(leeway);
+        Serial.print("twa:");Serial.println(twa);
+        Serial.print("windDirectionMagnetic:");Serial.println(windDirectionMagnetic);
+        Serial.print("oppositeTrackHeadingMagnetic:");Serial.println(oppositeTrackHeadingMagnetic);
+        Serial.print("oppositeTrackMagnetic:");Serial.println(oppositeTrackMagnetic);
+        Serial.print("windDirectionTrue:");Serial.println(windDirectionTrue);
+        Serial.print("oppositeTrackHeadingTrue:");Serial.println(oppositeTrackHeadingTrue);
+        Serial.print("oppositeTrackTrue:");Serial.println(oppositeTrackTrue);
+        Serial.print("polarSpeed:");Serial.println(polarSpeed);
+        Serial.print("polarSpeedRatio:");Serial.println(polarSpeedRatio);
+        Serial.print("polarVmg:");Serial.println(polarVmg);
+        Serial.print("vmg:");Serial.println(vmg);
+        Serial.print("targetVmg:");Serial.println(targetVmg);
+        Serial.print("targetVmg:");Serial.println(targetVmg);
+        Serial.print("targetTwa:");Serial.println(targetTwa);
+        Serial.print("targetStw:");Serial.println(targetStw);
+        Serial.print("targetTwa:");Serial.println(targetTwa);
+        Serial.print("polarVmgRatio:");Serial.println(polarVmgRatio);
+        Serial.println("----------------------");
+*/
         messageEncoder->start("$PNKEP");
         messageEncoder->append("01");
         messageEncoder->append(polarSpeed, 1.9438452, 2);
@@ -306,4 +369,12 @@ float Performance::correctBearing(float b) {
     } else {
         return b;
     }
+}
+float Performance::correctAngle(float b) {
+    if ( b > PI ){
+        b = b - 2*PI;
+    } else if ( b < PI ) {
+        b = b + 2*PI;
+    }
+    return b;
 }

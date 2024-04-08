@@ -40,6 +40,7 @@ private:
     void findIndexes(uint8_t v, const uint8_t *a, uint8_t al, int8_t *idx  );
     float interpolateForY(float x, float xl, float xh, float yl, float yh);
     float correctBearing(float b);
+    float correctAngle(float b);
     uint8_t lastTWSV = 0;
     uint8_t lastTWAV = 0;
     int8_t twaidx[2] = {0,0};
