@@ -32,11 +32,39 @@ ToDo
 * [x] Expose message stream over websockets
 * [x] Emit NMEA0183 messages generated from calculations
 * [x] Verify performance messages
-* [ ] Remove N2KCollector
+* [x] Remove N2KCollector
 * [ ] Verify target VMG down wind.
-* [ ] Emit data for websockets in raw form tbd.
-* [ ] Emit raw pgn messages in some form.
+* [x] Emit data for websockets in raw form tbd.
+* [x] Emit raw pgn messages in some form.
 * [ ] Port in web apps from Electron NMEA App
+
+## TCP/UDP
+
+Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a list of messages.
+
+## WebSocket
+
+### /ws/183
+
+Emits NMEA0183 same as on UDP and TCP.
+
+### /ws/2kraw
+
+Emits Raw PGR messages containing pdg,destination,length,<hex encoded data>
+
+Accpets the following messages
+
+* addpgn:<pgn to be emitted>
+* rmpgn:<pgn to be removed from filter>
+* allpgn: 1 == emit all pgns, 0 filter pgns.
+
+### /ws/2kparsed
+
+Emits PGN messages containg parsed fields.
+
+Same commands.
+
+
 
 
 ## Archived functionality

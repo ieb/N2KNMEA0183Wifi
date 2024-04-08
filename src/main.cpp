@@ -81,7 +81,7 @@ UdpSender nmeaSender(OutputStream, 10110);
 NMEA0183N2KMessages messageEncoder;
 N2KMessageEncoder pgnEncoder;
 Performance performance(&messageEncoder);
-N2KHandler n2kHander(&messageEncoder, &pgnEncoder, &performance);
+N2KHandler n2kHander(&messageEncoder, &pgnEncoder, &performance, &logbook);
 
 
 unsigned long lastButtonPress = 0;
@@ -337,10 +337,6 @@ void loop() {
   endTimer(0);
 // Only on demand as it causes startup to take time to complete
 // listDevices.list();
-  startTimer();
-
-  logbook.log();
-  endTimer(1);
   startTimer();
   CheckCommand();
   endTimer(2);

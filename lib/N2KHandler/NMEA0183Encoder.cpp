@@ -27,16 +27,60 @@ void NMEA0183Encoder::checkBuffer(const char * message) {
 
 
 
-
-void NMEA0183Encoder::append(int field) {
-  if ( field == 255 ) {
+void NMEA0183Encoder::append(uint8_t field) {
+  if ( field == 0xff ) {
     append("");
   } else {
     String v = String(field, 0);
     append(v.c_str());
   }
 }
-void NMEA0183Encoder::append(double value, double factor, uint8_t fixed) {
+
+void NMEA0183Encoder::append(int8_t field) {
+  if ( field == 0x7f ) {
+    append("");
+  } else {
+    String v = String(field, 0);
+    append(v.c_str());
+  }
+}
+
+void NMEA0183Encoder::append(uint16_t field) {
+  if ( field == 0xff ) {
+    append("");
+  } else {
+    String v = String(field, 0);
+    append(v.c_str());
+  }
+}
+
+void NMEA0183Encoder::append(int16_t field) {
+  if ( field == 0x7f ) {
+    append("");
+  } else {
+    String v = String(field, 0);
+    append(v.c_str());
+  }
+}
+void NMEA0183Encoder::append(uint32_t field) {
+  if ( field == 0xff ) {
+    append("");
+  } else {
+    String v = String(field, 0);
+    append(v.c_str());
+  }
+}
+
+void NMEA0183Encoder::append(int32_t field) {
+  if ( field == 0x7f ) {
+    append("");
+  } else {
+    String v = String(field, 0);
+    append(v.c_str());
+  }
+}
+
+void NMEA0183Encoder::append(double value, double factor, int fixed) {
   // 0.0 to 360.0
   if ( value == -1e9 ) {
     append("");
@@ -47,7 +91,7 @@ void NMEA0183Encoder::append(double value, double factor, uint8_t fixed) {
   }
 }
 
-void NMEA0183Encoder::appendBearing(double bearing, uint8_t fixed) {
+void NMEA0183Encoder::appendBearing(double bearing, int fixed) {
   // 0.0 to 360.0
   if ( bearing == -1e9 ) {
     append("");
@@ -59,7 +103,7 @@ void NMEA0183Encoder::appendBearing(double bearing, uint8_t fixed) {
     append(v.c_str());
   }
 }
-void NMEA0183Encoder::appendRelativeAngle(double angle, const char * pos, const char * neg, uint8_t fixed) {
+void NMEA0183Encoder::appendRelativeAngle(double angle, const char * pos, const char * neg, int fixed) {
   if ( angle == -1e9 ) {
     append("");
     append("");
@@ -80,7 +124,7 @@ void NMEA0183Encoder::appendRelativeAngle(double angle, const char * pos, const 
   }
 }
 
-void NMEA0183Encoder::appendRelativeSignedAngle(double angle, uint8_t fixed) {
+void NMEA0183Encoder::appendRelativeSignedAngle(double angle, int fixed) {
   if ( angle == -1e9 ) {
       append("");
   } else {
@@ -163,6 +207,22 @@ void NMEA0183Encoder::append(const char *field) {
   }
   buffer[p] = '\0';
 }
+
+void NMEA0183Encoder::appendBinary(const unsigned char *data, int len) {
+    append((uint16_t)len);
+    buffer[p++] = ',';  
+    int i = 0;
+    while (i < len && p < (OUTBUF_LEN-6) ){
+        buffer[p++] = NMEA0183Encoder::asHex[(data[i]>>4)&0x0f];
+        buffer[p++] = NMEA0183Encoder::asHex[(data[i])&0x0f];
+        i++;
+    }
+    if ( p >= (OUTBUF_LEN-6) ) {
+      Serial.println("Field Truncated");
+    }
+    buffer[p] = '\0';
+}
+
 
 
 const char * NMEA0183Encoder::end() {

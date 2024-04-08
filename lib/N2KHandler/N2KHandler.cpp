@@ -55,17 +55,19 @@ bool N2KHandler::parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint1
 
 
 
-double N2KHandler::updateWithTimeout(double v, double iv, unsigned long &lastUpdate, unsigned long period) {
+bool N2KHandler::updateWithTimeout(double &v, double iv, unsigned long &lastUpdate, unsigned long period) {
   unsigned long now = millis();
   if ( iv == -1e9 ) {
     if ( (now - lastUpdate) > 10000 ) {
-      return -1e9;
+      v = -1e9;
+      return false;
     } else {
-      return v;
+      return true;
     }
   } else {
     lastUpdate = now;
-    return iv;
+    v = iv;
+    return true;
   }
 }
 
@@ -141,6 +143,14 @@ void N2KHandler::handle(const tN2kMsg &N2kMsg) {
   }
 
   performance->update(aparentWindAngle, aparentWindSpeed, waterSpeed, roll, headingMagnetic, variation);
+  if ( logbook->shouldLog() ) {
+
+    logbook->log(fixSecondsSinceMidnight, daysSince1970, latitude, 
+            longitude, log, tripLog, cogt, sog,
+            waterSpeed, headingMagnetic, aparentWindSpeed, aparentWindAngle, pressure, engineSpeed,
+            engineCoolantTemp);
+
+  }
 }
 
 
@@ -170,7 +180,7 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
   double _variation;
   double _heading = 0;
   if ( ParseN2kPGN127250(N2kMsg, SID, _heading, _deviation, _variation, ref) ) {
-    pgnEncoder->send127250( SID, _source, _deviation, _variation, ref);
+    pgnEncoder->send127250( SID, _heading, _deviation, _variation, ref);
     if ( _variation != -1e9 ) {
       variation = _variation;
     }
@@ -210,7 +220,7 @@ void N2KHandler::handle127257(const tN2kMsg &N2kMsg) {
   double _roll=0;
   if ( ParseN2kPGN127257(N2kMsg, SID, _yaw, _pitch, _roll) ) {
     pgnEncoder->send127257( SID, _yaw, _pitch, _roll);
-    roll = updateWithTimeout(roll, _roll, lastRollUpdate, 10000);
+    updateWithTimeout(roll, _roll, lastRollUpdate, 10000);
     messageEncoder->sendXDR_roll(_roll);
   }
 }
@@ -226,7 +236,7 @@ void N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
 
   if ( ParseN2kPGN128259(N2kMsg,SID,_waterSpeed,_groundSpeed,SWRT) ) {
     pgnEncoder->send128259( SID, _waterSpeed, _groundSpeed, SWRT);
-    waterSpeed = updateWithTimeout(waterSpeed, _waterSpeed, lastStwUpdate, 10000);
+    updateWithTimeout(waterSpeed, _waterSpeed, lastStwUpdate, 10000);
     messageEncoder->sendVHW(headingTrue, headingMagnetic, _waterSpeed );
   }
 }
@@ -258,7 +268,10 @@ void N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
   uint32_t _tripLog;
 
   if ( ParseN2kPGN128275(N2kMsg, _daysSince1970, _secondsSinceMidnight, _log, _tripLog) ) {
-    pgnEncoder->send128275( SID, _daysSince1970, _secondsSinceMidnight, _log, _tripLog );
+    log = _log;
+    tripLog = _tripLog;
+    daysSince1970 = _daysSince1970;
+    pgnEncoder->send128275( _daysSince1970, _secondsSinceMidnight, _log, _tripLog );
     messageEncoder->sendVLW(_log, _tripLog);
   }
 }
@@ -309,11 +322,13 @@ void N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
       faaValid = true;
       faaLastValid = now;
       fixSecondsSinceMidnight = _secondsSinceMidnight;
+      daysSince1970 = _daysSince1970;
       latitude = _latitude;
       longitude = _longitude;
     } else if ( now - faaLastValid > 5000 ) {
       faaValid = false;
       fixSecondsSinceMidnight = _secondsSinceMidnight;
+      daysSince1970 = _daysSince1970;
       latitude = _latitude;
       longitude = _longitude;
     }
@@ -361,9 +376,9 @@ void N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
     // only set the stored value to -1e9 after 10s.
     // cog and sog can stop updating independently.
 
-    cogt = updateWithTimeout(cogt, _cogt, lastCogtUpdate, 10000);
-    cogm = updateWithTimeout(cogm, _cogm, lastCogmUpdate, 10000);
-    sog = updateWithTimeout(sog, _sog, lastSogUpdate, 10000);
+    updateWithTimeout(cogt, _cogt, lastCogtUpdate, 10000);
+    updateWithTimeout(cogm, _cogm, lastCogmUpdate, 10000);
+    updateWithTimeout(sog, _sog, lastSogUpdate, 10000);
     messageEncoder->sendVTG(cogt, cogm, sog, getFaaValid());
   }
 }
@@ -396,8 +411,8 @@ void N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
   if ( ParseN2kPGN130306(N2kMsg, SID, _windSpeed, _windAngle, _windReference) ) {
     pgnEncoder->send130306( SID, _windSpeed, _windAngle, _windReference);
     if ( _windReference == N2kWind_Apparent ) {
-      aparentWindAngle = updateWithTimeout(aparentWindAngle, _windAngle, lastAwaUpdate, 10000);
-      aparentWindSpeed = updateWithTimeout(aparentWindSpeed, _windSpeed, lastAwsUpdate, 10000);
+      updateWithTimeout(aparentWindAngle, _windAngle, lastAwaUpdate, 10000);
+      updateWithTimeout(aparentWindSpeed, _windSpeed, lastAwsUpdate, 10000);
       messageEncoder->sendVWR(_windAngle, _windSpeed);
       messageEncoder->sendMVR(_windAngle, _windSpeed);
     } else {
@@ -460,6 +475,7 @@ void N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
     pgnEncoder->send130314( SID, _pressureInstance,
                      _pressureSource, _pressure);
     if ( _pressureSource == N2kps_Atmospheric ) {
+      pressure = _pressure;
       messageEncoder->sendXDR_barometer(_pressure);
     }
   }
@@ -475,13 +491,13 @@ void N2KHandler::handle127245(const tN2kMsg &N2kMsg) {
                      _rudderDirectionOrder, _angleOrder) ) {
     pgnEncoder->send127245(_rudderPosition, _instance,
                      _rudderDirectionOrder, _angleOrder);
-      messageEncoder->send127245(_rudderPosition);
+      messageEncoder->sendRSA(_rudderPosition);
 
   }
 }
 
 
-void N2KHandler::handle127488(N2kMsg) {
+void N2KHandler::handle127488(const tN2kMsg &N2kMsg) {
 
   unsigned char _engineInstance;
   double _engineSpeed;
@@ -490,14 +506,19 @@ void N2KHandler::handle127488(N2kMsg) {
 
   if ( ParseN2kPGN127488(N2kMsg, _engineInstance, _engineSpeed,
                      _engineBoostPressure, _engineTiltTrim) ) {
-        pgnEncoder->send127488( _engineInstance, _engineSpeed,
+
+      if ( ! updateWithTimeout(engineSpeed, _engineSpeed, lastEngineSpeedUpdate, 5000) ) {
+        _engineBoostPressure = -1e9;
+
+      }
+      pgnEncoder->send127488( _engineInstance, _engineSpeed,
                      _engineBoostPressure, _engineTiltTrim);
 
 
   }
 
 } //EngineRapid(N2kMsg); break;
-void N2KHandler::handle127489(N2kMsg) {
+void N2KHandler::handle127489(const tN2kMsg &N2kMsg) {
 
     unsigned char _engineInstance;
     double _engineOilPress;
@@ -518,17 +539,19 @@ void N2KHandler::handle127489(N2kMsg) {
                         _fuelRate, _engineHours, _engineCoolantPress, _engineFuelPress,
                         _engineLoad, _engineTorque,
                         _status1, _status2)) {
+        updateWithTimeout(engineCoolantTemp, _engineCoolantTemp, lastEngineCoolantUpdate, 5000);
         pgnEncoder->send127489( _engineInstance, _engineOilPress,
                         _engineOilTemp, _engineCoolantTemp, _altenatorVoltage,
                         _fuelRate, _engineHours, _engineCoolantPress, _engineFuelPress,
                         _engineLoad, _engineTorque,
-                        _status1, _status2);
+                        _status1.Status, _status2.Status);
+
 
     }
 
 
 } // EngineDynamicParameters(N2kMsg); break;
-void N2KHandler::handle127505(N2kMsg) {
+void N2KHandler::handle127505(const tN2kMsg &N2kMsg) {
     unsigned char _instance;
     tN2kFluidType _fluidType; 
     double _level;
@@ -540,7 +563,7 @@ void N2KHandler::handle127505(N2kMsg) {
 
 
 } // FluidLevel(N2kMsg); break;
-void N2KHandler::handle127508(N2kMsg) {
+void N2KHandler::handle127508(const tN2kMsg &N2kMsg) {
   unsigned char _batteryInstance;
   double _batteryVoltage;
   double _batteryCurrent;
@@ -554,7 +577,7 @@ void N2KHandler::handle127508(N2kMsg) {
   }
 
 } // DCBatteryStatus(N2kMsg); break;
-void N2KHandler::handle128000(N2kMsg) {
+void N2KHandler::handle128000(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _leeway;
   if ( ParseN2kPGN128000(N2kMsg, SID, _leeway)) {
@@ -562,7 +585,7 @@ void N2KHandler::handle128000(N2kMsg) {
   }
 
 } // Leeway(N2kMsg); break;
-void N2KHandler::handle129025(N2kMsg) {
+void N2KHandler::handle129025(const tN2kMsg &N2kMsg) {
   double _latitude;
   double _longitude;
   if ( ParseN2kPGN129025(N2kMsg, _latitude, _longitude)) {
@@ -571,7 +594,7 @@ void N2KHandler::handle129025(N2kMsg) {
   }
 
 } // LatLon(N2kMsg); break;
-void N2KHandler::handle130310(N2kMsg) {
+void N2KHandler::handle130310(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _waterTemperature;
   double _outsideAmbientAirTemperature; 
@@ -584,13 +607,13 @@ void N2KHandler::handle130310(N2kMsg) {
   }
 
 } // OutsideEnvironmental(N2kMsg); break;
-void N2KHandler::handle130311(N2kMsg) {
+void N2KHandler::handle130311(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   tN2kTempSource _tempSource; 
   double _temperature;
   tN2kHumiditySource _humiditySource;
   double _humidity;
-  double atmosphericPressure;
+  double _atmosphericPressure;
   if ( ParseN2kPGN130311(N2kMsg, SID, _tempSource, _temperature,
                      _humiditySource, _humidity, _atmosphericPressure)) {
         pgnEncoder->send130311( SID, _tempSource, _temperature,
@@ -599,10 +622,11 @@ void N2KHandler::handle130311(N2kMsg) {
   }
 
 } //EnvironmentalParameters(N2kMsg); break;
-void N2KHandler::handle130313(N2kMsg) {
+void N2KHandler::handle130313(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   unsigned char _humidityInstance;
   tN2kHumiditySource _humiditySource; 
+
   double _actualHumidity; 
   double _setHumidity;
   if ( ParseN2kPGN130313(N2kMsg, SID, _humidityInstance,

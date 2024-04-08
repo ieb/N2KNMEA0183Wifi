@@ -23,6 +23,11 @@ void WebServer::begin(const char * configurationFile) {
 
     server.addHandler(&n0183WS);
     server.addHandler(&n2kWS);
+    server.addHandler(&n2kWSraw);
+    n2kWS.begin();
+    n2kWSraw.begin();
+
+
 
     server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
         request->send(SPIFFS, "/index.html", "text/html", false, [this, request](const String& var){
@@ -292,11 +297,13 @@ bool WebServer::authorized(AsyncWebServerRequest *request) {
 }
 
 
+
+
 void WebServer::sendN0183(const char *buffer) {
     n0183WS.textAll(buffer);
 }
-void WebServer::sendN2K(const char *buffer) {
-    n2kWS.textAll(buffer);
+void WebServer::sendN2K(unsigned long pgn, const char *buffer) {
+    n2kWS.send(pgn,buffer);
 }
 
 

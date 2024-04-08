@@ -7,7 +7,7 @@
 #include "NMEA0183N2KMessages.h"
 #include "N2KMessageEncoder.h"
 #include "performance.h"
-
+#include "logbook.h"
 
 
 
@@ -29,10 +29,15 @@ enum tN2kGNSSIntegrety {
 
 class N2KHandler  {
 public:
-  N2KHandler(NMEA0183N2KMessages * messageEncoder, N2KMessageEncoder * pgnEncoder, Performance * performance) : 
+  N2KHandler(NMEA0183N2KMessages * messageEncoder, 
+      N2KMessageEncoder * pgnEncoder, 
+      Performance * performance,
+      LogBook * logbook ) : 
     messageEncoder{messageEncoder}, 
     pgnEncoder{pgnEncoder},
-    performance{performance} {};
+    performance{performance},
+    logbook{logbook}
+    {};
   void handle(const tN2kMsg &N2kMsg);
 
  
@@ -41,6 +46,7 @@ private:
     NMEA0183N2KMessages * messageEncoder;
     N2KMessageEncoder * pgnEncoder;
     Performance * performance;
+    LogBook * logbook;
     // using specific properties vs an array let the compiler detect errors.
 
     unsigned long faaLastValid=0;
@@ -51,6 +57,8 @@ private:
     unsigned long lastAwsUpdate=0;
     unsigned long lastStwUpdate=0;
     unsigned long lastRollUpdate=0;
+    unsigned long lastEngineSpeedUpdate=0;
+    unsigned long lastEngineCoolantUpdate=0;
 
     double headingTrue = -1e9;
     double headingMagnetic = -1e9;
@@ -66,6 +74,13 @@ private:
     double aparentWindSpeed = -1e9;
     double waterSpeed = -1e9;
     double roll = -1e9;
+    uint16_t daysSince1970 = 0xffff;
+    uint32_t log = 0xffffffff;
+    uint32_t tripLog = 0xffffffff;
+    double pressure = -1e9;
+    double engineSpeed = -1e9;
+    double engineCoolantTemp = -1e9;
+
 
 
     void handle127258(const tN2kMsg &N2kMsg);
@@ -102,7 +117,7 @@ private:
                      double &AgeOfCorrection, tN2kGNSSIntegrety &Integrety);
 
     const char * getFaaValid();
-    double updateWithTimeout(double v, double iv, unsigned long &lastUpdate, unsigned long period);
+    bool updateWithTimeout(double &v, double iv, unsigned long &lastUpdate, unsigned long period);
 
 };
 

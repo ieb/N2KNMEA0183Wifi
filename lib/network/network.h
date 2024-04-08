@@ -105,6 +105,7 @@ private:
 
 
 #define MAX_CLIENTS 10
+#define MAX_PGNS 20
 class TcpServer  {
 public: 
     TcpServer(Stream *outputStream, uint16_t _port=10110, size_t maxClients=MAX_CLIENTS ) : 
@@ -142,6 +143,40 @@ private:
     IPAddress destination;
 };
 
+
+typedef struct tActiveClients {
+    bool used;
+    bool all;
+    AsyncWebSocketClient * client;
+    unsigned long pgns[MAX_PGNS];
+} tActiveClients;
+
+
+class PgnWebSocket: public AsyncWebSocket {
+public:
+    PgnWebSocket(const String &url) : AsyncWebSocket{url} {};
+    void begin();
+    void send(unsigned long pgn, const char * msg);
+    bool shouldSend(unsigned long pgn);
+
+    void handleWSEvent(AsyncWebSocket * server, 
+        AsyncWebSocketClient * client, 
+        AwsEventType type, 
+        void * arg, 
+        uint8_t *data, 
+        size_t len);
+
+private:
+    tActiveClients clients[MAX_CLIENTS];
+
+    bool processCommandMessage(AsyncWebSocketClient * client, 
+            uint8_t *data, size_t len, AwsFrameInfo *info);
+    bool removeClient(AsyncWebSocketClient * client);
+    bool addClient(AsyncWebSocketClient * client);
+
+};
+
+
 class WebServer {
     public:
         WebServer(Stream *outputStream) : outputStream{outputStream} {};
@@ -158,12 +193,17 @@ class WebServer {
         };
         String getBasicAuth() { return basicAuth; };
         void sendN0183(const char *buffer);
-        void sendN2K(const char *buffer);
+        void sendN2K(unsigned long pgn, const char *buffer);
+        bool shouldSend(unsigned long pgn) {
+            return n2kWS.shouldSend(pgn);
+        }
+
     private:  
         Stream *outputStream;
         AsyncWebServer server = AsyncWebServer(80);
         AsyncWebSocket n0183WS = AsyncWebSocket("/ws/183"); 
-        AsyncWebSocket n2kWS = AsyncWebSocket("/ws/2k"); 
+        PgnWebSocket n2kWSraw = PgnWebSocket("/ws/2kraw");  // supports filtering of messages.
+        PgnWebSocket n2kWS = PgnWebSocket("/ws/2kparsed");  // supports filtering of messages.
         JsonOutput *jsonHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
         CsvOutput *csvHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
         String httpauth;
