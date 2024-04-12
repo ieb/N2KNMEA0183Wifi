@@ -5,14 +5,41 @@
 #include "NMEA0183Encoder.h"
 #include <time.h>
 
+/**
+ * Generates N2K messages in one of 2 forms.
+ * Either a text NMEA0183 style format where the values are decided.
+ * $IIPGN,xxxx,yyy....zzzz*CC
+ *                         ^^ checksum
+ *             ^^^^^^^^^^^ fields specific to the pgn
+ *        ^^^^ the pgn
+ * 
+ * $IIPGR,xxxx,sss,lll,xxxxxx*CC
+ *                            ^^ checksum
+ *                     ^^^^^^ data encoded as hex
+ *                 ^^^ number of bytes encoded as hex
+ *             ^^^ source of message on can bus
+ *        ^^^^ pgn
+ * 
+ * Binary is Little endian encoded binary as follows
+ * 
+ * Byte 
+ * 0   unsigned char ^
+ * 1   uint8_t  message id
+ * 2-5 unit32_t pgn
+ * 6   unit8_t  source
+ * 7,8 uint16_t data length
+ * 9-n uint8_t data
+ * n+1,n+2 uint16_t crc16 checksum of 0-n
+ * 
+ */ 
 
-
+#define PGN_MESSAGE 1
 
 class N2KMessageEncoder : public NMEA0183Encoder {
 public:
   N2KMessageEncoder() {};
 
-  using SendBufferCallback=void (*)(unsigned long pgn, const char *);
+  using SendBufferCallback=void (*)(unsigned long pgn, const char *, bool binary);
   using CheckPgn=bool (*)(unsigned long pgn);
 
   void setSendBufferCallback(SendBufferCallback cb) {
@@ -23,6 +50,7 @@ public:
   };
 
   void sendPGN(const tN2kMsg &N2kMsg);
+  void sendBinaryPGN(const tN2kMsg &N2kMsg);
 
 
   void send127258( unsigned char SID, uint8_t _source, uint16_t _daysSince1970, double _variation);
@@ -71,8 +99,12 @@ public:
 
 
 private:
-  SendBufferCallback sendCallback;
-  CheckPgn checkPgn;
+  SendBufferCallback sendCallback = NULL;
+  CheckPgn checkPgn = NULL;
+
+  uint16_t crc16(const uint8_t *array, 
+        uint16_t length, 
+        bool finish=false, uint16_t crc=0xffff );
 
 
 

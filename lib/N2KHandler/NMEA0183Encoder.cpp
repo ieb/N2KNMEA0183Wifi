@@ -209,19 +209,20 @@ void NMEA0183Encoder::append(const char *field) {
 }
 
 void NMEA0183Encoder::appendBinary(const unsigned char *data, int len) {
-    append((uint16_t)len);
-    buffer[p++] = ',';  
-    int i = 0;
-    while (i < len && p < (OUTBUF_LEN-6) ){
-        buffer[p++] = NMEA0183Encoder::asHex[(data[i]>>4)&0x0f];
-        buffer[p++] = NMEA0183Encoder::asHex[(data[i])&0x0f];
-        i++;
-    }
-    if ( p >= (OUTBUF_LEN-6) ) {
-      Serial.println("Field Truncated");
-    }
-    buffer[p] = '\0';
+  append((uint16_t)len);
+  buffer[p++] = ',';  
+  int i = 0;
+  while (i < len && p < (OUTBUF_LEN-6) ){
+      buffer[p++] = NMEA0183Encoder::asHex[(data[i]>>4)&0x0f];
+      buffer[p++] = NMEA0183Encoder::asHex[(data[i])&0x0f];
+      i++;
+  }
+  if ( p >= (OUTBUF_LEN-6) ) {
+    Serial.println("Field Truncated");
+  }
+  buffer[p] = '\0';
 }
+
 
 
 

@@ -37,9 +37,9 @@ class JsonOutput {
         void startJson(AsyncResponseStream *outputStream);
         void endJson();
     protected:
-        bool levels[10];
+        bool levels[10] = {0,0,0,0,0,0,0,0,0};
         int level = 0;
-        AsyncResponseStream *outputStream;
+        AsyncResponseStream *outputStream=NULL;
 
 };
 
@@ -57,7 +57,7 @@ class CsvOutput {
         void appendField(unsigned long value);
         void appendField(uint32_t value);
     protected:
-        AsyncResponseStream *outputStream;
+        AsyncResponseStream *outputStream=NULL;
 };
 
 #define MAX_DATASETS 14
@@ -84,7 +84,7 @@ private:
     const char *configurationFile;
     String ssid;
     String password;
-    bool softAP;
+    bool softAP = false;
     wifi_power_t maxWifiPower = WIFI_POWER_5dBm;
     void loadIPConfig(String key);
     void loadWifiPower(String key);
@@ -154,7 +154,16 @@ typedef struct tActiveClients {
 
 class PgnWebSocket: public AsyncWebSocket {
 public:
-    PgnWebSocket(const String &url) : AsyncWebSocket{url} {};
+    PgnWebSocket(const String &url) : AsyncWebSocket{url} {
+        for (int i = 0; i < MAX_CLIENTS; ++i){
+            clients[i].used = false;
+            clients[i].all = false;
+            clients[i].client = NULL;
+            for (int j = 0; j < MAX_PGNS; ++j) {
+                clients[i].pgns[j] = 0;
+            }
+        }
+    };
     void begin();
     void send(unsigned long pgn, const char * msg);
     bool shouldSend(unsigned long pgn);

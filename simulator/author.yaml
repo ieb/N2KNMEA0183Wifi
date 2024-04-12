@@ -1,0 +1,1879 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    Adobe.ArchPath: MC.Experience Manager.Cloud
+    Adobe.CostCenter: ""
+    Adobe.Environment: dev
+    Adobe.Owner: ""
+    Adobe.SKMSServiceId: "3890"
+    aemBaseVersion: "6.5"
+    aemEnvId: "0"
+    aemEnvName: dev42
+    aemEnvType: dev
+    aemFarm: author
+    aemImsOrgId: ""
+    aemIsPreviewTier: "false"
+    aemIsSecondaryPublishTier: "false"
+    aemProgram: AEM-K8s-Base
+    aemProgramId: "1"
+    aemProgramType: standard
+    aemReleaseId: ""
+    aemSandbox: "false"
+    aemService: test-100
+    aemTenantId: aemk8s-helm-dev
+    aemTier: author
+    arc.ethos.adobe.net/notice.cpu: Pod resource requests changed by ns-team-assets-aws
+      target policy
+    arc.ethos.adobe.net/notice.memory: Pod resource requests changed by ns-team-assets-aws
+      target policy
+    arc.ethos.adobe.net/original.cpu.fluent-bit: 30m
+    arc.ethos.adobe.net/original.cpu.service-warmup: 70m
+    arc.ethos.adobe.net/original.cpu.sidecar-monitor: 16m
+    arc.ethos.adobe.net/original.cpu.test-100-aem-author: "1"
+    arc.ethos.adobe.net/original.memory.service-warmup: 70Mi
+    arc.ethos.adobe.net/original.memory.sidecar-monitor: 200Mi
+    arc.ethos.adobe.net/original.memory.test-100-aem-author: 6Gi
+    checksum/config-configmap: 5d698f7d180461150155464074282a26270782c4674e4fde9d7b4224358af716
+    checksum/customer-secrets: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+    checksum/customer-variables: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+    gatekeeper.sh/mutation-id: 2d9383f8-131b-4557-8bf4-09ea788a7a7c
+    gatekeeper.sh/mutations: Assign//psp-default-allowprivilegeescalation-init:1,
+      Assign//psp-default-allowprivilegeescalation:1, Assign//psp-readonlyrootfs-init:1,
+      Assign//psp-readonlyrootfs:1, Assign//psp-users-fsgroup:1, Assign//psp-users-supplementalgroups:1,
+      AssignMetadata//psp-seccomp:1, ModifySet//psp-capabilities-add-init:3, ModifySet//psp-capabilities-add:3,
+      ModifySet//psp-capabilities-drop-init:3, ModifySet//psp-capabilities-drop:3
+    prometheus.io/port: "8080"
+    prometheus.io/scrape: "true"
+    seccomp.security.alpha.kubernetes.io/pod: runtime/default
+  creationTimestamp: "2024-04-05T20:48:27Z"
+  generateName: test-100-aem-author-5c86ff94cd-
+  labels:
+    app: test-100-aem-author
+    appType: author
+    hpaoption_container_cpu_named: test-100-aem-author
+    netpol-egress-content-distribution: "true"
+    netpol-egress-egress-proxy: "false"
+    netpol-egress-eventing-proxy: "true"
+    netpol-egress-external-http: "true"
+    netpol-egress-external-https: "true"
+    netpol-egress-external-mongo: "true"
+    netpol-egress-formsdocservice: "true"
+    netpol-egress-invalidation-service: "true"
+    netpol-egress-logstash: "true"
+    netpol-egress-loki-proxy-3100: "true"
+    netpol-egress-pipeline-proxy: "true"
+    netpol-egress-prometheus-push-gw: "true"
+    netpol-egress-redis: "true"
+    netpol-egress-release-toggles-svc: "true"
+    netpol-ingress-content-backflow-job-8080: "true"
+    netpol-ingress-index-updates-job-8080: "true"
+    netpol-ingress-indexing-job-author-8080: "true"
+    netpol-ingress-maem-author-job-8080: "true"
+    netpol-ingress-maintenance-job-8080: "true"
+    netpol-ingress-prometheus-server: "true"
+    netpol-ingress-skyline-fcdc-8080: "true"
+    netpol-ingress-web-8080: "true"
+    pod-template-hash: 5c86ff94cd
+    release: test-100
+  name: test-100-aem-author-5c86ff94cd-vbww9
+  namespace: ns-team-assets-aws
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: test-100-aem-author-5c86ff94cd
+    uid: 75eb3cc4-5f99-4a85-840a-f0e78f15f61a
+  resourceVersion: "2218849772"
+  uid: 79b9048c-cb1d-4015-92f4-877d825e1912
+spec:
+  containers:
+  - env:
+    - name: AEM_IS_CLOUDSDK_TIER
+    - name: AEM_CLOUDSDK_RESET_COUNTER
+      value: "0000"
+    - name: assetComputeEndpoint
+      valueFrom:
+        configMapKeyRef:
+          key: assetComputeEndpoint
+          name: test-100-aem-config
+    - name: assetComputeScanEnabled
+      valueFrom:
+        configMapKeyRef:
+          key: assetComputeScanEnabled
+          name: test-100-aem-config
+    - name: assetComputeBulkImportDisabled
+      valueFrom:
+        configMapKeyRef:
+          key: assetComputeBulkImportDisabled
+          name: test-100-aem-config
+    - name: customerIntegrationsClientId
+      value: test-100-integration
+    - name: nodestore
+      value: global-mongo
+    - name: blobstore
+      value: aws
+    - name: slingJobProgressLogMaxCount
+      value: "-1"
+    - name: authorPersistentCacheConfig
+      value: '-'
+    - name: throttlingEnabled
+      value: "false"
+    - name: suspendTimeoutMillis
+      value: "60000"
+    - name: ETHOS_CONTAINER_ID
+      value: author
+    - name: ETHOS_ENV_NAME
+      value: dev01
+    - name: MALLOC_ARENA_MAX
+      value: "1"
+    - name: BBC_JAVA_MAX_MEM_RATIO
+      value: "75"
+    - name: javaargs
+      value: -XshowSettings:vm -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/launcher/logs/
+        -Doak.lucene.nonLazyIndex=true -Doak.mongo.throttlingTime=20 -Doak.mongo.throttlingThreshold=2
+        -Doak.documentMK.leaseDurationSeconds=150 -Doak.search.dynamicBoostLite=lucene
+        -Doak.documentstore.persistentCacheIncludes=/ -Doak.documentstore.cache=512  -Dlog4j2.formatMsgNoLookups=true
+    - name: LOG4J_FORMAT_MSG_NO_LOOKUPS
+      value: "true"
+    - name: PRODUCTINFO_NAME
+      value: Adobe Experience Manager
+    - name: PRODUCTINFO_SHORTNAME
+      value: AEM
+    - name: PRODUCTINFO_VERSION
+      value: 0000.00.0.0
+    - name: PRODUCTINFO_SHORTVERSION
+      value: unknown
+    - name: PRODUCTINFO_URL
+      value: http://adobe.com/aem
+    - name: THREADDUMP_PATH
+      value: threaddumps
+    - name: HEAPDUMP_PATH
+      value: /launcher/logs
+    - name: COLLECTION_INTERVAL_MINUTES
+      value: "4"
+    - name: INVALIDATION_SERVICE
+      value: http://test-100-aem-invalidation:8080
+    - name: DATASTORE_TIER_TRANSIENT
+      value: "false"
+    - name: AEM_DOMAIN_AUTHOR
+    - name: AEM_DOMAIN_PUBLISH
+    - name: AEM_DOMAIN_PREVIEW
+    - name: AEM_DOMAIN_STATIC
+    - name: FORMS_DOCUMENT_SERVICE
+      value: test-100-aem-formsdocservice:8080/
+    - name: FORMS_DOCUMENT_SERVICE_PORT
+      value: "8080"
+    - name: TERMINATION_PATH
+      value: /dev/termination-log
+    - name: ENABLE_OOM_HANDLER
+      value: "true"
+    - name: PROMETHEUS_PUSHGATEWAY
+      value: pushgateway:9091
+    - name: TZ
+      value: Etc/UTC
+    - name: AEM_PASSWORD_FILE
+      value: /mnt/sandbox/aem-password.properties
+    - name: OSGI_SECRETS_PATH
+      value: /mnt/osgisecrets
+    - name: IMS_YAML_PATH
+      value: /mnt/ims-yaml-file
+    - name: AEM_LICENSE_FILE
+      value: /mnt/osgisecrets/aem/license.properties
+    - name: aemTmp
+      value: /mnt/sandbox/aem
+    - name: ETHOS_SERVICE_NAME
+      value: test-100-aem
+    - name: ETHOS_ENV_CLUSTER_TYPE
+      value: stage
+    - name: ENVIRONMENT_NAME
+      value: dev
+    - name: aemEnvType
+      value: dev
+    - name: aemProgramType
+      value: standard
+    - name: REGION_NAME
+      value: us-east-2
+    - name: aemProgram
+      value: AEM-K8s-Base
+    - name: aemIsSandbox
+      value: "false"
+    - name: AEM_PREVIEW_ENABLED
+      value: "false"
+    - name: AEM_IS_PREVIEW_TIER
+      value: "false"
+    - name: PERSIST_LOGS
+      value: "1"
+    - name: MY_POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: MY_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: NETWORK_TIMEOUT_DEFAULTS
+      value: 10000,60000,v
+    - name: environment_types
+      value: dev
+    - name: RT_TS_ENDPOINT
+      value: http://rt-ts-svc.ns-team-aemops:8080
+    - name: RT_CONTEXT_TYPE
+    - name: RT_CONTEXT_SCOPE
+    - name: S6_SERVICES_GRACETIME
+      value: "300000"
+    - name: S6_KILL_FINISH_MAXTIME
+      value: "5000"
+    - name: S6_KILL_GRACETIME
+      value: "3000"
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    - name: AEM_LAUNCH_MODE
+      value: standard
+    - name: TRANSFORM_ARTIFACTS_LOCATION
+      value: /mnt/sandbox/transformartifacts
+    - name: ETHOS_ENV_CLUSTER_NAME
+    - name: ETHOS_ENV_NAMESPACE_TYPE
+      valueFrom:
+        configMapKeyRef:
+          key: gitinit-ops.environment
+          name: gitinit-configmap
+    - name: AEM_CM_TYPE
+      value: dev
+    - name: AEM_SOLUTIONS
+    - name: AEM_ADDONS
+    - name: contentDistributionStyle
+    - name: contentDistributionServiceUrl
+      value: http://content-distribution.ns-team-content-distribution.svc.cluster.local:8080
+    - name: DISABLE_SYNC_INVALIDATION
+      value: "true"
+    - name: pipelineImsOrg
+      value: aem-ns-team-assets-aws-test-100
+    - name: pipelineSource
+      value: 1-test-100-00000000-0000-0000-0000-000000000000
+    - name: pipelineDirectUrl
+    - name: mainRegionEthosName
+      value: NA
+    - name: pipelinePublishRegions
+      value: NA
+    - name: secondaryPublishTierEnabled
+      value: "false"
+    - name: messagingProviderServerUriPath
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: binaryStoreContainer
+      value: aem-distribution
+    - name: binaryStoreType
+      value: cloud
+    - name: binaryStoreRetentionHours
+      value: "240"
+    - name: blobAzureCacheSize
+      valueFrom:
+        configMapKeyRef:
+          key: blobCacheSizeAuthor
+          name: test-100-aem-directaccess
+    - name: blobAwsCacheSize
+      valueFrom:
+        configMapKeyRef:
+          key: blobCacheSizeAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedUploadExpiry
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedUploadExpiryAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadExpiry
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadExpiryAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadCache
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadCacheAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadVerifyExists
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadVerifyExistsAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadURIDomainOverride
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadURIDomainOverrideAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedUploadURIDomainOverride
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedUploadURIDomainOverrideAuthor
+          name: test-100-aem-directaccess
+    - name: blobStagingSplitPercentage
+      valueFrom:
+        configMapKeyRef:
+          key: blobStagingSplitPercentageAuthor
+          name: test-100-aem-directaccess
+    envFrom:
+    - configMapRef:
+        name: test-100-aem-lazy-config
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos-internal/aem-author-empty:66b0099c5a-internal
+    imagePullPolicy: Always
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - sleep
+          - "610"
+    livenessProbe:
+      failureThreshold: 6
+      httpGet:
+        httpHeaders:
+        - name: X-AEM-LIVENESS-PROBE
+          value: Liveness-Probe
+        path: /system/probes/live
+        port: 8080
+        scheme: HTTP
+      periodSeconds: 15
+      successThreshold: 1
+      timeoutSeconds: 10
+    name: test-100-aem-author
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 6
+      httpGet:
+        httpHeaders:
+        - name: X-AEM-LIVENESS-PROBE
+          value: Liveness-Probe
+        path: /system/probes/ready
+        port: 8080
+        scheme: HTTP
+      periodSeconds: 1
+      successThreshold: 1
+      timeoutSeconds: 10
+    resources:
+      limits:
+        cpu: "2"
+        memory: 6Gi
+      requests:
+        cpu: 219m
+        memory: 5760Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: false
+    startupProbe:
+      failureThreshold: 1345
+      httpGet:
+        httpHeaders:
+        - name: X-AEM-LIVENESS-PROBE
+          value: Liveness-Probe
+        path: /system/probes/start
+        port: 8080
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 2
+      successThreshold: 1
+      timeoutSeconds: 10
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/osgisecrets/invalidation
+      name: invalidation-secret
+    - mountPath: /mnt/sandbox
+      name: sandbox
+    - mountPath: /launcher/logs
+      name: logs
+    - mountPath: /opt/aem/launcher/repository
+      name: download
+    - mountPath: /mnt/osgisecrets/imsDevConsoleClientId
+      name: sdc-config
+      subPath: clientId
+    - mountPath: /mnt/osgisecrets/aem/license.properties
+      name: aem-secret
+      subPath: aemLicense
+    - mountPath: /mnt/osgisecrets/mongo
+      name: mongo-overridden
+      readOnly: true
+    - mountPath: /mnt/ims-yaml-file
+      name: ims-yaml
+      readOnly: true
+    - mountPath: /mnt/osgisecrets/aws/accessKey
+      name: blobstore-aws-overridden
+      subPath: accessKey
+    - mountPath: /mnt/osgisecrets/aws/secretKey
+      name: blobstore-aws-overridden
+      subPath: secretKey
+    - mountPath: /mnt/osgisecrets/aws/container
+      name: blobstore-aws
+      subPath: container
+    - mountPath: /mnt/osgisecrets/aws/region
+      name: blobstore-aws
+      subPath: region
+    - mountPath: /mnt/osgisecrets/cloud/provider
+      name: blobstore-aws
+      subPath: provider
+    - mountPath: /mnt/osgisecrets/elasticsearch/host
+      name: elasticsearch-injected-secret
+      subPath: host
+    - mountPath: /mnt/osgisecrets/elasticsearch/port
+      name: elasticsearch-injected-secret
+      subPath: port
+    - mountPath: /mnt/osgisecrets/elasticsearch/apiKeyId
+      name: elasticsearch-injected-secret
+      subPath: apiKeyId
+    - mountPath: /mnt/osgisecrets/elasticsearch/apiKeySecret
+      name: elasticsearch-injected-secret
+      subPath: apiKeySecret
+    - mountPath: /mnt/osgisecrets/migration-token
+      name: migration-generated-token
+  - env:
+    - name: SYSTEMREADY_URL
+      value: http://localhost:8080/system/probes/ready
+    - name: DISPATCHER_HOST
+      value: localhost:8080
+    - name: LOG_FILE
+      value: /app/logs/warmup.log
+    - name: REDIS_HOST
+      value: test-100-aem-redis:6379
+    - name: REDIS_PASSWORD
+    - name: REDIS_PREFIX
+      value: test-100-aem-author
+    - name: REDIS_TLS
+      value: "false"
+    - name: HTTP_API_PORT
+      value: "7070"
+    - name: HTTP_USER
+      value: admin
+    - name: HTTP_PASSWORD_FILE
+      value: /app/adminPassword
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    - name: AEM_LAUNCH_MODE
+      value: standard
+    - name: TRANSFORM_ARTIFACTS_LOCATION
+      value: /mnt/sandbox/transformartifacts
+    - name: ETHOS_ENV_CLUSTER_NAME
+    - name: ETHOS_ENV_NAMESPACE_TYPE
+      valueFrom:
+        configMapKeyRef:
+          key: gitinit-ops.environment
+          name: gitinit-configmap
+    - name: AEM_CM_TYPE
+      value: dev
+    - name: AEM_SOLUTIONS
+    - name: AEM_ADDONS
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/service-warmup:1.4.22
+    imagePullPolicy: IfNotPresent
+    name: service-warmup
+    ports:
+    - containerPort: 7070
+      protocol: TCP
+    readinessProbe:
+      exec:
+        command:
+        - /app/scripts/is_alive.sh
+      failureThreshold: 3
+      initialDelaySeconds: 5
+      periodSeconds: 1
+      successThreshold: 1
+      timeoutSeconds: 5
+    resources:
+      limits:
+        cpu: 900m
+        memory: 70Mi
+      requests:
+        cpu: 25m
+        memory: 30Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: false
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /app/logs
+      name: logs
+    - mountPath: /app/adminPassword
+      name: aem-secret
+      subPath: adminPassword
+  - args:
+    - -c
+    - export CONTAINER_ID=$(cat /proc/self/cgroup | grep 'cpu' | sed 's/\//\n/g' |
+      sed -n '$p'); mkdir /fluent-bit/etc-processed; cat /fluent-bit/etc-template/functions.lua
+      > /fluent-bit/etc-processed/functions.lua; cat /fluent-bit/etc-template/stream_processor.conf
+      > /fluent-bit/etc-processed/stream_processor.conf; cat /fluent-bit/etc-template/parsers.conf
+      > /fluent-bit/etc-processed/parsers.conf; SPLUNK_CUSTOMER_TOKEN=$(cat /mnt/osgisecrets/customer-splunk/token
+      2> /dev/null || true); SPLUNK_CUSTOMER_TOKEN=${SPLUNK_CUSTOMER_TOKEN:-no_customer_token};
+      sed -e s/__SPLUNK_TOKEN__/$(cat /mnt/osgisecrets/splunk/token)/g -e s/__SPLUNK_CONTAINERS_TOKEN__/$(cat
+      /mnt/osgisecrets/splunk/tokenContainers)/g -e s/__CUSTOMER_SPLUNK_TOKEN__/${SPLUNK_CUSTOMER_TOKEN}/g
+      /fluent-bit/etc-template/fluent-bit-2.conf > /fluent-bit/etc-processed/fluent-bit.conf;
+      chmod 0400 /fluent-bit/etc-processed/*.*; /fluent-bit/bin/fluent-bit -e /fluent-bit/bin/out_grafana_loki.so
+      -c /fluent-bit/etc-processed/fluent-bit.conf
+    command:
+    - sh
+    env:
+    - name: TAIL_BUF_LIMIT
+      value: 5MB
+    - name: SPLUNK_INDEX
+      valueFrom:
+        configMapKeyRef:
+          key: splunkIndex
+          name: splunk-dev
+    - name: SPLUNK_HOST
+      valueFrom:
+        configMapKeyRef:
+          key: splunkHost
+          name: splunk-dev
+    - name: SPLUNK_PORT
+      valueFrom:
+        configMapKeyRef:
+          key: splunkPort
+          name: splunk-dev
+    - name: SPLUNK_CONTAINERS_INDEX
+      valueFrom:
+        configMapKeyRef:
+          key: splunkContainersIndex
+          name: splunk-dev
+    - name: SPLUNK_CONTAINERS_HOST
+      valueFrom:
+        configMapKeyRef:
+          key: splunkContainersHost
+          name: splunk-dev
+    - name: SPLUNK_CONTAINERS_PORT
+      valueFrom:
+        configMapKeyRef:
+          key: splunkContainersPort
+          name: splunk-dev
+    - name: SPLUNK_INDEX_CUSTOMER
+      valueFrom:
+        configMapKeyRef:
+          key: splunkCustomerIndex
+          name: splunk-customer
+          optional: true
+    - name: SPLUNK_HOST_CUSTOMER
+      valueFrom:
+        configMapKeyRef:
+          key: splunkCustomerHost
+          name: splunk-customer
+          optional: true
+    - name: SPLUNK_PORT_CUSTOMER
+      valueFrom:
+        configMapKeyRef:
+          key: splunkCustomerPort
+          name: splunk-customer
+          optional: true
+    - name: SPLUNK_TLS
+      value: "On"
+    - name: SPLUNK_TLS_VERIFY
+      value: "On"
+    - name: SPLUNK_SEND_RAW
+      value: "On"
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/fluent-bit-loki:1.6.3.ADOBE.loki.4-debug
+    imagePullPolicy: IfNotPresent
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - sleep
+          - "6"
+    name: fluent-bit
+    ports:
+    - containerPort: 2020
+      protocol: TCP
+    resources:
+      limits:
+        cpu: 800m
+        memory: 600Mi
+      requests:
+        cpu: 13m
+        memory: 300Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: false
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /logging-volume
+      name: logging-volume
+    - mountPath: /var/fluent-bit
+      name: fluent-data
+    - mountPath: /fluent-bit/etc-template
+      name: fluent-bit-config
+    - mountPath: /var/log/aem
+      name: logs
+    - mountPath: /etc/podinfo
+      name: podinfo
+    - mountPath: /mnt/osgisecrets/splunk/token
+      name: splunk-secret
+      subPath: token
+    - mountPath: /mnt/osgisecrets/splunk/tokenContainers
+      name: splunk-secret
+      subPath: tokenContainers
+    - mountPath: /mnt/osgisecrets/customer-splunk/token
+      name: customer-splunk-secret
+      subPath: token
+  - env:
+    - name: ETHOS_CONTAINER_ID
+      value: sidecar-monitor
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    - name: AEM_LAUNCH_MODE
+      value: standard
+    - name: TRANSFORM_ARTIFACTS_LOCATION
+      value: /mnt/sandbox/transformartifacts
+    - name: ETHOS_ENV_CLUSTER_NAME
+    - name: ETHOS_ENV_NAMESPACE_TYPE
+      valueFrom:
+        configMapKeyRef:
+          key: gitinit-ops.environment
+          name: gitinit-configmap
+    - name: AEM_CM_TYPE
+      value: dev
+    - name: AEM_SOLUTIONS
+    - name: AEM_ADDONS
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/sidecar-monitor:6fa25b7c
+    imagePullPolicy: IfNotPresent
+    name: sidecar-monitor
+    ports:
+    - containerPort: 8082
+      name: sidecar-monitor
+      protocol: TCP
+    resources:
+      limits:
+        cpu: 500m
+        memory: 200Mi
+      requests:
+        cpu: 13m
+        memory: 30Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - all
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/sandbox
+      name: sandbox
+  dnsConfig:
+    nameservers:
+    - 169.254.20.10
+    options:
+    - name: ndots
+      value: "1"
+    searches:
+    - ns-team-assets-aws.svc.cluster.local
+    - svc.cluster.local
+    - cluster.local
+  dnsPolicy: None
+  enableServiceLinks: false
+  imagePullSecrets:
+  - name: adobe-artifactory-secret
+  - name: skyline-acr-registry-secret
+  initContainers:
+  - args:
+    - -v
+    - -r
+    - /opt/aem/build/product/repository/author/launcher/repository-libs/segmentstore
+    - /mnt/sandbox/segmentstore
+    command:
+    - /bin/cp
+    env:
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    - name: AEM_LAUNCH_MODE
+      value: standard
+    - name: TRANSFORM_ARTIFACTS_LOCATION
+      value: /mnt/sandbox/transformartifacts
+    - name: ETHOS_ENV_CLUSTER_NAME
+    - name: ETHOS_ENV_NAMESPACE_TYPE
+      valueFrom:
+        configMapKeyRef:
+          key: gitinit-ops.environment
+          name: gitinit-configmap
+    - name: AEM_CM_TYPE
+      value: dev
+    - name: AEM_SOLUTIONS
+    - name: AEM_ADDONS
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos-internal/aem-author-empty:66b0099c5a-internal
+    imagePullPolicy: Always
+    name: init-01-copy-author-seed-to-volume
+    resources:
+      limits:
+        cpu: "2"
+        memory: 2Gi
+      requests:
+        cpu: 100m
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: false
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/sandbox
+      name: sandbox
+  - args:
+    - -c
+    - /opt/aem/init-steps-author.sh
+    command:
+    - /bin/sh
+    env:
+    - name: sandbox
+      value: /mnt/sandbox
+    - name: mongodb_uri
+      valueFrom:
+        secretKeyRef:
+          key: mongoDbUri
+          name: mongo-atlas-aws
+    - name: mongodb_name
+      valueFrom:
+        secretKeyRef:
+          key: name
+          name: test-100-aem-mongo
+    - name: blobStoreProvider
+      valueFrom:
+        secretKeyRef:
+          key: provider
+          name: test-100-aem-aws
+    - name: blobAwsS3Encryption
+      value: SSE_S3
+    - name: blobAwsRegion
+      valueFrom:
+        secretKeyRef:
+          key: region
+          name: test-100-aem-aws
+    - name: blobAwsAccessKey
+      valueFrom:
+        secretKeyRef:
+          key: accessKey
+          name: test-100-aem-aws
+    - name: blobAwsSecret
+      valueFrom:
+        secretKeyRef:
+          key: secretKey
+          name: test-100-aem-aws
+    - name: blobAwsContainer
+      valueFrom:
+        secretKeyRef:
+          key: container
+          name: test-100-aem-blobstore-aws
+    - name: blobAzureCacheSize
+      valueFrom:
+        configMapKeyRef:
+          key: blobCacheSizeAuthor
+          name: test-100-aem-directaccess
+    - name: blobAwsCacheSize
+      valueFrom:
+        configMapKeyRef:
+          key: blobCacheSizeAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedUploadExpiry
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedUploadExpiryAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadExpiry
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadExpiryAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadCache
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadCacheAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadVerifyExists
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadVerifyExistsAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedDownloadURIDomainOverride
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedDownloadURIDomainOverrideAuthor
+          name: test-100-aem-directaccess
+    - name: blobPresignedUploadURIDomainOverride
+      valueFrom:
+        configMapKeyRef:
+          key: blobPresignedUploadURIDomainOverrideAuthor
+          name: test-100-aem-directaccess
+    - name: blobStagingSplitPercentage
+      valueFrom:
+        configMapKeyRef:
+          key: blobStagingSplitPercentageAuthor
+          name: test-100-aem-directaccess
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    - name: AEM_LAUNCH_MODE
+      value: standard
+    - name: TRANSFORM_ARTIFACTS_LOCATION
+      value: /mnt/sandbox/transformartifacts
+    - name: ETHOS_ENV_CLUSTER_NAME
+    - name: ETHOS_ENV_NAMESPACE_TYPE
+      valueFrom:
+        configMapKeyRef:
+          key: gitinit-ops.environment
+          name: gitinit-configmap
+    - name: AEM_CM_TYPE
+      value: dev
+    - name: AEM_SOLUTIONS
+    - name: AEM_ADDONS
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/tools:aem-on-aws-53
+    imagePullPolicy: IfNotPresent
+    name: init-02-init-mongo-with-seed-and-copy-password
+    resources:
+      limits:
+        cpu: "2"
+        memory: 2Gi
+      requests:
+        cpu: 100m
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: false
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/aem-password/aem-password.properties
+      name: aem-secret
+      subPath: adminPasswordFile
+    - mountPath: /mnt/sandbox
+      name: sandbox
+    - mountPath: /mnt/osgisecrets/mongo
+      name: mongo-overridden
+      readOnly: true
+    - mountPath: /mnt/ims-yaml-file
+      name: ims-yaml
+      readOnly: true
+  - env:
+    - name: DISABLED
+      valueFrom:
+        configMapKeyRef:
+          key: indexdownload.disabled
+          name: index-download-author-config
+          optional: true
+    - name: PROMETHEUS_PUSHGATEWAY
+      value: pushgateway:9091
+    - name: BLOB_DOWNLOAD_TIMEOUT_ENV
+      value: 15m
+    - name: IMAGE_VERSION
+      value: aem-ethos/copy-blob-lucene:0.1.52
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.uid
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: CLUSTER
+      valueFrom:
+        configMapKeyRef:
+          key: cluster
+          name: gitinit-configmap
+    - name: HOST_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.hostIP
+    - name: AEM_PROGRAM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgram']
+    - name: AEM_PROGRAM_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemProgramId']
+    - name: AEM_TIER
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTier']
+    - name: AEM_FARM
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemFarm']
+    - name: AEM_ENV_TYPE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvType']
+    - name: AEM_ENV_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvName']
+    - name: AEM_ENV_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemEnvId']
+    - name: AEM_IMS_ORG
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemImsOrgId']
+    - name: AEM_SERVICE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemService']
+    - name: AEM_BASE_VERSION
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemBaseVersion']
+    - name: AEM_SANDBOX
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemSandbox']
+    - name: AEM_RELEASE_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemReleaseId']
+    - name: AEM_TENANT_ID
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations['aemTenantId']
+    - name: AEM_LAUNCH_MODE
+      value: standard
+    - name: TRANSFORM_ARTIFACTS_LOCATION
+      value: /mnt/sandbox/transformartifacts
+    - name: ETHOS_ENV_CLUSTER_NAME
+    - name: ETHOS_ENV_NAMESPACE_TYPE
+      valueFrom:
+        configMapKeyRef:
+          key: gitinit-ops.environment
+          name: gitinit-configmap
+    - name: AEM_CM_TYPE
+      value: dev
+    - name: AEM_SOLUTIONS
+    - name: AEM_ADDONS
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/copy-blob-lucene:0.1.52
+    imagePullPolicy: IfNotPresent
+    name: init-03-index-download
+    resources:
+      limits:
+        cpu: "4"
+        memory: 4Gi
+      requests:
+        cpu: "1"
+        memory: 4Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - AUDIT_WRITE
+        drop:
+        - FSETID
+        - NET_RAW
+        - SETFCAP
+        - SETPCAP
+        - SYS_PTRACE
+      readOnlyRootFilesystem: false
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/sandbox
+      name: sandbox
+    - mountPath: /launcher/logs
+      name: logs
+    - mountPath: /opt/aem/launcher/repository
+      name: download
+    - mountPath: /mnt/osgisecrets/mongo
+      name: mongo-overridden
+      readOnly: true
+    - mountPath: /mnt/ims-yaml-file
+      name: ims-yaml
+      readOnly: true
+    - mountPath: /mnt/osgisecrets/aws/accessKey
+      name: blobstore-aws-overridden
+      subPath: accessKey
+    - mountPath: /mnt/osgisecrets/aws/secretKey
+      name: blobstore-aws-overridden
+      subPath: secretKey
+    - mountPath: /mnt/osgisecrets/aws/container
+      name: blobstore-aws
+      subPath: container
+    - mountPath: /mnt/osgisecrets/aws/region
+      name: blobstore-aws
+      subPath: region
+    - mountPath: /mnt/osgisecrets/cloud/provider
+      name: blobstore-aws
+      subPath: provider
+  nodeName: ip-10-91-226-9.ec2.internal
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext:
+    fsGroup: 1
+    supplementalGroups:
+    - 1
+    sysctls:
+    - name: net.ipv4.tcp_keepalive_time
+      value: "120"
+    - name: net.ipv4.ip_unprivileged_port_start
+      value: "0"
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 700
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: invalidation-secret
+    secret:
+      defaultMode: 420
+      optional: true
+      secretName: test-100-aem-invalidation
+  - emptyDir:
+      sizeLimit: 45Gi
+    name: sandbox
+  - emptyDir: {}
+    name: download
+  - name: aws
+    secret:
+      defaultMode: 420
+      secretName: test-100-aem-aws
+  - name: aws-overridden
+    secret:
+      defaultMode: 420
+      secretName: test-100-aem-aws
+  - emptyDir: {}
+    name: logs
+  - name: splunk-secret
+    secret:
+      defaultMode: 420
+      secretName: splunk-dev
+  - downwardAPI:
+      defaultMode: 420
+      items:
+      - fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.annotations
+        path: annotations
+    name: podinfo
+  - name: sdc-config
+    secret:
+      defaultMode: 420
+      optional: true
+      secretName: sdc-config
+  - name: aem-secret
+    secret:
+      defaultMode: 420
+      secretName: test-100-aem-aem
+  - name: blobstore-aws
+    secret:
+      defaultMode: 420
+      optional: false
+      secretName: test-100-aem-blobstore-aws
+  - name: blobstore-aws-overridden
+    secret:
+      defaultMode: 420
+      optional: false
+      secretName: test-100-aem-blobstore-aws
+  - name: mongo-overridden
+    projected:
+      defaultMode: 420
+      sources:
+      - secret:
+          items:
+          - key: mongoApiKey
+            path: key
+          - key: mongoApiProject
+            path: project
+          - key: mongoApiCluster
+            path: cluster
+          name: test-100-aem-mongo
+      - secret:
+          items:
+          - key: mongoDbUri
+            path: uri
+          name: mongo-atlas-aws
+      - secret:
+          items:
+          - key: name
+            path: name
+          name: test-100-aem-mongo
+  - name: ims-yaml
+    projected:
+      defaultMode: 420
+      sources:
+      - secret:
+          name: aem-ims-yaml
+          optional: true
+  - name: elasticsearch-injected-secret
+    secret:
+      defaultMode: 420
+      optional: true
+      secretName: test-100-aem-elasticsearch-injected-secret
+  - emptyDir: {}
+    name: logging-volume
+  - emptyDir: {}
+    name: fluent-data
+  - configMap:
+      defaultMode: 420
+      name: fluent-bit-sidecar-config-loki16
+    name: fluent-bit-config
+  - name: customer-splunk-secret
+    secret:
+      defaultMode: 420
+      optional: true
+      secretName: customer-splunk-secret
+  - name: migration-generated-token
+    secret:
+      defaultMode: 420
+      optional: true
+      secretName: test-100-aem-migration-generated-token
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2024-04-05T20:51:27Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2024-04-05T20:52:50Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2024-04-05T20:52:50Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2024-04-05T20:48:27Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: cri-o://2d86ec350a5b3e563e820a1bfed2beca3510fadae0f33e0d48704da8eda6e837
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/fluent-bit-loki:1.6.3.ADOBE.loki.4-debug
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/fluent-bit-loki@sha256:16db59756ad7dd20f3feb33efbeec55e46a98934a382371c6d091da46fdfc9af
+    lastState: {}
+    name: fluent-bit
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2024-04-05T20:51:50Z"
+  - containerID: cri-o://007c1f816d00300aa5203c2a27d2a1c4876ae3981b621948438e4d58da239bfa
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/service-warmup:1.4.22
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/service-warmup@sha256:119de9d0fa5425235cbbf1198c079d3a028b261f29836fc1993b5a9228ef0db4
+    lastState: {}
+    name: service-warmup
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2024-04-05T20:51:42Z"
+  - containerID: cri-o://f140ca521d3f0782e9b21278df12d72282d624ab76dd327943f157a5e42507ca
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/sidecar-monitor:6fa25b7c
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/sidecar-monitor@sha256:66d5cca1e479b0b02237d2b4a9bd4f1c573f39ba2e6f377aa886975d8ca9d599
+    lastState: {}
+    name: sidecar-monitor
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2024-04-05T20:51:56Z"
+  - containerID: cri-o://57c495495c92a926b0757ab588fc83d9daafad565567b60b854cf4aa39d94e6e
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos-internal/aem-author-empty:66b0099c5a-internal
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos-internal/aem-author-empty@sha256:2cab7240ace72d7e656ad9c941958791218a7916e0cfed3bc39f44004f6e0da8
+    lastState: {}
+    name: test-100-aem-author
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2024-04-05T20:51:28Z"
+  hostIP: 10.91.226.9
+  initContainerStatuses:
+  - containerID: cri-o://7771fb1f3e0bc6c8f62df3b1eb18b2c21a352c84dee5803edcc28f2ce30e81c7
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos-internal/aem-author-empty:66b0099c5a-internal
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos-internal/aem-author-empty@sha256:2cab7240ace72d7e656ad9c941958791218a7916e0cfed3bc39f44004f6e0da8
+    lastState: {}
+    name: init-01-copy-author-seed-to-volume
+    ready: true
+    restartCount: 0
+    state:
+      terminated:
+        containerID: cri-o://7771fb1f3e0bc6c8f62df3b1eb18b2c21a352c84dee5803edcc28f2ce30e81c7
+        exitCode: 0
+        finishedAt: "2024-04-05T20:49:24Z"
+        reason: Completed
+        startedAt: "2024-04-05T20:49:24Z"
+  - containerID: cri-o://84baa8dffb23400bebeb2037862aab628ed95ee7a9456e00fa7d40c0e45436db
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/tools:aem-on-aws-53
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/tools@sha256:3806ac88cb1245d279fe6766535e280d306a079aada1aefa29763bdf280b991d
+    lastState: {}
+    name: init-02-init-mongo-with-seed-and-copy-password
+    ready: true
+    restartCount: 0
+    state:
+      terminated:
+        containerID: cri-o://84baa8dffb23400bebeb2037862aab628ed95ee7a9456e00fa7d40c0e45436db
+        exitCode: 0
+        finishedAt: "2024-04-05T20:50:31Z"
+        reason: Completed
+        startedAt: "2024-04-05T20:50:27Z"
+  - containerID: cri-o://288876923c134b8c8d3ca0bf6ba948ce52897d6209e17289bc515fda6ba703ed
+    image: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/copy-blob-lucene:0.1.52
+    imageID: docker2-granite-release-local.dr-uw2.adobeitc.com/aem-ethos/copy-blob-lucene@sha256:975dcc0c6d4f683779ac4efeff0bf01490dd95c7e167cb28607e3c27ddde2b67
+    lastState: {}
+    name: init-03-index-download
+    ready: true
+    restartCount: 0
+    state:
+      terminated:
+        containerID: cri-o://288876923c134b8c8d3ca0bf6ba948ce52897d6209e17289bc515fda6ba703ed
+        exitCode: 0
+        finishedAt: "2024-04-05T20:51:26Z"
+        reason: Completed
+        startedAt: "2024-04-05T20:51:19Z"
+  phase: Running
+  podIP: 100.64.182.18
+  podIPs:
+  - ip: 100.64.182.18
+  qosClass: Burstable
+  startTime: "2024-04-05T20:48:27Z"

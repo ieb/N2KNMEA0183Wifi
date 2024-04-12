@@ -1,0 +1,40 @@
+<html>
+<head>
+</head>
+<body>
+    Open the console
+<script>
+    (() => {
+  const ws = new WebSocket('ws://localhost:8080/ws/183')
+  ws.onopen = () => {
+    console.log('ws opened on browser')
+    ws.send('allpgns:1')
+  }
+
+  ws.onmessage = (message) => {
+    console.log(`ws message received ${message}`)
+  }
+
+  const ws2kparsed = new WebSocket('ws://localhost:8080/ws/2kparsed')
+  ws2kparsed.onopen = () => {
+    console.log('ws opened on browser')
+    ws2kparsed.send('allpgns:1')
+  }
+
+  ws2kparsed.onmessage = (message) => {
+    console.log(`ws2kparsed message received ${message}`)
+  }
+
+  const ws2kraw = new WebSocket('ws://localhost:8080/ws/2kraw')
+  ws2kraw.onopen = () => {
+    console.log('ws opened on browser')
+    ws2kraw.send('allpgns:1')
+  }
+
+  ws2kraw.onmessage = (message) => {
+    console.log("ws2kraw message received" ${message});
+  }
+
+})()
+</script>
+</html>

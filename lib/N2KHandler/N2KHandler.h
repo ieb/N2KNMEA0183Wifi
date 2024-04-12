@@ -9,7 +9,9 @@
 #include "performance.h"
 #include "logbook.h"
 
-
+/**
+ * Handles N2KMessages, parsing converting and emitting.
+ */ 
 
 
 

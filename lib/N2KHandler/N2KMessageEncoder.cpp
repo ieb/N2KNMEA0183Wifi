@@ -9,10 +9,69 @@ void N2KMessageEncoder::sendPGN(const tN2kMsg &N2kMsg) {
         append((uint32_t)N2kMsg.PGN);
         append(N2kMsg.Source);
         appendBinary(&N2kMsg.Data[0], N2kMsg.DataLen);
-        sendCallback(N2kMsg.PGN, end());
-
+        sendCallback(N2kMsg.PGN, end(), false);
     }
 } 
+
+
+void N2KMessageEncoder::sendBinaryPGN(const tN2kMsg &N2kMsg) {
+    if ( checkPgn(N2kMsg.PGN)) {
+
+      p = 0;
+      buffer[p++] = '^';  // start of binary message, not to clash with $ or ! from NMEA0183
+      unsigned long pgn = N2kMsg.PGN;
+      uint16_t messageLength = N2kMsg.DataLen;
+      buffer[p++] = PGN_MESSAGE;
+      buffer[p++] = pgn&0xff;
+      buffer[p++] = (pgn>>8)&0xff;
+      buffer[p++] = (pgn>>16)&0xff;
+      buffer[p++] = (pgn>>24)&0xff;
+      buffer[p++] = N2kMsg.Source&0xff;
+      buffer[p++] = (messageLength)&0xff;
+      buffer[p++] = (messageLength>>8)&0xff;
+      for (int i = 0; i < messageLength; ++i){
+        buffer[p++] = N2kMsg.Data[i];
+      }
+
+      uint16_t crc = crc16((const uint8_t *)buffer, p);
+      buffer[p++] = crc&0xff;
+      buffer[p++] = (crc>>8)&0xff;
+      // modbus checksum ?
+      sendCallback(pgn, buffer, true);
+    }
+}
+
+
+
+uint16_t N2KMessageEncoder::crc16(const uint8_t *array, 
+        uint16_t length, 
+        bool finish, uint16_t crc ) {
+    while (length--) {
+        if ((length & 0xFF) == 0) yield();  // RTOS
+        uint8_t data = *array++;
+        data = (((data & 0xAA) >> 1) | ((data & 0x55) << 1));
+        data = (((data & 0xCC) >> 2) | ((data & 0x33) << 2));
+        data =          ((data >> 4) | (data << 4));
+        crc ^= ((uint16_t)data) << 8;
+        for (uint8_t i = 8; i; i--) {
+        if (crc & (1 << 15)) {
+            crc <<= 1;
+            crc ^= 0x8005;
+        } else {
+            crc <<= 1;
+        }
+        }
+    }
+    if ( finish ) {
+        crc = (((crc & 0XAAAA) >> 1) | ((crc & 0X5555) << 1));
+        crc = (((crc & 0xCCCC) >> 2) | ((crc & 0X3333) << 2));
+        crc = (((crc & 0xF0F0) >> 4) | ((crc & 0X0F0F) << 4));
+    }
+    //  crc = (( crc >> 8) | (crc << 8));
+    //  crc ^= endmask;
+    return crc;
+}
+
 
 
 
@@ -24,7 +83,7 @@ void N2KMessageEncoder::send127258( unsigned char SID, uint8_t _source, uint16_t
         append(_source);
         append(_daysSince1970);
         append(_variation,1.0,4);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 
 }
@@ -38,7 +97,7 @@ void N2KMessageEncoder::send127250( unsigned char SID, uint8_t _source, double _
         append(_deviation,1.0,4);
         append(_variation,1.0,4);
         append(ref);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send127257( unsigned char SID, double _yaw, double _pitch, double _roll) {
@@ -50,7 +109,7 @@ void N2KMessageEncoder::send127257( unsigned char SID, double _yaw, double _pitc
         append(_yaw,1.0,4);
         append(_pitch,1.0,4);
         append(_roll,1.0,4);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send128259( unsigned char SID, double _waterSpeed, double _groundSpeed, uint8_t  SWRT) {
@@ -62,7 +121,7 @@ void N2KMessageEncoder::send128259( unsigned char SID, double _waterSpeed, doubl
         append(_waterSpeed,1.0,2);
         append(_groundSpeed,1.0,2);
         append(SWRT);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send128267( unsigned char SID, double _depthBelowTransducer, double _offset, double _range) {
@@ -74,7 +133,7 @@ void N2KMessageEncoder::send128267( unsigned char SID, double _depthBelowTransdu
         append(_depthBelowTransducer,1.0,2);
         append(_offset,1.0,2);
         append(_range,1.0,2);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send128275( uint16_t _daysSince1970, double _secondsSinceMidnight, uint32_t _log, uint32_t _tripLog ) {
@@ -86,7 +145,7 @@ void N2KMessageEncoder::send128275( uint16_t _daysSince1970, double _secondsSinc
         append(_secondsSinceMidnight,1.0,2);
         append(_log,1.0,2);
         append(_tripLog,1.0,2);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send129029(  unsigned char SID, uint16_t _daysSince1970, double _secondsSinceMidnight, 
@@ -115,7 +174,7 @@ void N2KMessageEncoder::send129029(  unsigned char SID, uint16_t _daysSince1970,
         append(_referenceSationID);
         append(_ageOfCorrection,1.0,2);
         append(_integrety);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 
 }
@@ -128,7 +187,7 @@ void N2KMessageEncoder::send129026( unsigned char SID, uint8_t _ref, double _cog
         append(_ref);
         append(_cog,1.0,3);
         append(_sog,1.0,2);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send129283( unsigned char SID, uint8_t _XTEMode, uint8_t _navigationTerminated, double _xte) {
@@ -140,7 +199,7 @@ void N2KMessageEncoder::send129283( unsigned char SID, uint8_t _XTEMode, uint8_t
         append(_XTEMode);
         append(_navigationTerminated);
         append(_xte,1.0,2);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130306( unsigned char SID, double _windSpeed, double _windAngle, uint8_t _windReference) {
@@ -152,7 +211,7 @@ void N2KMessageEncoder::send130306( unsigned char SID, double _windSpeed, double
         append(_windSpeed,1.0,2);
         append(_windAngle,1.0,4);
         append(_windReference);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130312( unsigned char SID, uint8_t _tempInstance, uint8_t _tempSource,
@@ -166,7 +225,7 @@ void N2KMessageEncoder::send130312( unsigned char SID, uint8_t _tempInstance, ui
         append(_tempSource);
         append(_actualTemperature,1.0,1);
         append(_setTemperature,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130316( unsigned char SID, uint8_t _tempInstance, uint8_t _tempSource,
@@ -180,7 +239,7 @@ void N2KMessageEncoder::send130316( unsigned char SID, uint8_t _tempInstance, ui
         append(_tempSource);
         append(_actualTemperature,1.0,1);
         append(_setTemperature,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130314( unsigned char SID, uint8_t _pressureInstance,
@@ -193,7 +252,7 @@ void N2KMessageEncoder::send130314( unsigned char SID, uint8_t _pressureInstance
         append(_pressureInstance);
         append(_pressureSource);
         append(_pressure,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send127488( uint8_t _engineInstance, double _engineSpeed,
@@ -206,7 +265,7 @@ void N2KMessageEncoder::send127488( uint8_t _engineInstance, double _engineSpeed
         append(_engineSpeed,1.0,1);
         append(_engineBoostPressure,1.0,1);
         append(_engineTiltTrim,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send127489( uint8_t _engineInstance, double _engineOilPress,
@@ -229,7 +288,7 @@ void N2KMessageEncoder::send127489( uint8_t _engineInstance, double _engineOilPr
         append(_engineFuelPress,1.0,1);
         append(_status1);
         append(_status2);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 
 }
@@ -242,7 +301,7 @@ void N2KMessageEncoder::send127505(  uint8_t _instance, uint8_t _fluidType, doub
         append(_fluidType);
         append(_level,1.0,2);
         append(_capacity,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send127508(unsigned char SID, uint8_t _batteryInstance, double _batteryVoltage, double _batteryCurrent,
@@ -256,7 +315,7 @@ void N2KMessageEncoder::send127508(unsigned char SID, uint8_t _batteryInstance, 
         append(_batteryVoltage,1.0,2);
         append(_batteryCurrent,1.0,2);
         append(_batteryTemperature,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send128000( unsigned char SID, double _leeway) {
@@ -266,7 +325,7 @@ void N2KMessageEncoder::send128000( unsigned char SID, double _leeway) {
         append(pgn);
         append(SID);
         append(_leeway,1.0,2);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send129025( double _latitude, double _longitude) {
@@ -276,7 +335,7 @@ void N2KMessageEncoder::send129025( double _latitude, double _longitude) {
         append(pgn);
         append(_latitude,1.0,8);
         append(_latitude,1.0,8);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130310( unsigned char SID, double _waterTemperature,
@@ -289,7 +348,7 @@ void N2KMessageEncoder::send130310( unsigned char SID, double _waterTemperature,
         append(_waterTemperature,1.0,1);
         append(_outsideAmbientAirTemperature,1.0,1);
         append(_atmosphericPressure,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130311( unsigned char SID, uint8_t _tempSource, double _temperature,
@@ -304,7 +363,7 @@ void N2KMessageEncoder::send130311( unsigned char SID, uint8_t _tempSource, doub
         append(_humiditySource);
         append(_humidity,1.0,3);
         append(_atmosphericPressure,1.0,1);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 void N2KMessageEncoder::send130313( unsigned char SID, uint8_t _humidityInstance,
@@ -318,7 +377,7 @@ void N2KMessageEncoder::send130313( unsigned char SID, uint8_t _humidityInstance
         append(_humiditySource);
         append(_actualHumidity,1.0,3);
         append(_setHumidity,1.0,3);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }
 
@@ -332,6 +391,6 @@ void N2KMessageEncoder::send127245(double _rudderPosition, uint8_t _instance,
         append(_instance);
         append(_rudderDirectionOrder);
         append(_angleOrder);
-        sendCallback(pgn, end());
+        sendCallback(pgn, end(), false);
     }
 }

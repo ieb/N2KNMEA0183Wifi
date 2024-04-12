@@ -5,7 +5,9 @@
 #include "NMEA0183Encoder.h"
 #include <time.h>
 
-
+/*
+ * Standard NMEA0183 message encoded.
+ */
 
 
 class NMEA0183N2KMessages : public NMEA0183Encoder {
@@ -54,7 +56,7 @@ public:
 
 
 private:
-  SendBufferCallback sendCallback;
+  SendBufferCallback sendCallback = NULL;
 
   unsigned long lastSendHDG=0;
   unsigned long lastSendHDM=0;

@@ -17,23 +17,23 @@ public:
     void update(float awa, float aws, float stw, float roll, float hdm, float variation );
 private:
     NMEA0183N2KMessages * messageEncoder;
-    float leeway, 
-        polarSpeed, 
-        polarSpeedRatio, 
-        polarVmg, 
-        vmg, 
-        targetTwa, 
-        targetVmg, 
-        targetStw, 
-        polarVmgRatio,
-        windDirectionTrue, 
-        windDirectionMagnetic, 
-        oppositeTrackHeadingTrue, 
-        oppositeTrackHeadingMagnetic, 
-        oppositeTrackTrue,
-        oppositeTrackMagnetic,
-        tws,
-        twa;
+    float leeway = -1e9; 
+    float polarSpeed = -1e9; 
+    float polarSpeedRatio = -1e9; 
+    float polarVmg = -1e9; 
+    float vmg = -1e9; 
+    float targetTwa = -1e9; 
+    float targetVmg = -1e9; 
+    float targetStw = -1e9; 
+    float polarVmgRatio = -1e9; 
+    float windDirectionTrue = -1e9; 
+    float windDirectionMagnetic = -1e9; 
+    float oppositeTrackHeadingTrue = -1e9; 
+    float oppositeTrackHeadingMagnetic = -1e9; 
+    float oppositeTrackTrue = -1e9; 
+    float oppositeTrackMagnetic = -1e9; 
+    float tws = -1e9; 
+    float twa = -1e9;
     float calcPolarSpeed(float twsv, float twav, bool nmea2000Units=true);
     void updateTWSIdx(float tws);
     void updateTWAIdx(float twa);

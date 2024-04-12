@@ -313,15 +313,15 @@ void endTimer(int i) {
     lastPrint = end;
     Serial.print(end);
     Serial.print(" times:");
-    for(int i = 0; i < 5; i++ ) {
+    for(int j = 0; j < 5; j++ ) {
       Serial.print(",");
-      if (calls[i] == 0) {
+      if (calls[j] == 0) {
         Serial.print("-");
       } else {
-        Serial.print((float)(counters[i]/calls[i]));
+        Serial.print((float)(counters[j]/calls[j]));
       }
-      counters[i] = 0;
-      calls[i] = 0;
+      counters[j] = 0;
+      calls[j] = 0;
     }
     Serial.print(",");
     Serial.println(totalCalls);

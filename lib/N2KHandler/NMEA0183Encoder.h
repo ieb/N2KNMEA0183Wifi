@@ -4,6 +4,9 @@
 #include "N2kTypes.h"
 #include <time.h>
 
+/**
+ * Base NMEA0183 encoder class.
+ */ 
 
 
 #define INBUF_LEN 20
@@ -11,6 +14,14 @@
 
 class NMEA0183Encoder {
 public:
+  NMEA0183Encoder() {
+    for (int i = 0; i < OUTBUF_LEN; ++i) {
+      buffer[i] = 0;
+    }
+    for (int i = 0; i < INBUF_LEN; ++i) {
+      inbuffer[i] = 0;
+    }
+  }
   void start(const char * key);
   void append(const char *field);
   void append(int8_t field);
@@ -33,9 +44,11 @@ public:
 
   bool doSend(unsigned long &lastSend, unsigned long minPeriod);
 
-private:
+protected:
   uint16_t p = 0;
   char buffer[OUTBUF_LEN];
+
+private:
   char inbuffer[INBUF_LEN];
   const char * asHex = "0123456789ABCDEF";
   void checkBuffer(const char * message);
