@@ -44,9 +44,209 @@ Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a 
 
 ## WebSocket
 
+NMEA0183 output makes sense for standard messages, but it cant cover N2K. There are some options for how N2K could be output. All of the formats below can be processed by readers in canboatJS.
+
+Websocket on a ESP32 has limited space for pending messages so all of these websocket endpoints work with that. Where the traffic is high the frames are debounced and buffered into larger websocket messages to reduce the impact of the websocket protocol. If this is not done, the ESP32 runs out of send buffer pointers and drops messages. Receivers need to split each message by \n 
+
+### Candump version 3 modified, /ws/candump3m
+
+    89f10d16#01f997fc3cfeffff\n
+             ^^^^^^^^^^^^^^^^ data
+    ^^^^^^^^ can id
+
+Bare minimim, should be easy to covert into candump3 on the client, needs access to the raw stream before fastpackets are handled, or needs to reconstruct fast packets where the length is > 8.
+
+### Candump version 3, /ws/candump3
+
+    (1713293415.384000) slcan0 89f10d16#01f997fc3cfeffff
+                                        ^^^^^^^^^^^^^^^^ frame
+                               ^^^^^^^^ can id
+                        ^^^^^^ device
+    ^^^^^^^^^^^^^^^^^^^ time in seconds
+
+Very low cost to output, but high volume and the frame has to be processed for fast packets in the client. 
+
+### Yacht Devces Raw /ws/raw
+
+    19F51323 01 02<CR><LF>
+             ^^^^^ frame data hex space separated 
+    ^^^^^^^^ canID
+
+    17:33:21.107 R 19F51323 01 2F 30 70 00 2F 30 70
+    may also be prefixed by a timestamp and direction
+
+Very low cost to output, but high volume and the frame has to be processed for fast packets in the client. 
+Senders need to slice up the data, PGN 126720 (proprietary fast packet) gets special treatment why tbd.
+
+This is close or the same as the log files produced by Raymarine e7 MFDs and other devices.
+
+### NMEA183 PCDIN aka Seasmart 
+
+http://www.seasmart.net/pdf/SeaSmart_HTTP_Protocol_RevG_043012.pdf
+
+    $PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59
+                                               ^^ checksum
+                              ^^^^^^^^^^^^^^^^ data (whole message)
+                           ^^ source
+                  ^^^^^^^^ Hex time
+           ^^^^^^ PGN
+    ^^^^^^ NMEA0183 id
+
+Decoding hex time is done as 
+
+    ((parseInt(value,32)/1024)+1262304000)*1000 
+
+result in ms since 1/1/1970.  No idea what base 32 looks like, but tests don't make sense.
+Should probably avoid, however it does have the advantage of being able to mix with NMEA0183 traffic provided
+the bandwidth is enough.  Looks like it was designed to send over http.
+
+There is also a command protocol, PCDIC
+
+It is inlikely that I want to use applications supporting this protocol, but it is used by a few. Disadvantages, messages can be huge and have to be constructed to send over websockets and its (c) Seasmart.
+
+Seasmart compact, can be expanded by the client into seasmart by adding the missing fields.
+
+    01F119,0F,2AAF00D1067414FF
+              ^^^^^^^^^^^^^^^^ base64 data
+          ^^ source
+    ^^^^^^ PGN
+
+
+### NMEA183 MXPGN  /ws/nmea0183 
+
+https://opencpn.org/wiki/dokuwiki/lib/exe/fetch.php?media=opencpn:software:mxpgn_sentence.pdf
+
+
+    $MXPGN,01F801,2801,C1308AC40C5DE343*19
+                                        ^^ checksum
+                       ^^^^^^^^^^^^^^^^ data (frame only, since lenght limited to 8 max)
+                    ^^ src
+                  ^^ data length + priority encoded 
+           ^^^^^^ PGN
+    ^^^^^^ NMEA0183 id
+
+    data length bits 28 -> hex, padded to 8 eg  
+    0b00101000
+          ^^^^ DLC  1-8 length or 9-15 class 2 transmission ID, length always 8 in this case.
+       ^^^ priority eg 2
+      ^ send/rec eg rec
+
+
+
+### NMEA184 iKonvert /ws/nmea0183 - not supported
+
+    !PDGY,126992,3,2,255,0.563,d2009e45b3b8821d*23
+                                                ^^ checksum
+                               ^^^^^^^^^^^^^^^^ data base64 encoded.
+                         ^^^^^ timer seems it might be optional.
+                     ^^^ dest
+                   ^ source
+                 ^ priority
+          ^^^^^^ PGN decimal
+    ^^^^^ NMEA183 id, ! probably means binary
+
+
+
+### candump1  /ws/candump1
+
+    <0x18eeff01> [8] 05 a0 be 1c 00 a0 a0 c0
+                     ^^^^^^^^^^^^^^^^^^^^^^^ frame
+                 ^^^ len 
+    ^^^^^^^^^^^^ canID
+
+### candump2 /ws/candump3
+
+    can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF
+                          ^^^^^^^^^^^^^^^^^^^^^^^ frame
+                      ^ len
+          ^^^^^^^^ canid
+    ^^^^ device
+
+### Actisense /ws/actisense
+
+    2016-02-28T19:57:02.364Z,2,127250,7,255,8,ff,10,3b,ff,7f,ce,f5,fc
+                                              ^^^^^^^^^^^^^^^^^^^^^^^ data
+                                            ^ length
+                                        ^^^ destination
+                                      ^ source
+                               ^^^^^^ pgn
+                             ^ priority
+    ^^^^^^^^^^^^^^^^^^^^^^^^ ISO date
+
+
+Easy to read, a bit of a standard, but also verbose.
+For date we would need to capture the date from GPS.
+
+### Actisense N2K ASCII - not supported
+
+    A764027.880 05FF7 1EF00 E59861060202FFFFFFFF03030000FFFFFFFFFFFFFFFFFFFF0000FFFFFF7FFFFFFF7FFFFFFF7F0000FF7F
+                      ^^^^^^^^^^^ full can message, upto 400 chars
+                    ^ priority
+                  ^^ dest
+                ^^ src
+     ^^^^^^^^^^ timestamp
+
+
+Full messages are problematic with memory.
+
+
+### Data Link encoded
+
+Binary format see apenedix F in https://www.yachtd.com/downloads/ydnu02.pdf
+
+Below is a copy
+
+        APPENDIX F. Format of Messages in N2K Mode
+        In N2K mode, messages are encoded in a binary format. This format is based on Data Link Escape encoding
+        partially compatible with ActiSense NGT format and widely support by modern marine applications.
+        This format is very similar to Garmin Serial Protocol (see section 3.1 of Garmin Device Interface
+        Specification 001-00063-00 for details).
+        All data are transferred in byte-oriented packets. A packet contains a four-byte header (DLE, STX, ID,
+        and Size), followed by a variable number of data bytes, followed by a three-byte trailer (Checksum, DLE,
+        and ETX). The following table shows the format of a packet:
+        
+        Table 1. Packet format
+        
+        Byte Number Byte Description Note
+        ---------------------------------
+        0           Data Link Escape ASCII DLE character (16 decimal)
+        1           Start of Text ASCII STX character (02 decimal)
+        2           Packet ID Identifies the type of packet
+        3           Size of Packet Data Number of bytes of packet data (bytes 4 to n-4)
+        4 to n—4    Packet Data 0 to 255 bytes, see Table 2
+        n—3         Checksum 2's complement of the sum of all bytes from byte 1 to byte n-4
+        n—2         Data Link Escape ASCII DLE character (16 decimal)
+        n—1         End of Text ASCII ETX character (03 decimal)
+        
+        If any byte in the Size, Packet Data, or Checksum fields is equal to DLE, then a second DLE is inserted
+        immediately following the byte. This extra DLE is not included in the size or checksum calculation.
+        This procedure allows the DLE character to be used to delimit the boundaries of a packet.
+        Packets with NMEA 2000 messages transmitted to the PC application (incoming) have ID 0x93
+        (147 decimal), packets with NMEA 2000 messages sent by the application to the Device (outgoing)
+        have ID 0x94 (148 decimal).
+       
+        Byte Number Byte Description Note
+        ----------------------------------
+        0           Message Priority Bits 0 - 2 are significant, other bits are ignored
+        1 to 3      NMEA 2000 PGN Least significant byte is first
+        4           Destination Address Or 255 decimal for global addressed messages
+        5           Source Address Ignored for outgoing messages, Device address is used
+        6—9         Time Stamp Device’s time in milliseconds, ignored in outgoing messages
+        10          Size of Payload Number of bytes in NMEA 2000 message payload (1..232)
+        11+         Message Payload 1 to 232 bytes of message payload
+        
+        The format of NMEA 2000 messages is available in Appendix B of NMEA 2000 Standard, which
+        can be purchased on the site www.nmea.org.
+
+Probably too much of a pain to implement.
+
+
+
 ### /ws/183
 
 Emits NMEA0183 same as on UDP and TCP.
+
+
 
 ### /ws/2kraw
 

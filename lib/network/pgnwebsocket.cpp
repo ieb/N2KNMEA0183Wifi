@@ -31,7 +31,7 @@ void PgnWebSocket::handleWSEvent(AsyncWebSocket * server,
     addClient(client);
   } else if(type == WS_EVT_DISCONNECT){
     //client disconnected
-    Serial.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+    Serial.printf("ws[%s][%u] disconnect\n", server->url(), client->id());
     removeClient(client);
   } else if(type == WS_EVT_ERROR){
     //error was received from the other end
@@ -137,14 +137,14 @@ bool PgnWebSocket::processCommandMessage(AsyncWebSocketClient * client,
         if ( clients[i].used && clients[i].client->id() == client->id() ) {
             if(info->message_opcode == WS_TEXT){
                 unsigned long pgn;
-                if ( sscanf((const char *)data, "allpgns:%ul", &pgn) == 1 ) {
+                if ( sscanf((const char *)data, "allpgns:%lu", &pgn) == 1 ) {
                     if (pgn == 1) {
                         clients[i].all = true;
                     } else {
                         clients[i].all = true;
                     }
                 }
-                if ( sscanf((const char *)data, "addpgn:%ul", &pgn) == 1) {
+                if ( sscanf((const char *)data, "addpgn:%lu", &pgn) == 1) {
                     // add a pgn
                     for (int j = 0; j < MAX_PGNS; ++i) {
                         if ( clients[i].pgns[j] == 0) {
@@ -154,7 +154,7 @@ bool PgnWebSocket::processCommandMessage(AsyncWebSocketClient * client,
                         }
                     }
                 }
-                if ( sscanf((const char *)data, "rmpgn:%ul", &pgn) == 1) {
+                if ( sscanf((const char *)data, "rmpgn:%lu", &pgn) == 1) {
                     // remove a pgn
                     for (int j = 0; j < MAX_PGNS; ++i) {
                         if ( clients[i].pgns[j] == pgn) {
@@ -170,6 +170,77 @@ bool PgnWebSocket::processCommandMessage(AsyncWebSocketClient * client,
     return false;
 }
 
+
+/**
+ * check to see of the pgn is in a list of pgns sent less than 500ms ago ?
+ * return true if it is
+ */ 
+bool PgnWebSocket::sendDebounced(unsigned long pgn) {
+    for(int i = 0; i < npgns_sent; i++ ) {
+        unsigned long now = millis();
+        if ( (now - pgnsent[i].at) > 500 ) {
+            npgns_sent = i;
+            ndrop++;
+            break;
+        } else if ( pgnsent[i].pgn == pgn ) {
+            nbounce++;
+            return false;
+        }
+    }
+    nsend++;
+    record(pgn);
+    return true;
+}
+/**
+ * add the pgn to the start of a list removing any pgns older than 500ms.
+ */ 
+void PgnWebSocket::record(unsigned long pgn) {
+    unsigned long now = millis();
+    // remove any previous records matching this pgn, and any expired records.
+    // this avoids filling the set with the most frequent pgn.
+    int d = 0;
+    for (int i = 0; i < npgns_sent; ++i) {
+        if ( (now - pgnsent[i].at ) > 500 ) {
+            // dont bother with any that have expired already.
+            npgns_sent = i;
+            break;
+        } else if ( pgnsent[i].at == pgn ) {
+            // skip.
+        } else if ( d < i ) {
+            // copy to fill gaps
+            pgnsent[d].at = pgnsent[i].at; 
+            pgnsent[d].pgn = pgnsent[i].pgn;
+            d++;            
+        } else {
+            d++;            
+        }
+    }
+
+
+    if ( npgns_sent == MAX_PGNTRACKING ) {
+        npgns_sent = MAX_PGNTRACKING-1;
+    }
+    // shift down to make space for pgnsent[0] evicting pgnsent[max-1]
+    for(int i = npgns_sent; i > 0; i-- ) {
+        pgnsent[i].at = pgnsent[i-1].at; 
+        pgnsent[i].pgn = pgnsent[i-1].pgn;
+    }
+    npgns_sent++;
+    // save the latest in idx=0
+    pgnsent[0].at = now;
+    pgnsent[0].pgn = pgn;
+    Serial.print("Add :");
+    Serial.print(pgn);
+    Serial.print(" l:");
+    Serial.print(npgns_sent);
+    Serial.print(" d:");
+    Serial.print(ndrop);
+    Serial.print(" b:");
+    Serial.print(nbounce);
+    Serial.print(" s:");
+    Serial.println(nsend);
+}
+
 /**
  * return true if one or more clients have requested the pgn.
  */ 
@@ -177,11 +248,11 @@ bool PgnWebSocket::shouldSend(unsigned long pgn) {
     for (int i = 0; i < MAX_CLIENTS; ++i) {
         if ( clients[i].used ) {
             if ( clients[i].all ) {
-                return true;
+                return sendDebounced(pgn);
             }
             for (int j = 0; j < MAX_PGNS; ++i) {
                 if ( clients[i].pgns[j] == pgn) {
-                    return true;
+                    return sendDebounced(pgn);
                 }
             }
         }
@@ -192,17 +263,10 @@ bool PgnWebSocket::shouldSend(unsigned long pgn) {
 /**
  * send the pgn to all clients that have requested it.
  */
-void PgnWebSocket::send(unsigned long pgn, const char * msg) {
+void PgnWebSocket::send(const char * msg) {
     for (int i = 0; i < MAX_CLIENTS; ++i) {
-        if ( clients[i].all ) {
+        if ( clients[i].used ) {
             clients[i].client->text(msg);
-            break;
-        }
-        for (int j = 0; j < MAX_PGNS; ++i) {
-            if ( clients[i].pgns[j] == pgn) {
-                clients[i].client->text(msg);
-                break;
-            }
         }
     }
 }

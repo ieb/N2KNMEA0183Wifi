@@ -1,0 +1,289 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #333;
+  color: white;
+}
+
+
+.nmeaLayout {
+  display: flex;
+}
+
+.nmeaLayout > div:not(:first-child) {
+  /*padding-left: 11px;*/
+}
+
+
+/*  menu --------------------------*/
+.menu {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  /*height: 100%;*/
+  display: grid;
+  padding: 5px;
+  grid-auto-rows: max-content;
+  background-color: #5c5353de;
+  z-index: 1;
+}
+
+.menu > button {
+  padding: 0px;
+  margin: 0px;
+  text-align: right;
+  font-size: 1rem;
+}
+.menu .activePage {
+  background-color: grey;
+}
+.menu .pageButton {
+  text-align: left;
+}
+
+.menu.minimised .pageButton {
+  display: none;
+}
+
+.menu.minimised .controls {
+  display: none;
+}
+
+.menu.minimised .debugControls {
+  display: none;
+}
+
+
+.menu .iOn {
+  color: green;
+}
+.menu .iOff {
+  color: lightgreen;
+}
+
+
+
+
+
+.serialPortControl {
+    display: flex; 
+    justify-content: flex-end;
+    align-items: center;
+}
+.serialPortControl .baudRate {
+  color: lightgreen;  
+}
+
+
+
+.serialPortControl .running {
+  color: #33ff44
+}
+
+.uiControls {
+    display: flex; 
+    justify-content: flex-end;
+    align-items: center;
+
+}
+
+
+/*  instuments --------------------------*/
+
+.textbox {
+    position: relative;
+    display: inline-block;
+    width: 10rem;
+    height: 6rem;
+    border: 1px solid;
+    border-radius: 10px;
+}
+
+.size-maximum {
+  width: 20rem;
+  height: 12rem;
+}
+
+.textbox > div, .textbox > canvas, textbox > svg {
+  position: absolute;
+  margin: 0px;
+  padding: 0px;  
+}
+
+.textbox .overlay {
+  height: 100%;
+  width: 100%;
+}
+
+.textbox svg .outline {
+  fill: #5f9ea0;
+  stroke-width:  0px;
+}
+
+.textbox svg .path {
+  stroke: white;
+  stroke-width:  1px;
+}
+
+.textbox svg .meanline {
+  stroke: white;
+  stroke-width:  1px;
+  opacity: 50%;
+}
+
+.textbox svg .stdbottomline {
+  stroke: #073ec2;
+  stroke-width:  1px;
+  opacity: 50%;
+}
+.textbox svg .stdtopline {
+  stroke: #c30f0f;
+  stroke-width:  1px;
+  opacity: 50%;
+}
+
+.textbox svg .small {
+  stroke: white;
+  font-size: 0.7rem;
+  font-weight: lighter;
+  stroke-width:  1px;
+}
+
+
+.textbox canvas {
+}
+
+.textbox .main {
+  display: grid;
+  height: calc(100% - 20px);
+  font-size: 4rem;
+  text-align: center;
+  margin: 10px 0px;
+}
+
+.textbox.size-maximum .main {
+  font-size: 8rem;
+}
+
+
+.textbox .corner {
+  font-size: 1rem;  
+}
+
+.textbox .tl {
+  top:  0px;
+  left:  5px;
+  text-align: left;
+}
+
+.textbox .tr {
+  top:  0px;
+  right:  5px;
+  text-align: right;
+}
+
+.textbox .br {
+  bottom:  5px;
+  right:  5px;
+  text-align: right;
+}
+
+.textbox .bl {
+  bottom:  5px;
+  left:  5px;
+  text-align: right;
+}
+
+.textbox  .edit {
+  top: 0;
+  left:  0;
+  background: #82aa897a;
+
+}
+
+.main .smallLine1 {
+  text-align: right;
+  font-size: 1.5rem;
+  padding: 10px 5px 0px 5px;
+
+
+}
+.main .smallLine2 {
+  text-align: right;
+  font-size: 1.5rem;
+  padding: 0 5px 10px 5px;
+}
+
+.size-maximum .main .smallLine1 {
+  font-size: 3rem;
+}
+
+.size-maximum .main .smallLine2 {
+  font-size: 3rem;
+}
+
+.starboard {
+  color: #9be79b;
+}
+.port {
+  color: #f9c9c9;
+}
+
+.nmea2000Messages {
+  display: contents;
+}
+.nmea2000Messages > div {
+  border: solid 1px white;
+  border-radius: 5px;
+}
+
+
+.appStatus .main  {
+  align-content: center;
+}
+
+.main .statusData {
+  text-align: left;
+  font-size: 0.75rem;
+  padding: 1px 5px 0px 5px;
+}
+
+.size-maximum .main .statusData {
+  font-size: 2rem;
+}
+ 
+
+input[type="number"] {
+  width: 5em;
+}
+
+button {
+  cursor: pointer;
+  margin-left: 20px;
+  background: #0000;
+  color: #fff;
+  border: 0px;
+}
+
+
+#serverStop {
+  background-color: #D14836;
+  background-image: -webkit-linear-gradient(top,#DD4B39,#D14836);
+  border: 1px solid transparent;
+  color: white;
+  border-radius: 2px;
+}
+
+#serverStop:hover {
+  background-color: #C53727;
+  background-image: -webkit-linear-gradient(top, #DD4B39, #C53727);
+  border: 1px solid #B0281A;
+}
+#serverlog {
+  background: #444;
+  color: #999;
+    width: 480px;
+    height: 180px;
+    border: 1px solid #666;
+    padding: 3px;
+    overflow: auto;
+}

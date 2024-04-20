@@ -5,7 +5,6 @@
 #include <N2kTypes.h>
 #include <time.h>
 #include "NMEA0183N2KMessages.h"
-#include "N2KMessageEncoder.h"
 #include "performance.h"
 #include "logbook.h"
 
@@ -31,12 +30,10 @@ enum tN2kGNSSIntegrety {
 
 class N2KHandler  {
 public:
-  N2KHandler(NMEA0183N2KMessages * messageEncoder, 
-      N2KMessageEncoder * pgnEncoder, 
-      Performance * performance,
-      LogBook * logbook ) : 
+  N2KHandler(NMEA0183N2KMessages &messageEncoder, 
+      Performance &performance,
+      LogBook &logbook ) : 
     messageEncoder{messageEncoder}, 
-    pgnEncoder{pgnEncoder},
     performance{performance},
     logbook{logbook}
     {};
@@ -45,10 +42,9 @@ public:
  
 private:
 
-    NMEA0183N2KMessages * messageEncoder;
-    N2KMessageEncoder * pgnEncoder;
-    Performance * performance;
-    LogBook * logbook;
+    NMEA0183N2KMessages &messageEncoder;
+    Performance &performance;
+    LogBook &logbook;
     // using specific properties vs an array let the compiler detect errors.
 
     unsigned long faaLastValid=0;

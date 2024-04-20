@@ -12,7 +12,22 @@
   }
 
   ws.onmessage = (message) => {
-    console.log(`message received ${message}`)
+  }
+  const wsdump = new WebSocket('ws://192.168.1.11:80/ws/candump3')
+  wsdump.onopen = () => {
+    console.log('wsdump opened on browser')
+    ws.send('hello world')
+  }
+
+  wsdump.onmessage = (message) => {
+  }
+  const wsseasmart = new WebSocket('ws://192.168.1.11:80/ws/seasmart')
+  wsseasmart.onopen = () => {
+    console.log('wsdump opened on browser')
+    ws.send('hello world')
+  }
+
+  wsseasmart.onmessage = (message) => {
   }
 
 })()

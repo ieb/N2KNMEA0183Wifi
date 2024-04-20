@@ -302,8 +302,8 @@ bool WebServer::authorized(AsyncWebServerRequest *request) {
 void WebServer::sendN0183(const char *buffer) {
     n0183WS.textAll(buffer);
 }
-void WebServer::sendN2K(unsigned long pgn, const char *buffer) {
-    n2kWS.send(pgn,buffer);
+void WebServer::sendN2K(const char *buffer) {
+    n2kWS.send(buffer);
 }
 
 

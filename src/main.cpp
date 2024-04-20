@@ -18,7 +18,7 @@
 #define ESP32_CAN_TX_PIN GPIO_NUM_23
 
 
-#define MAX_NMEA0183_MESSAGE_SIZE 100
+#define MAX_NMEA2000_MESSAGE_SEASMART_SIZE 1024
 
 //#define ONEWIRE_GPIO_PIN GPIO_NUM_21
 //#define SDA_PIN GPIO_NUM_18
@@ -55,6 +55,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "NMEA0183N2KMessages.h"
 #include "network.h"
 #include "logbook.h"
+#include "Seasmart.h"
 
 
 #include "esp32-hal-psram.h"
@@ -79,9 +80,10 @@ UdpSender nmeaSender(OutputStream, 10110);
 
 
 NMEA0183N2KMessages messageEncoder;
-N2KMessageEncoder pgnEncoder;
+//N2KMessageEncoder pgnEncoder;
 Performance performance(&messageEncoder);
-N2KHandler n2kHander(&messageEncoder, &pgnEncoder, &performance, &logbook);
+//N2KHandler n2kHander(messageEncoder, pgnEncoder, performance, logbook);
+N2KHandler n2kHander(messageEncoder, performance, logbook);
 
 
 unsigned long lastButtonPress = 0;
@@ -129,10 +131,45 @@ const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
 
 
 
+
+
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
-   listDevices.HandleMsg(N2kMsg);
+    static char wsBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
+    static unsigned long flushTTL = millis();
+    static size_t wsOffset = 0;
+    listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
     n2kHander.handle(N2kMsg);
+
+    // flush the ws buffer if required.
+    unsigned long now = millis();
+    if ( (now - flushTTL) > 750) {
+      flushTTL = now;
+      if ( wsOffset > 0) {
+        webServer.sendN2K((const char *)&wsBuffer[0]); 
+        wsOffset = 0;               
+      }
+    }
+
+    // check if any client has requested this PGN
+    if ( webServer.shouldSend(N2kMsg.PGN) ) {
+      // todo, use real time based on GPS time.
+      // buffer the messages up to reduce websocket overhead.
+      size_t maxLen = MAX_NMEA2000_MESSAGE_SEASMART_SIZE-wsOffset-1;
+      if ( maxLen < 50) {
+        // reset the buffer
+        webServer.sendN2K((const char *)&wsBuffer[0]); 
+        flushTTL = now;
+        wsOffset = 0;       
+      } else if ( wsOffset > 0) {
+        // replace the terminator with a \n
+        // and to be safe add a terminator
+        wsBuffer[wsOffset++] = '\n';
+        wsBuffer[wsOffset] = 0;
+      }
+      size_t len = N2kToSeasmart(N2kMsg,millis(),&wsBuffer[wsOffset],maxLen);
+      wsOffset += len;
+    }
 }
 
 void showHelp() {
@@ -150,9 +187,9 @@ void showHelp() {
 
 
 void SendNMEA0183Message(const char * buf) {
-  nmeaServer.sendBufToClients(buf);
-  nmeaSender.sendBufToClients(buf);
-  webServer.sendN0183(buf);
+  nmeaServer.sendBufToClients(buf); // TCP
+  nmeaSender.sendBufToClients(buf); // UDP
+  webServer.sendN0183(buf); // websocket
 }
 
 

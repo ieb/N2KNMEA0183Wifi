@@ -144,13 +144,8 @@ private:
 };
 
 
-typedef struct tActiveClients {
-    bool used;
-    bool all;
-    AsyncWebSocketClient * client;
-    unsigned long pgns[MAX_PGNS];
-} tActiveClients;
 
+#define MAX_PGNTRACKING 30
 
 class PgnWebSocket: public AsyncWebSocket {
 public:
@@ -165,7 +160,7 @@ public:
         }
     };
     void begin();
-    void send(unsigned long pgn, const char * msg);
+    void send(const char * msg);
     bool shouldSend(unsigned long pgn);
 
     void handleWSEvent(AsyncWebSocket * server, 
@@ -176,12 +171,30 @@ public:
         size_t len);
 
 private:
-    tActiveClients clients[MAX_CLIENTS];
+
+    typedef struct tActiveClients {
+        bool used;
+        bool all;
+        AsyncWebSocketClient * client;
+        unsigned long pgns[MAX_PGNS];
+    } tActiveClient;
+    typedef struct pgnrecord {
+        unsigned long pgn;
+        unsigned long at;
+    } tPgnRecord;
+
+    tActiveClient clients[MAX_CLIENTS];
+    tPgnRecord pgnsent[MAX_PGNTRACKING];
+    uint8_t npgns_sent;
+    uint16_t ndrop = 0, nbounce = 0, nsend = 0;
+
 
     bool processCommandMessage(AsyncWebSocketClient * client, 
             uint8_t *data, size_t len, AwsFrameInfo *info);
     bool removeClient(AsyncWebSocketClient * client);
     bool addClient(AsyncWebSocketClient * client);
+    bool sendDebounced(unsigned long pgn);
+    void record(unsigned long pgn);
 
 };
 
@@ -202,7 +215,7 @@ class WebServer {
         };
         String getBasicAuth() { return basicAuth; };
         void sendN0183(const char *buffer);
-        void sendN2K(unsigned long pgn, const char *buffer);
+        void sendN2K(const char *buffer);
         bool shouldSend(unsigned long pgn) {
             return n2kWS.shouldSend(pgn);
         }
@@ -211,8 +224,8 @@ class WebServer {
         Stream *outputStream;
         AsyncWebServer server = AsyncWebServer(80);
         AsyncWebSocket n0183WS = AsyncWebSocket("/ws/183"); 
-        PgnWebSocket n2kWSraw = PgnWebSocket("/ws/2kraw");  // supports filtering of messages.
-        PgnWebSocket n2kWS = PgnWebSocket("/ws/2kparsed");  // supports filtering of messages.
+        PgnWebSocket n2kWSraw = PgnWebSocket("/ws/candump3");  // supports filtering of messages.
+        PgnWebSocket n2kWS = PgnWebSocket("/ws/seasmart");  // supports filtering of messages.
         JsonOutput *jsonHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
         CsvOutput *csvHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
         String httpauth;
