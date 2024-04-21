@@ -32,16 +32,20 @@ class SeaSmartParser extends EventEmitter {
     };
     parseSeaSmartMessages(messages) {
         if ( messages !== undefined && messages.data) {
+            let ndecoded = 0;
+            let nparsed = 0;
+            
             const sentences = messages.data.split('\n');
             for (var i = 0; i < sentences.length; i++) {
-                const message = sentences[i];
-                const ssMessage = this._parseSeaSmart(sentences[i].trim());
-                if ( ssMessage !== undefined ) {
-                    this.emit("nk2raw", ssMessage);
-                    const decoded = this.decoder.decode(ssMessage);
+                const ssMessage = sentences[i].trim();
+                const canMessage = this._parseSeaSmart(ssMessage);
+                if ( canMessage !== undefined ) {
+                    nparsed++;
+                    this.emit("nk2raw", canMessage);
+                    const decoded = this.decoder.decode(canMessage);
                     if ( decoded !== undefined ) {
                         this.emit("n2kdecoded",decoded);
-                    }                    
+                    }                   
                 }
             }
         }
@@ -72,7 +76,7 @@ class SeaSmartParser extends EventEmitter {
     _toBuffer(asHex) {
         const b = new Uint8Array(asHex.length/2);
         for (var i = 0; i < b.length; i++) {
-            b[i] = parseInt(asHex.substring(i*2,i*2+1),16);
+            b[i] = parseInt(asHex.substring(i*2,i*2+2),16);
         }
         return b.buffer;
     };
@@ -134,7 +138,6 @@ class Store extends EventEmitter {
             lastChange: Date.now()
         };
         this.messages = {};
-        this.newState = {};
         this.history = {
             awa: new AngularHistory(),
             aws: new LinearHistory(),
@@ -207,7 +210,7 @@ class Store extends EventEmitter {
 
     // When using a NMEA0183 feed.
     updateFromNMEA0183Stream(sentence) {
-        const newState = this.newState || {};
+        const newState = {};
         switch(sentence.id) {
             case 'MWV':
                 if ( sentence.fields[4] === 'A' && sentence.fields[1] === 'R' && sentence.fields[3] === 'N' ) {
@@ -234,7 +237,21 @@ class Store extends EventEmitter {
                 newState.sog = sentence.fields[4]*0.514444;
                 break;
         }
-    }
+        const now = Date.now();
+        const changedState = {};
+        for ( let k in newState ) {
+            if ( newState[k] !== this.state[k]) {
+                this.state.lastChange = now;
+                this.state[k]= newState[k];
+                changedState[k] = {
+                        state: this.state[k],
+                        history: this.history[k]
+                };
+
+            }
+        }
+        this.emit("change", changedState);
+}
 
 
     // When streaming NMEA2000 messages.
@@ -243,7 +260,7 @@ class Store extends EventEmitter {
         // should be added to the store. Forother messages simply subscribe directly to the message
         // in the visualisation. (how TBD)
         // Reasoning, is to mimimise CPU usage by not doing unecessary work that isnt used.
-        const newState = this.newState || {};
+        const newState = {};
         switch(message.pgn) {
             case 126992: // System time
                 // Use GNSS message
@@ -390,9 +407,26 @@ Dont store
                 newState.rudderPosition = message.rudderPosition;
                 break;
             }
-
+            if ( this.messages[message.pgn] !== undefined ) {
+                message.count = this.messages[message.pgn].count + 1;
+            } 
             this.messages[message.pgn] = message;
 
+
+            const now = Date.now();
+            const changedState = {};
+            for ( let k in newState ) {
+                if ( newState[k] !== this.state[k]) {
+                    this.state.lastChange = now;
+                    this.state[k]= newState[k];
+                    changedState[k] = {
+                            state: this.state[k],
+                            history: this.history[k]
+                    };
+
+                }
+            }
+            this.emit("change", changedState);
     }
 
     getMessages() {
@@ -402,24 +436,19 @@ Dont store
     mergeUpdate(calculations) {
         const now = Date.now();
         const changedState = {};
-        for ( let k in this.newState ) {
-            if ( this.newState[k] !== this.state[k]) {
-                this.state.lastChange = now;
-                this.state[k]= this.newState[k];
-                changedState[k] = this.newState[k];
-
-            }
-        }
         // calculate new values based on the store before updating history.
         const calculatedValues = calculations.update(this);
         for ( let k in calculatedValues ) {
             if ( calculatedValues[k] !== this.state[k]) {
                 this.state.lastChange = now;
                 this.state[k]= calculatedValues[k];
-                changedState[k] = calculatedValues[k];
+                changedState[k] = {
+                        state: this.state[k],
+                        history: this.history[k]
+                };
             }
         }
-        this.updateHistory();        
+        this.updateHistory();
         this.emit("change", changedState);
     }
 
@@ -652,20 +681,23 @@ class StoreAPIImpl {
             return this.store.getHistory(field);
         };
         getKeys() {
-            return this.store.getKeys(field);
+            return this.store.getKeys();
         };
-        onStateChange(fn) { 
-            this.store.addListener("change", fn);
+        getMessages() {
+            return this.store.getMessages();
         };
         addListener(event, fn) { 
             this.store.addListener(event, fn);
         };
-        async getNmea0183Address() {
+        removeListener(event, fn) { 
+            this.store.removeListener(event, fn);
+        };
+        getNmea0183Address() {
             return "1.1.1.1";
         };
-        async getConnectedClients() {
+        getConnectedClients() {
             return "";
-        }
+        };
 
 }
 

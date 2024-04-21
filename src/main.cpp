@@ -143,7 +143,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
 
     // flush the ws buffer if required.
     unsigned long now = millis();
-    if ( (now - flushTTL) > 750) {
+    if ( (now - flushTTL) > 200) {
       flushTTL = now;
       if ( wsOffset > 0) {
         webServer.sendN2K((const char *)&wsBuffer[0]); 

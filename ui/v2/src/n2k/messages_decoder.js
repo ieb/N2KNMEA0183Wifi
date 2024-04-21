@@ -738,6 +738,7 @@ class NMEA2000Reference {
             if ( NMEA2000Reference.reference[name] === undefined ) {
                 console.log("Lookup Invalid type ",name);
             } else if (  NMEA2000Reference.reference[name][value] === undefined ) {
+
                 console.log("Lookup missing value",name, value);
             }
             return { type: name, id: value, name:"undefined" };

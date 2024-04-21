@@ -178,7 +178,7 @@ bool PgnWebSocket::processCommandMessage(AsyncWebSocketClient * client,
 bool PgnWebSocket::sendDebounced(unsigned long pgn) {
     for(int i = 0; i < npgns_sent; i++ ) {
         unsigned long now = millis();
-        if ( (now - pgnsent[i].at) > 500 ) {
+        if ( (now - pgnsent[i].at) > 100 ) {
             npgns_sent = i;
             ndrop++;
             break;
@@ -200,7 +200,7 @@ void PgnWebSocket::record(unsigned long pgn) {
     // this avoids filling the set with the most frequent pgn.
     int d = 0;
     for (int i = 0; i < npgns_sent; ++i) {
-        if ( (now - pgnsent[i].at ) > 500 ) {
+        if ( (now - pgnsent[i].at ) > 100 ) {
             // dont bother with any that have expired already.
             npgns_sent = i;
             break;
@@ -229,6 +229,7 @@ void PgnWebSocket::record(unsigned long pgn) {
     // save the latest in idx=0
     pgnsent[0].at = now;
     pgnsent[0].pgn = pgn;
+    /*
     Serial.print("Add :");
     Serial.print(pgn);
     Serial.print(" l:");
@@ -239,6 +240,7 @@ void PgnWebSocket::record(unsigned long pgn) {
     Serial.print(nbounce);
     Serial.print(" s:");
     Serial.println(nsend);
+    */
 }
 
 /**

@@ -70,9 +70,9 @@ class NMEALayout extends Component {
         this.mainAPI.addListener();
         window.addEventListener('beforeunload', this.mainAPI.removeListener, false);
         this.updateInterval = setInterval((async () => {
-            const packetsRecieved = await this.props.storeAPI.getPacketsRecieved();
-            const nmea0183Address = await this.props.storeAPI.getNmea0183Address();
-            const connectedClients = await this.props.storeAPI.getConnectedClients();
+            const packetsRecieved = this.props.storeAPI.getPacketsRecieved();
+            const nmea0183Address = this.props.storeAPI.getNmea0183Address();
+            const connectedClients = this.props.storeAPI.getConnectedClients();
             if (this.state.packetsRecieved !== packetsRecieved ||
                 this.state.nmea0183Address !== nmea0183Address ||
                 this.state.connectedClients !== connectedClients
@@ -158,7 +158,7 @@ class NMEALayout extends Component {
         if ( editing ) {
             const that = this;
             if (this.storeAPI) {
-                const options = (await that.storeAPI.getKeys()).filter((key) => !NMEALayout.removeOptionKeys.includes(key)).concat(NMEALayout.addOptionKeys);
+                const options = (that.storeAPI.getKeys()).filter((key) => !NMEALayout.removeOptionKeys.includes(key)).concat(NMEALayout.addOptionKeys);
                 console.log("options ", options);
                 this.setState({
                     editing: "editing",
@@ -258,10 +258,10 @@ class NMEALayout extends Component {
 
 
     async onDumpStore() {
-        const keys = await this.storeAPI.getKeys();
+        const keys = this.storeAPI.getKeys();
         const values = {};
         for(const k of keys) {
-            values[k] = await this.storeAPI.getState(k);
+            values[k] = this.storeAPI.getState(k);
         }
         console.log("Store Values are",values);
 
@@ -296,7 +296,7 @@ class NMEALayout extends Component {
                 return html`<${LatitudeBox} 
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id+this.state.editing} // NB, the key must change for an existing component to be updated when properties change.
+                        key=${item.id+this.state.editing} 
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -389,7 +389,7 @@ class MenuButton extends Component {
 
     componentDidMount() {
         this.updateInterval = setInterval((async () => {
-            const packetsRecieved = await this.props.storeAPI.getPacketsRecieved();
+            const packetsRecieved = this.props.storeAPI.getPacketsRecieved();
             if (this.lastPacketsRecived !== packetsRecieved ) {
                 this.lastPacketsRecived = packetsRecieved;
                 this.setState({dataIndicatorOn: !this.state.dataIndicatorOn});
@@ -459,16 +459,15 @@ class TextBox extends Component {
     }
 
     componentDidMount() {
-        this.updateDisplayState().then(() => {
-            this.updateInterval = setInterval(this.updateDisplayState, this.updateRate);
+        this.updateDisplayState({
+            state: this.storeAPI.getState(this.field),
+            history: this.storeAPI.getHistory(this.history)
         });
-
+        this.storeAPI.addListener("change", this.updateDisplayState);
     }
     
     componentWillUnmount() {
-        if ( this.updateInterval ) {
-            clearInterval(this.updateInterval);
-        }
+        this.storeAPI.removeListener("change", this.updateDisplayState);
     }
 
 
@@ -480,18 +479,17 @@ class TextBox extends Component {
     */
 
 
-    async updateDisplayState() {
-
-        if ( this.storeAPI ) {
+    updateDisplayState(changes) {
+        if ( changes[this.field] != undefined ) {
             const dataType = DataTypes.getDataType(this.field);
-            const value = this.testValue || await this.storeAPI.getState(this.field);
+            const value = changes[this.field].state;
             const display = dataType.display(value);
 
 
             const displayClass = dataType.cssClass?dataType.cssClass(value):'';
 
             const h = [];
-            const v = await this.storeAPI.getHistory(this.field);
+            const v = changes[this.field].history;
             this.debug(this.field, "Values", v, value);
             if (dataType.withHistory && v &&  v.data.length > 1) {
                 h.push(dataType.toDisplayUnits(v.value));
@@ -633,7 +631,7 @@ class TextBox extends Component {
             return html`
                 <div className="overlay edit">
                 <select onChange=${this.changeField} value=${this.field} title="select data item" >
-                    ${optons1}
+                    ${options1}
                 </select>
                 <select onChange=${this.changeSize} value=${this.size} title="change size" >
                     ${options2}
@@ -688,25 +686,24 @@ class LogBox extends TextBox {
         this.testValue = props.testValue;
     }
 
-    async getDisplayValue(field) {
-        if ( this.testValue && this.testValue[field] ) {
-            return DataTypes.getDataType(field).display(this.testValue[field]);
+    getDisplayValue(field, changes, valueNow) {
+        if ( changes[field] !== undefined ) {
+            return DataTypes.getDataType(field).display(changes[field].state);
+        } else {
+            return valueNow;
         }
-        return DataTypes.getDataType(field).display(await this.storeAPI.getState(field));
     }
 
-    async updateDisplayState() {
-        if ( this.storeAPI ) {
-            this.debug(this.field, "Update State");
-            const logDisplay = await this.getDisplayValue("log");
-            const tripLogDisplay = await this.getDisplayValue("tripLog");
-            if ( logDisplay !== this.state.logDisplay || 
-                  tripLogDisplay !== this.state.tripLogDisplay) {
-                    this.setState({
-                         logDisplay,
-                         tripLogDisplay});
-            }
-        }        
+    updateDisplayState(changes) {
+        this.debug(this.field, "Update State");
+        const logDisplay = this.getDisplayValue( "log", changes, this.state.logDisplay);
+        const tripLogDisplay = this.getDisplayValue("tripLog", changes, this.state.tripLogDisplay);
+        if ( logDisplay !== this.state.logDisplay || 
+              tripLogDisplay !== this.state.tripLogDisplay) {
+                this.setState({
+                     logDisplay,
+                     tripLogDisplay});
+        }
     }
 
     render() {
@@ -737,25 +734,26 @@ class TimeBox extends TextBox {
         this.testValue = props.testValue;
     }
 
-    async getDisplayValue(field) {
-        if ( this.testValue && this.testValue[field] ) {
-            return DataTypes.getDataType(field).display(this.testValue[field]);
+
+    getDisplayValue(field, changes, valueNow) {
+        if ( changes[field] !== undefined ) {
+            return DataTypes.getDataType(field).display(changes[field].state);
+        } else {
+            return valueNow;
         }
-        return DataTypes.getDataType(field).display(await this.storeAPI.getState(field));
     }
 
-    async updateDisplayState() {
-        if ( this.storeAPI ) {
-            this.debug(this.field, "Update State");
-            const dateDisplay = await this.getDisplayValue("gpsDaysSince1970");
-            const timeDisplay = await this.getDisplayValue("gpsSecondsSinceMidnight");
-            if ( dateDisplay !== this.state.dateDisplay || 
-                  timeDisplay !== this.state.timeDisplay) {
-                    this.setState({
-                         dateDisplay,
-                         timeDisplay });
-            }
-        }        
+
+    updateDisplayState(changes) {
+        this.debug(this.field, "Update State");
+        const dateDisplay = this.getDisplayValue("gpsDaysSince1970", changes, this.state.dateDisplay);
+        const timeDisplay = this.getDisplayValue("gpsSecondsSinceMidnight", changes, this.state.timeDisplay);
+        if ( dateDisplay !== this.state.dateDisplay || 
+              timeDisplay !== this.state.timeDisplay) {
+                this.setState({
+                     dateDisplay,
+                     timeDisplay });
+        }
     }
 
     render() {
@@ -783,28 +781,30 @@ class LatitudeBox extends TextBox {
 
     constructor(props) {
         super(props);
+        console.log("Props are ", props, this);
         this.testValue = props.testValue;
     }
 
-    async getDisplayValue(field) {
-        if ( this.testValue && this.testValue[field] ) {
-            return DataTypes.getDataType(field).display(this.testValue[field]);
+    getDisplayValue(field, changes, valueNow) {
+        if ( changes[field] !== undefined ) {
+            return DataTypes.getDataType(field).display(changes[field].state);
+        } else {
+            return valueNow;
         }
-        return DataTypes.getDataType(field).display(await this.storeAPI.getState(field));
     }
 
-    async updateDisplayState() {
-        if ( this.storeAPI ) {
-            this.debug(this.field, "Update State");
-            const latitudeDisplay = await this.getDisplayValue("latitude");
-            const longitudeDisplay = await this.getDisplayValue("longitude");
-            if ( latitudeDisplay !== this.state.latitudeDisplay || 
-                  longitudeDisplay !== this.state.longitudeDisplay) {
-                    this.setState({
-                         latitudeDisplay,
-                         longitudeDisplay});
-            }
-        }        
+
+
+    updateDisplayState(changes) {
+        this.debug(this.field, "Update State");
+        const latitudeDisplay = this.getDisplayValue("latitude", changes, this.state.latitudeDisplay);
+        const longitudeDisplay = this.getDisplayValue("longitude", changes, this.state.longitudeDisplay);
+        if ( latitudeDisplay !== this.state.latitudeDisplay || 
+              longitudeDisplay !== this.state.longitudeDisplay) {
+                this.setState({
+                     latitudeDisplay,
+                     longitudeDisplay});
+        }
     }
 
     render() {
@@ -835,21 +835,29 @@ class SystemStatus extends TextBox {
         this.state.nmea0183Address = "none";
         this.state.packetsRecieved = 0;
         this.state.connectedClients = 0;
+        this.updatePeriodically = this.updatePeriodically.bind(this);
     }
 
-    async getDisplayValue(field) {
-        if ( this.testValue && this.testValue[field] ) {
-            return DataTypes.getDataType(field).display(this.testValue[field]);
-        }
-        return DataTypes.getDataType(field).display(await this.storeAPI.getState(field));
+    componentDidMount() {
+        this.updatePeriodically();
+        this.interval = setInterval(this.updatePeriodically, 1000);
+    }
+    
+    componentWillUnmount() {
+        clearInterval(this.interval);
     }
 
-    async updateDisplayState() {
+    updateDisplayState(changes) {
+
+    };
+
+
+    updatePeriodically() {
         if ( this.storeAPI ) {
             this.debug(this.field, "Update State");
-            const packetsRecieved = await this.storeAPI.getPacketsRecieved();
-            const nmea0183Address = await this.storeAPI.getNmea0183Address();
-            const connectedClients = await this.storeAPI.getConnectedClients();
+            const packetsRecieved = this.storeAPI.getPacketsRecieved();
+            const nmea0183Address = this.storeAPI.getNmea0183Address();
+            const connectedClients = this.storeAPI.getConnectedClients();
             this.setState({
                 packetsRecieved,
                 nmea0183Address,
@@ -885,18 +893,26 @@ class NMEA2000 extends TextBox {
     constructor(props) {
         super(props);
         this.testValue = props.testValue;
+        this.updatePeriodically = this.updatePeriodically.bind(this);
     }
 
-    async getDisplayValue(field) {
-        if ( this.testValue && this.testValue[field] ) {
-            return DataTypes.getDataType(field).display(this.testValue[field]);
-        }
-        return DataTypes.getDataType(field).display(await this.storeAPI.getState(field));
+    componentDidMount() {
+        this.updatePeriodically();
+        this.interval = setInterval(this.updatePeriodically, 1000);
+    }
+    
+    componentWillUnmount() {
+        clearInterval(this.interval);
     }
 
-    async updateDisplayState() {
+    updateDisplayState(changes) {
+
+    };
+
+
+    updatePeriodically(   ) {
         if ( this.storeAPI ) {
-            const messages = await this.storeAPI.getMessages();
+            const messages = JSON.parse(JSON.stringify(this.storeAPI.getMessages()));
             this.setState({
                 nmea2000Data: messages
             });
@@ -912,7 +928,7 @@ class NMEA2000 extends TextBox {
                 const message = this.state.nmea2000Data[pgn];
                 const m = [];
                 for(var k in message) {
-                    if ( message[k].id !== undefined ) {
+                    if ( message[k] && message[k].id !== undefined ) {
                         m.push(`${k}: ${message[k].name}(${message[k].id})`)
                     } else {
                         m.push(`${k}: ${message[k]}`);
