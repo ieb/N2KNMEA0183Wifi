@@ -284,7 +284,7 @@ class CANMessage {
         return message.data.getUint8(byteOffset);
     }
 
-    dumpMessage(message) {
+    static dumpMessage(message) {
         const bytes = [];
         for (var i = 0; i < message.data.byteLength; i++) {
             bytes.push(message.data.getUint8(i).toString(16).padStart(2, "0"));     

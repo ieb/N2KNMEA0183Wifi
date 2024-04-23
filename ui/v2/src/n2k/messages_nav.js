@@ -468,7 +468,7 @@ class PGN130916 extends CANMessage {
             pgn: 130916,
             count: 1,
             message: "Raymarine Proprietary unknown",
-            canmessage: this.dumpMessage(message)
+            canmessage: CANMessage.dumpMessage(message)
         };
     }
 
@@ -494,7 +494,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk 1 Pilot Mode",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -512,7 +512,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk 1 Keystroke",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -527,7 +527,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk 1 Device Identification",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -541,7 +541,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk 1 UnknownCommand",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -558,7 +558,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk1 Display Birghtness",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -573,7 +573,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk1 Display Color",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -588,7 +588,7 @@ class PGN126720 extends CANMessage {
                             pgn: 126720,
                             count: 1,
                             message: "Raymarine Seatalk1 Unknown 3212 ",
-                            canmessage: this.dumpMessage(message),
+                            canmessage: CANMessage.dumpMessage(message),
                             manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                             industry: NMEA2000Reference.lookup("industry", industry),
                             propietaryId,
@@ -604,7 +604,7 @@ class PGN126720 extends CANMessage {
                     pgn: 126720,
                     count: 1,
                     message: "Unknown Raymarine Proprietary message",
-                    canmessage: this.dumpMessage(message),
+                    canmessage: CANMessage.dumpMessage(message),
                     manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                     industry: NMEA2000Reference.lookup("industry", industry),
                     propietaryId,
@@ -617,7 +617,7 @@ class PGN126720 extends CANMessage {
                 pgn: 126720,
                 count: 1,
                 message: "Unknown Proprietary message",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
                 industry: NMEA2000Reference.lookup("industry", industry),
                 propietaryId,
@@ -677,7 +677,7 @@ class PGN65359 extends CANMessage {
                 pgn: 65359,
                 count: 1,
                 message: "Raymarine Seatalk Pilot Heading",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode: (f1 >> 5)&0x07ff, // should be 1851 == Raymarine
                 reserved1: (f1>>3)&0x03,
                 industry: (f1)&0x07,
@@ -692,7 +692,7 @@ class PGN65359 extends CANMessage {
                 pgn: 65359,
                 count: 1,
                 message: "Unknown Proprietary",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode: (f1 >> 5)&0x07ff, 
                 reserved1: (f1>>3)&0x03,
                 industry: (f1)&0x07
@@ -715,7 +715,7 @@ class PGN65379 extends CANMessage {
                 pgn: 65379,
                 count: 1,
                 message: "Raymarine Seatalk Pilot Heading 2",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode: (f1 >> 5)&0x07ff, // should be 1851 == Raymarine
                 reserved1: (f1>>3)&0x03,
                 industry: (f1)&0x07, // should be 4
@@ -728,7 +728,7 @@ class PGN65379 extends CANMessage {
                 pgn: 65379,
                 count: 1,
                 message: "Unknown Proprietary",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode: (f1 >> 5)&0x07ff, 
                 reserved1: (f1>>3)&0x03,
                 industry: (f1)&0x07
@@ -750,7 +750,7 @@ class PGN65384 extends CANMessage {
                 pgn: 65384,
                 count: 1,
                 message: "Raymarine Seatalk Pilot Heading 3",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode: (f1 >> 5)&0x07ff, // should be 1851 == Raymarine
                 reserved1: (f1>>3)&0x03,
                 industry: (f1)&0x07, // should be 4
@@ -761,7 +761,7 @@ class PGN65384 extends CANMessage {
                 pgn: 65384,
                 count: 1,
                 message: "Unknown Proprietary",
-                canmessage: this.dumpMessage(message),
+                canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode: (f1 >> 5)&0x07ff, 
                 reserved1: (f1>>3)&0x03,
                 industry: (f1)&0x07

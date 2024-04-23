@@ -326,15 +326,41 @@ button {
 .logviewer .line > div div {
   margin-left: 0.5em;
 }
-.logviewer .line > div > div:nth-child(1) {
+.logviewer .line > div.store > div:nth-child(1) {
   width: 14rem;
 }
-.logviewer .line > div > div:nth-child(2) {
+.logviewer .line > div.store > div:nth-child(2) {
   width: 10rem;
   text-wrap: nowrap;
 }
-.logviewer .line > div > div:nth-child(3) {
+.logviewer .line > div.store > div:nth-child(3) {
   width: 10rem;
+  text-wrap: nowrap;
+}
+.logviewer .line > div.store > div:nth-child(4) {
+  width: 10rem;
+  text-wrap: nowrap;
+}
+.logviewer .line > div.log > div:nth-child(1),
+.logviewer .line > div.log > div:nth-child(2), 
+.logviewer .line > div.message > div:nth-child(1),
+.logviewer .line > div.frame > div:nth-child(1),
+.logviewer .line > div.frame > div:nth-child(2),
+.logviewer .line > div.combined > div:nth-child(1) {
+  width: 6rem;
+}
+
+.logviewer .line > div.log > div:nth-child(3),
+.logviewer .line > div.log > div:nth-child(4), 
+.logviewer .line > div.message > div:nth-child(2),
+.logviewer .line > div.message > div:nth-child(3),
+.logviewer .line > div.message > div:nth-child(4),
+.logviewer .line > div.frame > div:nth-child(3),
+.logviewer .line > div.frame > div:nth-child(4),
+.logviewer .line > div.combined > div:nth-child(2),
+.logviewer .line > div.combined > div:nth-child(3),
+.logviewer .line > div.combined > div:nth-child(4) {
+  text-wrap: nowrap;
 }
 
 .line:nth-child(even) {

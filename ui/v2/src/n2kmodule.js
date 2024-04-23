@@ -41,7 +41,7 @@ class SeaSmartParser extends EventEmitter {
                 const canMessage = this._parseSeaSmart(ssMessage);
                 if ( canMessage !== undefined ) {
                     nparsed++;
-                    this.emit("nk2raw", canMessage);
+                    this.emit("n2kraw", canMessage);
                     const decoded = this.decoder.decode(canMessage);
                     if ( decoded !== undefined ) {
                         this.emit("n2kdecoded",decoded);
@@ -251,7 +251,7 @@ class Store extends EventEmitter {
             }
         }
         this.emit("change", changedState);
-}
+    }
 
 
     // When streaming NMEA2000 messages.
@@ -687,10 +687,20 @@ class StoreAPIImpl {
             return this.store.getMessages();
         };
         addListener(event, fn) { 
-            this.store.addListener(event, fn);
+            if ( event.startsWith("n2k")) {
+                console.log("Add ",event, fn);
+                this.seasmartParser.addListener(event, fn);
+            } else {
+                this.store.addListener(event, fn);
+            }
         };
         removeListener(event, fn) { 
-            this.store.removeListener(event, fn);
+            if ( event.startsWith("n2k")) {
+                console.log("Remove ",event, fn);
+                this.seasmartParser.removeListener(event, fn);
+            } else {
+                this.store.removeListener(event, fn);
+            }
         };
         getNmea0183Address() {
             return this.host;

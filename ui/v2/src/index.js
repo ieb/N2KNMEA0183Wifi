@@ -37,7 +37,7 @@ const mainAPI = new MainAPIImpl();
 if ( properties.view ===  "dump-store") {
    render(html`<${StoreView} title="Store" storeAPI=${storeAPI}  > </StoreView>`, rootElement);
 } else if ( properties.view ===  "can-frames") { 
-    render(html`<${FrameView} title="CAN Frames" mainAPI=${mainAPI} > </FrameView>`, rootElement);
+    render(html`<${FrameView} title="CAN Frames" storeAPI=${storeAPI} > </FrameView>`, rootElement);
 } else if ( properties.view ===  "can-messages") { 
    render(html`<${Logs} title="CAN Messages" mainAPI=${mainAPI} enableFeed=${mainAPI.onCanMessage} > </Logs>`, rootElement);
 } else if ( properties.view ===  "debug-logs") { 
