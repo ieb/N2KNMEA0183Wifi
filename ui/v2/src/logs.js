@@ -2,7 +2,8 @@ import { h, render, Component } from './deps/preact/preact.module.js';
 import htm from './deps/htm/index.module.js';
 const html = htm.bind(h);
 
-//import { LazyLog } from 'react-lazylog';
+import {LogViewer} from './logviewer.js';
+
 
 
 class Logs  extends Component {
@@ -18,9 +19,10 @@ class Logs  extends Component {
         };
         this.pauseUpdates = this.pauseUpdates.bind(this);
         this.props.enableFeed((line) => {
-            const loglines = this.state.loglines.slice(-500);
-            loglines.push(line);
-            this.setState({loglines, linecount: this.state.linecount+1});
+            if ( this.logControlAPI !== undefined ) {
+                const lines = this.state.loglines.slice(-500).push(line);
+                this.setState({loglines: lines});
+            }
         });        
     }
     componentDidMount() {
@@ -42,16 +44,16 @@ class Logs  extends Component {
         }
     }
 
+    registerControl(logControlAPI) {
+        this.logControlAPI = logControlAPI;
+    }
+
 
     render() {
-        let text= this.state.pausedLogs || this.state.loglines.join("\n");
-        if ( text === "" ) {
-            text = "Waiting for logs...."
-        }
         return html`
             <div className="logviewer" >
             <div>${this.title}<button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button></div>
-            <LazyLog text=${text} extraLines=${1} 
+            <LogViewer text=${text}
                 selectableLines 
                 caseInsensitive
                 follow

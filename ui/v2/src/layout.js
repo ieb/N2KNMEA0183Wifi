@@ -418,7 +418,6 @@ class TextBox extends Component {
 
     constructor(props) {
         super(props);
-        console.log("Create with ",props);
         this.storeAPI = props.storeAPI;
         this.editing = props.editing;
         this.onChange = props.onChange;
@@ -458,11 +457,14 @@ class TextBox extends Component {
         this.options = props.options;
     }
 
+
     componentDidMount() {
-        this.updateDisplayState({
+        const changes = {};
+        changes[this.field] = {
             state: this.storeAPI.getState(this.field),
-            history: this.storeAPI.getHistory(this.history)
-        });
+            history: this.storeAPI.getHistory(this.history)            
+        };
+        this.updateDisplayState(changes);
         this.storeAPI.addListener("change", this.updateDisplayState);
     }
     
@@ -781,7 +783,6 @@ class LatitudeBox extends TextBox {
 
     constructor(props) {
         super(props);
-        console.log("Props are ", props, this);
         this.testValue = props.testValue;
     }
 

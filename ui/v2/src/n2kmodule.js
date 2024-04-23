@@ -637,6 +637,7 @@ class StoreAPIImpl {
         this.seasmartParser = new SeaSmartParser(this.decoder);
         this.seasmart = new SeaSmartStream(this.seasmartParser);
         this.messageCount = 0;
+        this.host = "192.168.1.11";
         this.seasmartParser.addListener("n2kdecoded", (decoded) => {
             this.messageCount++;
             this.store.updateFromNMEA2000Stream(decoded);
@@ -644,20 +645,15 @@ class StoreAPIImpl {
         setInterval(() => {
             this.store.mergeUpdate(this.calculations);
         },1000);
+
     }
     start(host) {
         // if host is set, save the host config in local storage
         // otherwise try and get from local storage.
         // if nothing in local storage do nothing.
-        if ( host !== undefined ) {
-            localStorage.setItem("nmea2000host", host);
-        } else {
-            host = localStorage.getItem("nmea2000host");
-            if ( host === undefined || host === null ) {
-                host = "192.168.1.11";
-            }
-        }
+        host = host || "192.168.1.11";
         this.seasmart.start(`ws://${host}/ws/seasmart`);
+        this.host = host;
     }
     stop() {
     }
@@ -680,6 +676,10 @@ class StoreAPIImpl {
         getHistory(field) {
             return this.store.getHistory(field);
         };
+
+        getStore() {
+            return this.store;
+        }
         getKeys() {
             return this.store.getKeys();
         };
@@ -693,7 +693,7 @@ class StoreAPIImpl {
             this.store.removeListener(event, fn);
         };
         getNmea0183Address() {
-            return "1.1.1.1";
+            return this.host;
         };
         getConnectedClients() {
             return "";

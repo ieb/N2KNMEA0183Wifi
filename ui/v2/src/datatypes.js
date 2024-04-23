@@ -44,6 +44,7 @@ class RelativeAngle {
     static tr = "";
     static withHistory = true;
     static units = "deg";
+    static type = 'relativeAngle';
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
             return 0;
@@ -73,7 +74,9 @@ class RelativeAngle {
 }
 
 class RelativeAnglePS extends RelativeAngle {
-        static display(v) {
+    static type = 'relativePS';
+
+    static display(v) {
         if ( v == undefined || v == -1E9) {
             return "--";
         }
@@ -115,6 +118,7 @@ class RelativeBearing {
     static tr = "";
     static withHistory = true;
     static units = "deg";
+    static type = 'relativeBearing';
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
            return 0;
@@ -151,6 +155,7 @@ class WindSpeed {
     static tl = "";
     static tr = "";
     static units = "kn";
+    static type = 'speed';
     static withHistory = true;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -191,6 +196,7 @@ class Speed {
     static tl = "";
     static tr = "";
     static units = "kn";
+    static type = 'speed';
     static withHistory = true;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -233,6 +239,7 @@ class Distance {
     static tl = "";
     static tr = "";
     static units = "Nm";
+    static type = 'distance';
     static withHistory = false;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -262,6 +269,7 @@ class AtmosphericPressure {
     static tl = "";
     static tr = "";
     static units = "mBar";
+    static type = 'pressure';
     static withHistory = true;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -296,6 +304,7 @@ class Bearing {
     static tl = "";
     static tr = "";
     static units = "deg";
+    static type = 'bearing';
     static withHistory = true;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -335,6 +344,7 @@ class Latitude {
     static tl = "";
     static tr = "";
     static units = "lat";
+    static type = 'position';
     static withHistory = false;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -363,6 +373,7 @@ class Longitude {
     static tl = "";
     static tr = "";
     static units = "lon";
+    static type = 'position';
     static withHistory = false;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -385,6 +396,7 @@ class Percent {
     static tl = "";
     static tr = "";
     static units = "%";
+    static type = 'ratio';
     static withHistory = true;
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -420,6 +432,7 @@ class Ratio {
     }
     static tl = "";
     static tr = "";
+    static type = 'ratio';
     static units = "%";
     static withHistory = true;
     static toDisplayUnits(v) {
@@ -456,6 +469,7 @@ class Capacity {
     }
     static tl = "";
     static tr = "";
+    static type = 'capacity';
     static units = "l";
     static withHistory = false;
     static toDisplayUnits(v) {
@@ -492,6 +506,7 @@ class Depth {
     }
     static tl = "";
     static tr = "";
+    static type = 'depth';
     static units = "m";
     static withHistory = true;
     static toDisplayUnits(v) {
@@ -530,6 +545,7 @@ class Rpm {
     }
     static tl = "";
     static tr = "";
+    static type = 'rpm';
     static units = "rpm";
     static withHistory = true;
     static toDisplayUnits(v) {
@@ -565,6 +581,7 @@ class Temperature {
     }
     static tl = "";
     static tr = "";
+    static type = 'temperature';
     static units = "C";
     static withHistory = true;
     static toDisplayUnits(v) {
@@ -595,6 +612,7 @@ class Voltage {
     }
     static tl = "";
     static tr = "";
+    static type = 'voltage';
     static units = "V";
     static withHistory = true;
     static toDisplayUnits(v) {
@@ -624,6 +642,7 @@ class Current {
     }
     static tl = "";
     static tr = "";
+    static type = 'current';
     static units = "A";
     static withHistory = true;
     static toDisplayUnits(v) {
@@ -648,6 +667,7 @@ class Current {
 class TimeStamp {
     static tl = "";
     static tr = "";
+    static type = 'time';
     static units = "age s";
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -667,6 +687,7 @@ class TimeStamp {
 class GPSDate {
     static tl = "";
     static tr = "";
+    static type = 'date';
     static units = "age s";
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
@@ -687,6 +708,7 @@ class GPSDate {
 class GPSTime {
     static tl = "";
     static tr = "";
+    static type = 'time';
     static units = "";
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {

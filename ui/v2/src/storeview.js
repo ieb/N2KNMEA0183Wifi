@@ -1,10 +1,8 @@
 import { h, render, Component } from './deps/preact/preact.module.js';
 import htm from './deps/htm/index.module.js';
 const html = htm.bind(h);
-//import { LazyLog } from 'react-lazylog';
-//import yaml  from 'js-yaml';
-
-//import './styles/logs.css';
+import {LogViewer} from './logviewer.js';
+import {DataTypes, DisplayUtils } from './datatypes.js';
 
 
 class StoreView  extends Component {
@@ -16,30 +14,68 @@ class StoreView  extends Component {
         this.store = {};
         this.state = {
             linecount: 0,
+            updates: 0,
             renderedStore: "",
             pauseButton: "Pause"
         };
         this.pauseUpdates = this.pauseUpdates.bind(this);
-        this.storeAPI.onStateChange((storeUpdate) => {
-            for(let k in storeUpdate) {
-                this.store[k] = storeUpdate[k];
-            }
-            this.setState({renderedStore: yaml.dump(this.store, {
-                    skipInvalid: true,
-                    flowLevel:1,
-                })});
-        });        
+        this.addListener = this.addListener.bind(this);
+        this.update = this.update.bind(this);
+        this.lineRender = this.lineRender.bind(this);
     }
+    update(changes) {
+
+        for(let k in changes) {
+            this.store[k] = changes[k].state;
+        }
+        const data = [];
+        for (let k in this.store) {
+            data.push({k: k, v: this.store[k]});
+        }
+        this.updateLogView(data, this.lineRender);
+    }
+
+    lineRender(lineData) {
+        if ( typeof lineData.v === 'string' ) {
+            return html`<div className="string" key=${lineData.k} >
+                            <div>${lineData.k}</div>
+                            <div>${lineData.v}</div>
+                        </div>`;
+        } else if ( typeof lineData.v === 'number' ) {
+            if ( lineData.v === -1e9 ) {
+                return html`<div className="undefined" key=${lineData.k} >
+                                <div>${lineData.k}</div>
+                                <div>--</div>
+                            </div>`;
+            } else {
+                const dataType = DataTypes.getDataType(lineData.k);
+                if ( dataType !== undefined ) {
+                    const disp = dataType.display(lineData.v);
+                    return html`<div className=${dataType.type} key=${lineData.k} >
+                                    <div>${lineData.k}</div>
+                                    <div>(${lineData.v.toPrecision(6)}) ${disp}  ${dataType.units}</div>
+                                </div>`;
+                } else {
+                    return html`<div className="number" key=${lineData.k} >
+                                    <div>${lineData.k}</div>
+                                    <div>(${lineData.v.toPrecision(6)})</div>
+                                </div>`;
+                }
+            }
+        } else {
+            return html`<div className="object" key=${lineData.k} >
+                            <div>${lineData.k}</div>
+                            <div>${JSON.stringify(lineData.v)}</div>
+                        </div>`;
+        }
+    }
+
     componentDidMount() {
-        console.log("Register window for events");
-        this.storeAPI.addListener();
-        window.addEventListener('beforeunload', this.storeAPI.removeListener, false);
+        this.storeAPI.addListener("change", this.update);
     }
     
     componentWillUnmount() {
-        console.log("deRegister window for events");
-        window.removeEventListener('beforeunload', this.storeAPI.removeListener, false);
-        this.storeAPI.removeListener();
+        this.storeAPI.removeListener("change", this.update);
     }
     pauseUpdates() {
         if ( this.state.pauseButton === "Pause" ) {
@@ -49,22 +85,22 @@ class StoreView  extends Component {
         }
     }
 
+    addListener(cb) {
+        this.updateLogView = cb;
+    }
+
 
     render() {
-        let text= this.state.pausedLogs || this.state.renderedStore;
+        let text = this.state.pausedLogs || this.state.renderedStore;
         if ( text === "" ) {
             text = "Waiting for updates...."
         }
+        console.log("Viewer Text ", text);
         return html`
-            <div className="logviewer" >
+            <div className="storeviewer" >
             <div>${this.title}<button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button></div>
-            <div>NMEA2000 Standard units, Rad, m/s, K, etc</div>
-            <LazyLog text=${text} extraLines=${1} 
-                selectableLines 
-                caseInsensitive
-                follow
-                lineClassName="logline"
-                enableSearch / >
+            <div>NMEA2000 Standard units, Rad, m/s, K, etc ${this.state.updates}</div>
+            <${LogViewer} text=${this.state.renderedStore} addListener=${this.addListener} />
             </div> `;
     }
 }
@@ -105,12 +141,11 @@ class FrameView  extends Component {
             }
             // add the message to the end for a time based view.
             const loglines = this.state.loglines.slice(-500);
-            loglines.push(yaml.dump(value, { skipInvalid: true, flowLevel: 2}));
-            const update = 
+            loglines.push(JSON.stringify(value,null,2));
             this.setState({loglines, frameCount: this.state.frameCount+1,
-                frameView: yaml.dump(this.frames, { skipInvalid: true, flowLevel: 3}),
-                messageView: yaml.dump(this.messages, { skipInvalid: true, flowLevel: 3}),
-                combinedView:  yaml.dump(this.combined, { skipInvalid: true, flowLevel: 3})
+                frameView: JSON.stringify(this.frames,null,2), 
+                messageView: JSON.stringify(this.messages,null,2),
+                combinedView:  JSON.stringify(this.combined,null,2)
             });
         });        
     }
@@ -185,7 +220,7 @@ class FrameView  extends Component {
             text = "Waiting for updates...."
         }
         return html`
-            <div className="logviewer" >
+            <div className="frameviewer" >
             <div>${this.title}
                 <button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button>
                 mode [
@@ -194,12 +229,7 @@ class FrameView  extends Component {
                 <button onClick=${this.frameView} className=${this.state.frameViewClass} >frame</button>
                 <button onClick=${this.combinedView} className=${this.state.combinedViewClass} >combined</button> ]
             </div>
-            <LazyLog text=${text} extraLines=${1} 
-                selectableLines 
-                caseInsensitive
-                follow={follow}
-                lineClassName="logline"
-                enableSearch / >
+            <LogViewer text=${text}  / >
             </div> `;
     }
 }

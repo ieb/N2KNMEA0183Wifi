@@ -42,7 +42,7 @@ class EditUIControl extends Component {
                     <button onClick=${this.props.onAddItem} title="delete page" value="deletepage" >-</button>
                 </div>
                 <div className="controls"> 
-                    <button onClick=${this.props.onSave} title="save layout">&#x1f4be;</button>
+                    <button onClick=${this.props.onSave} title="save layout">💾</button>
                 </div>
             </div>
             `;

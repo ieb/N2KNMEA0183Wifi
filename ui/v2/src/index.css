@@ -288,11 +288,54 @@ button {
     overflow: auto;
 }
 
-
-.logviewer {
+.storeviewer {
     width: 100%;
     height: calc(100vh - 10px);
 }
+
+/* log viewer, with hits from Mistal 7B in Brave Chat... because css is so painful to get right */
+.logviewer {
+    width: 100%;
+    height: calc(100vh - 10px);
+  counter-reset: line; /* Reset the line number at the start of the .logview container */
+}
+
+.logviewer .line {
+  counter-increment: line; /* Increment the line number for each .logline element */
+  display: flex; /* To align Key and Value side by side */
+  justify-content: flex-start; /* To give space between Key and Value */
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
+
+.logviewer > div.line::before {
+  content: counter(line); /* Add a period and a space after the line number */
+  margin-right: 0.5rem; /* Add some spacing between the line number and the Key */
+  width: 1rem;
+}
+.logviewer .line > div {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: center;
+  margin-left: 0.5em;
+}
+.logviewer .line > div div {
+  margin-left: 0.5em;
+}
+.logviewer .line > div > div {
+  width: 24em;
+}
+
+.line:nth-child(even) {
+  background-color: #202020; /* Light gray color for even rows */
+}
+
+.line:nth-child(odd) {
+  background-color: #101010; /* Darker gray color for odd rows */
+}
+
 
 .logviewer .enabled {
     border: solid 0.5px white;
