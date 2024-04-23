@@ -28,11 +28,13 @@ class StoreView  extends Component {
         for(let k in changes) {
             this.store[k] = changes[k].state;
         }
-        const data = [];
-        for (let k in this.store) {
-            data.push({k: k, v: this.store[k]});
+        if ( this.state.pauseButton !== "Resume" ) {
+            const data = [];
+            for (let k in this.store) {
+                data.push({k: k, v: this.store[k]});
+            }
+            this.updateLogView(data, this.lineRender);            
         }
-        this.updateLogView(data, this.lineRender);
     }
 
     lineRender(lineData) {
@@ -40,12 +42,14 @@ class StoreView  extends Component {
             return html`<div className="string" key=${lineData.k} >
                             <div>${lineData.k}</div>
                             <div>${lineData.v}</div>
+                            <div></div>
                         </div>`;
         } else if ( typeof lineData.v === 'number' ) {
             if ( lineData.v === -1e9 ) {
                 return html`<div className="undefined" key=${lineData.k} >
                                 <div>${lineData.k}</div>
                                 <div>--</div>
+                                <div>(-1e9) </div>
                             </div>`;
             } else {
                 const dataType = DataTypes.getDataType(lineData.k);
@@ -53,11 +57,13 @@ class StoreView  extends Component {
                     const disp = dataType.display(lineData.v);
                     return html`<div className=${dataType.type} key=${lineData.k} >
                                     <div>${lineData.k}</div>
-                                    <div>(${lineData.v.toPrecision(6)}) ${disp}  ${dataType.units}</div>
+                                    <div>${disp}  ${dataType.units}</div>
+                                    <div>(${lineData.v.toPrecision(6)}) </div>
                                 </div>`;
                 } else {
                     return html`<div className="number" key=${lineData.k} >
                                     <div>${lineData.k}</div>
+                                    <div>  </div>
                                     <div>(${lineData.v.toPrecision(6)})</div>
                                 </div>`;
                 }
@@ -66,6 +72,7 @@ class StoreView  extends Component {
             return html`<div className="object" key=${lineData.k} >
                             <div>${lineData.k}</div>
                             <div>${JSON.stringify(lineData.v)}</div>
+                            <div>  </div>
                         </div>`;
         }
     }
@@ -99,7 +106,6 @@ class StoreView  extends Component {
         return html`
             <div className="storeviewer" >
             <div>${this.title}<button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button></div>
-            <div>NMEA2000 Standard units, Rad, m/s, K, etc ${this.state.updates}</div>
             <${LogViewer} text=${this.state.renderedStore} addListener=${this.addListener} />
             </div> `;
     }

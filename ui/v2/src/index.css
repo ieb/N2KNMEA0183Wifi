@@ -320,12 +320,21 @@ button {
   justify-content: space-evenly;
   align-items: center;
   margin-left: 0.5em;
+  margin-top: 1px;
+  margin-bottom: 1px;
 }
 .logviewer .line > div div {
   margin-left: 0.5em;
 }
-.logviewer .line > div > div {
-  width: 24em;
+.logviewer .line > div > div:nth-child(1) {
+  width: 14rem;
+}
+.logviewer .line > div > div:nth-child(2) {
+  width: 10rem;
+  text-wrap: nowrap;
+}
+.logviewer .line > div > div:nth-child(3) {
+  width: 10rem;
 }
 
 .line:nth-child(even) {
