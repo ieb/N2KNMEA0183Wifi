@@ -15,52 +15,6 @@
 
 
 
-class JsonOutput {
-    public:
-        JsonOutput() {};
-        virtual void outputJson(AsyncResponseStream* outputStream) {};
-        void append(const char *key, const char *value);
-        void append(const char *value);
-        void append(int value);
-        void append(double value);
-        void append(unsigned long value);
-        void appendCommaIfRequired();
-        void append(const char *key, int value);
-        void append(const char *key, double value, int precision=2);
-        void append(const char *key, unsigned int value);
-        void append(const char *key, unsigned long value);
-        void startObject();
-        void startObject(const char *key);
-        void endObject();
-        void startArray(const char *key);
-        void endArray();
-        void startJson(AsyncResponseStream *outputStream);
-        void endJson();
-    protected:
-        bool levels[10] = {0,0,0,0,0,0,0,0,0};
-        int level = 0;
-        AsyncResponseStream *outputStream=NULL;
-
-};
-
-class CsvOutput {
-    public:
-        CsvOutput() {};
-        virtual void outputCsv(AsyncResponseStream *outputStream) {};
-        void startBlock(AsyncResponseStream *outputStream);
-        void endBlock();
-        void startRecord(const char *);
-        void endRecord();
-        void appendField(const char *value);
-        void appendField(int value);
-        void appendField(double value, int precision = 2);
-        void appendField(unsigned long value);
-        void appendField(uint32_t value);
-    protected:
-        AsyncResponseStream *outputStream=NULL;
-};
-
-#define MAX_DATASETS 14
 
 class Wifi {
 public:
@@ -203,16 +157,6 @@ class WebServer {
     public:
         WebServer(Stream *outputStream) : outputStream{outputStream} {};
         void begin(const char * configurationFile = "/config.txt");
-        void addJsonOutputHandler(int id, JsonOutput *handler) {
-            if ( id >= 0 && id < MAX_DATASETS ) {
-                jsonHandlers[id] = handler;
-            }
-        };
-        void addCsvOutputHandler(int id, CsvOutput *handler) {
-            if ( id >= 0 && id < MAX_DATASETS ) {
-                csvHandlers[id] = handler;
-            }
-        };
         String getBasicAuth() { return basicAuth; };
         void sendN0183(const char *buffer);
         void sendN2K(const char *buffer);
@@ -226,8 +170,6 @@ class WebServer {
         AsyncWebSocket n0183WS = AsyncWebSocket("/ws/183"); 
         PgnWebSocket n2kWSraw = PgnWebSocket("/ws/candump3");  // supports filtering of messages.
         PgnWebSocket n2kWS = PgnWebSocket("/ws/seasmart");  // supports filtering of messages.
-        JsonOutput *jsonHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
-        CsvOutput *csvHandlers[MAX_DATASETS]={ NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
         String httpauth;
         String basicAuth;
 

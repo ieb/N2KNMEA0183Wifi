@@ -36,7 +36,9 @@ ToDo
 * [ ] Verify target VMG down wind.
 * [x] Emit data for websockets in raw form tbd.
 * [x] Emit raw pgn messages in some form.
-* [ ] Port in web apps from Electron NMEA App
+* [x] Port in web apps from Electron NMEA App in ui/v2
+* [ ] Fix messages display in v2 ui
+* [ ] Port eink displays
 
 ## TCP/UDP
 
@@ -44,11 +46,13 @@ Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a 
 
 ## WebSocket
 
+Only /ws/candump3, /ws/seasmart and /ws/183 have been implemented.
+
 NMEA0183 output makes sense for standard messages, but it cant cover N2K. There are some options for how N2K could be output. All of the formats below can be processed by readers in canboatJS.
 
 Websocket on a ESP32 has limited space for pending messages so all of these websocket endpoints work with that. Where the traffic is high the frames are debounced and buffered into larger websocket messages to reduce the impact of the websocket protocol. If this is not done, the ESP32 runs out of send buffer pointers and drops messages. Receivers need to split each message by \n 
 
-### Candump version 3 modified, /ws/candump3m
+### Candump version 3 modified, /ws/candump3m  - not implemented yet
 
     89f10d16#01f997fc3cfeffff\n
              ^^^^^^^^^^^^^^^^ data
@@ -56,7 +60,7 @@ Websocket on a ESP32 has limited space for pending messages so all of these webs
 
 Bare minimim, should be easy to covert into candump3 on the client, needs access to the raw stream before fastpackets are handled, or needs to reconstruct fast packets where the length is > 8.
 
-### Candump version 3, /ws/candump3
+### Candump version 3, /ws/candump3 - implemented
 
     (1713293415.384000) slcan0 89f10d16#01f997fc3cfeffff
                                         ^^^^^^^^^^^^^^^^ frame
@@ -66,7 +70,7 @@ Bare minimim, should be easy to covert into candump3 on the client, needs access
 
 Very low cost to output, but high volume and the frame has to be processed for fast packets in the client. 
 
-### Yacht Devces Raw /ws/raw
+### Yacht Devces Raw /ws/raw - no plans to implement
 
     19F51323 01 02<CR><LF>
              ^^^^^ frame data hex space separated 
@@ -80,7 +84,7 @@ Senders need to slice up the data, PGN 126720 (proprietary fast packet) gets spe
 
 This is close or the same as the log files produced by Raymarine e7 MFDs and other devices.
 
-### NMEA183 PCDIN aka Seasmart 
+### NMEA183 PCDIN aka Seasmart /ws/seasmart - implemented
 
 http://www.seasmart.net/pdf/SeaSmart_HTTP_Protocol_RevG_043012.pdf
 
@@ -112,7 +116,7 @@ Seasmart compact, can be expanded by the client into seasmart by adding the miss
     ^^^^^^ PGN
 
 
-### NMEA183 MXPGN  /ws/nmea0183 
+### NMEA183 MXPGN  /ws/nmea0183 - not implemented
 
 https://opencpn.org/wiki/dokuwiki/lib/exe/fetch.php?media=opencpn:software:mxpgn_sentence.pdf
 
@@ -147,14 +151,14 @@ https://opencpn.org/wiki/dokuwiki/lib/exe/fetch.php?media=opencpn:software:mxpgn
 
 
 
-### candump1  /ws/candump1
+### candump1  /ws/candump1  - not implemented
 
     <0x18eeff01> [8] 05 a0 be 1c 00 a0 a0 c0
                      ^^^^^^^^^^^^^^^^^^^^^^^ frame
                  ^^^ len 
     ^^^^^^^^^^^^ canID
 
-### candump2 /ws/candump3
+### candump2 /ws/candump3  - not implemented
 
     can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF
                           ^^^^^^^^^^^^^^^^^^^^^^^ frame
@@ -162,7 +166,7 @@ https://opencpn.org/wiki/dokuwiki/lib/exe/fetch.php?media=opencpn:software:mxpgn
           ^^^^^^^^ canid
     ^^^^ device
 
-### Actisense /ws/actisense
+### Actisense /ws/actisense  - not implemented
 
     2016-02-28T19:57:02.364Z,2,127250,7,255,8,ff,10,3b,ff,7f,ce,f5,fc
                                               ^^^^^^^^^^^^^^^^^^^^^^^ data
@@ -190,7 +194,7 @@ For date we would need to capture the date from GPS.
 Full messages are problematic with memory.
 
 
-### Data Link encoded
+### Data Link encoded  - not implemented
 
 Binary format see apenedix F in https://www.yachtd.com/downloads/ydnu02.pdf
 
@@ -242,13 +246,13 @@ Probably too much of a pain to implement.
 
 
 
-### /ws/183
+### /ws/183  - implemented
 
 Emits NMEA0183 same as on UDP and TCP.
 
 
 
-### /ws/2kraw
+### /ws/2kraw - deprecated
 
 Emits Raw PGR messages containing pdg,destination,length,<hex encoded data>
 
@@ -258,11 +262,42 @@ Accpets the following messages
 * rmpgn:<pgn to be removed from filter>
 * allpgn: 1 == emit all pgns, 0 filter pgns.
 
-### /ws/2kparsed
+### /ws/2kparsed - deprecated
 
 Emits PGN messages containg parsed fields.
 
 Same commands.
+
+
+## HTTP APIs
+
+### GET /api/fs.json - admin only
+
+lists the filesystem as json
+
+### POST /api/fs.json - admin only
+
+Filesystem operations.
+
+* op=delete deletes the file defined by path
+* op=upload multipart, uploads the first file to the location defined by the path param, limited by filesystemspace.
+
+### GET /api/status.json - admin only
+
+Gets the status of filesystem and heap
+
+### POST /api/reboot.json - admin only
+
+Reboots the ESP32.
+
+### GET /config.txt - admin only
+
+Gets the congiuration file
+
+### GET /**
+
+gets the file from the filesystem, query params are ignored.
+
 
 
 
