@@ -28,6 +28,32 @@ void WebServer::begin(const char * configurationFile) {
     n2kWSraw.begin();
 
 
+    // store contents in NMEA2000 raw units as csv lines.
+    server.on("/api/store", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (storeOutputFn == NULL) {
+            request->send(404);
+        } else {
+            AsyncResponseStream *response = request->beginResponseStream("text/plain");
+            addCORS(request, response);
+            response->setCode(200);
+            storeOutputFn(response);
+            request->send(response);
+        }
+    });
+
+    // text output of all devices.
+    server.on("/api/devices", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (storeOutputFn == NULL) {
+            request->send(404);
+        } else {
+            AsyncResponseStream *response = request->beginResponseStream("text/plain");
+            addCORS(request, response);
+            response->setCode(200);
+            listDeviceOutputFn(response);
+            request->send(response);
+        }
+    });
+
     //list the filesystem
     server.on("/api/fs.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
@@ -55,7 +81,13 @@ void WebServer::begin(const char * configurationFile) {
                 size_t total = SPIFFS.totalBytes();
                 size_t used = SPIFFS.usedBytes();
                 size_t free = total-used;
-                response->printf("], \"disk\":{ \"size\":%d, \"used\":%d, \"free\":%d}}\n", total, used, free );
+                uint32_t freeHeap = ESP.getFreeHeap();
+                uint32_t heapSize = ESP.getHeapSize();                
+                uint32_t minFreeHeap = ESP.getMinFreeHeap();
+                uint32_t maxAllocHeap = ESP.getMaxAllocHeap();
+
+                response->printf("], \"disk\":{ \"size\":%d, \"used\":%d, \"free\":%d},\n", total, used, free );
+                response->printf("\"heap\":{ \"size\":%d, \"free\":%d, \"minFree\":%d, \"maxAlloc\":%d}}\n", heapSize, freeHeap, minFreeHeap, maxAllocHeap );
                 request->send(response);
             }
         }

@@ -15,6 +15,7 @@ public:
     Performance(NMEA0183N2KMessages * messageEncoder): messageEncoder{messageEncoder} {};
     // float is used because there double trig on a esp32 is performed in software not hardware.
     void update(float awa, float aws, float stw, float roll, float hdm, float variation );
+    void output(Print *stream);
 private:
     NMEA0183N2KMessages * messageEncoder;
     float leeway = -1e9; 

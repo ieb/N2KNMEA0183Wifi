@@ -38,8 +38,8 @@ public:
     logbook{logbook}
     {};
   void handle(const tN2kMsg &N2kMsg);
-
- 
+  void output(Print *stream);
+  
 private:
 
     NMEA0183N2KMessages &messageEncoder;

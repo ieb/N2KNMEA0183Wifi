@@ -313,13 +313,13 @@ button {
 
 .storeviewer {
     width: 100%;
-    height: calc(100vh - 100px);
+    height: calc(100vh - 110px);
 }
 
 /* log viewer, with hits from Mistal 7B in Brave Chat... because css is so painful to get right */
 .logviewer {
     width: 100%;
-    height: calc(100vh - 10px);
+    height: calc(100vh - 110px);
   counter-reset: line; /* Reset the line number at the start of the .logview container */
 }
 

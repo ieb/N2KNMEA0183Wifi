@@ -10,6 +10,23 @@
 * Hosts UI applications delivered over http.
 * Runs either as an WiFi station or as an Access Point.
 
+# UI
+
+There is a web browser UI written as a single page application, delivered from the http server running on the 
+ESP. It receives CAN messages over websockets which it decodes and displays. The main screen is an 
+instruments screen which can contain 1..n mages and can be configured. Other screens include a store viewer 
+showing the data that has been received, and frame views showing decoding.  There is an admin view which 
+provides access to the flash drive to update the UI files, download log files and monitor disk and ram usage 
+on the device.  There is 2MB of flash available. The App is 26KB of javascript compressed which can be 
+updated from build or via the admin ui over http.
+
+![Instruments Main view](screenshots/instruments.png)
+![Admin ](screenshots/admin.png)
+![Decoded Store excluding history](screenshots/decodedstore.png)
+![Frame View](screenshots/frameview.png)
+![Streaming log of messages](screenshots/streaminglog.png)
+![Message view](screenshots/messageview.png)
+
 
 ToDo
 
@@ -40,13 +57,55 @@ ToDo
 * [ ] Fix messages display in v2 ui
 * [ ] Port eink displays
 
+
+## HTTP APIs
+
+### GET /api/fs.json - admin only
+
+lists the filesystem as json
+
+### POST /api/fs.json - admin only
+
+Filesystem operations.
+
+* op=delete deletes the file defined by path
+* op=upload multipart, uploads the first file to the location defined by the path param, limited by filesystemspace.
+
+
+### GET /api/store
+
+Gets the store from the ESP32 in csv format, see code for details on the values.
+
+### GET /api/devices 
+
+Gets a text version of the devices on the bus
+
+
+### GET /api/status.json - admin only
+
+Gets the status of filesystem and heap
+
+### POST /api/reboot.json - admin only
+
+Reboots the ESP32.
+
+### GET /config.txt - admin only
+
+Gets the congiuration file
+
+### GET /**
+
+gets the file from the filesystem, query params are ignored.
+
+
+
 ## TCP/UDP
 
 Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a list of messages.
 
 ## WebSocket
 
-Only /ws/candump3, /ws/seasmart and /ws/183 have been implemented.
+Only /ws/candump3, /ws/seasmart and /ws/183 have been implemented. Other formats have been tried but these make the most sense for applications.
 
 NMEA0183 output makes sense for standard messages, but it cant cover N2K. There are some options for how N2K could be output. All of the formats below can be processed by readers in canboatJS.
 
@@ -269,35 +328,6 @@ Emits PGN messages containg parsed fields.
 Same commands.
 
 
-## HTTP APIs
-
-### GET /api/fs.json - admin only
-
-lists the filesystem as json
-
-### POST /api/fs.json - admin only
-
-Filesystem operations.
-
-* op=delete deletes the file defined by path
-* op=upload multipart, uploads the first file to the location defined by the path param, limited by filesystemspace.
-
-### GET /api/status.json - admin only
-
-Gets the status of filesystem and heap
-
-### POST /api/reboot.json - admin only
-
-Reboots the ESP32.
-
-### GET /config.txt - admin only
-
-Gets the congiuration file
-
-### GET /**
-
-gets the file from the filesystem, query params are ignored.
-
 
 
 
@@ -337,7 +367,7 @@ Connecting to the serial port monitor allows lower level control and diagnostics
 
 # Developing
 
-Project uses PlatformIO.  WebUI is in  ui/einkweb with build files added to data/ to be built into a flash image using ./buidui.sh
+Project uses PlatformIO.  WebUI is in  ui/v2. This can be developed locally using node http-server in ui/vi/src or by updating the flash drive of a device running the firmare over http, using ui/v2/build.sh
 
 ## PIO commands
 
@@ -346,7 +376,7 @@ because I alwaysforget.
 * pio run -t upload
 * pio device monitor
 
-See buildui.sh for SPIFFS image commands.
+See buildui.sh for SPIFFS image commands. Dont use this to update the flashdrive, its easier to use the admin ui or curl.
 
 # Connectors
 
@@ -396,12 +426,13 @@ See buildui.sh for SPIFFS image commands.
     CAN-RX  D22
     CAN-TX  D23
 
-# Displays
-
-Rather than using decicated hardware displays I have decided to switch to apps since the power consumption is better and they require no installation onboard.  Most of the display code is in the archive subfolder.
+# Archived Functionality
 
 
-## eInk Waveshare display
+Rather than using dedicated hardware displays I have decided to switch to apps since the power consumption is better and they require no installation onboard.  Most of the display code is in the archive subfolder.
+
+
+## eInk Waveshare display  (archived)
 
 This uses SPI output only with a bunch of additional pins.
 
@@ -433,7 +464,7 @@ In most cases attempts to update the screen, on screen causes flickering so doub
 
 Drawing to sprites also works in 1bpp, 4bpp or 16bpp.
 
-### TFT case
+### TFT case 
 
 3d printed case, with 2 touch sensors and round shielded cable, as ribbon will emit too much interference to nearby devices. 
 

@@ -210,9 +210,15 @@ void setup() {
   nmeaSender.begin();
   nmeaSender.setDestination(wifi.getBroadcastIP());
 
+  webServer.setStoreCallback([](Print *stream) {
+    n2kHander.output(stream); // H,...
+    performance.output(stream); // P,...
+  });
 
-  webServer.addJsonOutputHandler(0,&listDevices);
-  webServer.addCsvOutputHandler(0,&listDevices);
+  webServer.setDeviceListCallback([](Print *stream) {
+    listDevices.output(stream);
+  });
+
   webServer.begin();
 
   // Set Product information

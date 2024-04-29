@@ -346,10 +346,60 @@ EInkUpdater.prototype.update = function() {
         if (httpRequest.readyState === XMLHttpRequest.DONE) {
           if (httpRequest.status === 200) {
             var start = Date.now();
-            var state = JSON.parse(httpRequest.responseText);
+            const lines = httpRequest.responseText.split("\n");
+            const state = {};
+            const getDouble = (v) => {
+                if ( v == "") return -1e9;
+                return +v;
+            } 
+            for ( var i = 0; i < lines.length; i++) {
+                const props = lines[i].split(',');
+                if ( props[0] == 'H') {
+                    // handler state
+                    state.headingTrue = getDouble(props[1]);
+                    state.headingMagnetic = getDouble(props[2]);
+                    state.faaValid = (props[3]==='V');
+                    state.sog = getDouble(props[4]);
+                    state.cogt = getDouble(props[5]);
+                    state.cogm = getDouble(props[6]);
+                    state.variation = getDouble(props[7]);
+                    state.fixSecondsSinceMidnight = getDouble(props[8]);
+                    state.latitude = getDouble(props[9]);
+                    state.longitude = getDouble(props[10]);
+                    state.aparentWindAngle = getDouble(props[11]);
+                    state.aparentWindSpeed = getDouble(props[12]);
+                    state.waterSpeed = getDouble(props[13]);
+                    state.roll = getDouble(props[14]);
+                    state.daysSince1970 = getDouble(props[15]);
+                    state.log = getDouble(props[16]);
+                    state.tripLog = getDouble(props[17]);
+                    state.pressure = getDouble(props[18]);
+                    state.engineSpeed = getDouble(props[19]);
+                    state.engineCoolantTemp = getDouble(props[20]);
+                } else if (props[0] == 'P') {
+                    state.tws = getDouble(props[1]);
+                    state.twa = getDouble(props[2]);
+                    state.leeway = getDouble(props[3]);
+                    state.polarSpeed = getDouble(props[4]);
+                    state.polarSpeedRatio = getDouble(props[5]);
+                    state.polarVmg = getDouble(props[6]);
+                    state.vmg = getDouble(props[7]);
+                    state.targetTwa = getDouble(props[8]);
+                    state.targetVmg = getDouble(props[9]);
+                    state.targetStw = getDouble(props[10]);
+                    state.polarVmgRatio = getDouble(props[11]);
+                    state.windDirectionTrue = getDouble(props[12]);
+                    state.windDirectionMagnetic = getDouble(props[13]);
+                    state.oppositeTrackHeadingTrue = getDouble(props[14]);
+                    state.oppositeTrackHeadingMagnetic = getDouble(props[15]);
+                    state.oppositeTrackTrue = getDouble(props[16]);
+                    state.oppositeTrackMagnetic = getDouble(props[17]);
+                }
+            }
+
             state._ts = new Date().getTime();
-            Calcs.prototype.save(state, 'sys.updateTime', that.updateTime, new Date(), "ms", "Timetaken to process update", true);
-            that.calculations.enhance(state);
+//            Calcs.prototype.save(state, 'sys.updateTime', that.updateTime, new Date(), "ms", "Timetaken to process update", true);
+//            that.calculations.enhance(state);
             that.context.update(state);
             that.updateTime = Date.now() - start;
           }

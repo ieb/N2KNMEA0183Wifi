@@ -28,6 +28,32 @@
 #define msToKnots(x) ((x) * 1.9438452)
 #define KnotsToms(x) ((x) * 0.514444257)
 #define Knots30 15.433327715602045
+
+
+#define OUTPUTD(x) if (x == -1e9) { stream->print(","); } else { stream->print(x); stream->print(","); }
+
+void Performance::output(Print *stream) {
+    stream->print("P,");
+    OUTPUTD(tws);
+    OUTPUTD(twa);
+    OUTPUTD(leeway);
+    OUTPUTD(polarSpeed);
+    OUTPUTD(polarSpeedRatio);
+    OUTPUTD(polarVmg);
+    OUTPUTD(vmg);
+    OUTPUTD(targetTwa);
+    OUTPUTD(targetVmg);
+    OUTPUTD(targetStw);
+    OUTPUTD(polarVmgRatio);
+    OUTPUTD(windDirectionTrue);
+    OUTPUTD(windDirectionMagnetic);
+    OUTPUTD(oppositeTrackHeadingTrue);
+    OUTPUTD(oppositeTrackHeadingMagnetic);
+    OUTPUTD(oppositeTrackTrue);
+    OUTPUTD(oppositeTrackMagnetic);
+    stream->println("");
+}
+
  
 void Performance::update(float awa, float aws, float stw, float roll, float hdm, float variation ) {
 

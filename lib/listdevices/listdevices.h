@@ -4,22 +4,19 @@
 #include <NMEA2000.h>
 #include <N2kMessages.h>
 #include <N2kDeviceList.h>
-#include "network.h"
 
 
-class ListDevices: public tN2kDeviceList, public JsonOutput, public CsvOutput {
+class ListDevices: public tN2kDeviceList {
     public:
         ListDevices(tNMEA2000 *_pNMEA2000, Stream *outputStream);
         void list(bool force = false);
-        void outputJson(AsyncResponseStream *outputStream);
-        void outputCsv(AsyncResponseStream *outputStream);
-
+        void output(Print *stream);
 
     private:
         Stream *OutputStream;
-        void printUlongList(const char *prefix, const unsigned long * List);
-        void printText(const char *Text, bool AddLineFeed=true);
-        void printDevice(const tNMEA2000::tDevice *pDevice);
+        void printUlongList(Print *stream, const char *prefix, const unsigned long * List);
+        void printText(Print *stream, const char *Text, bool AddLineFeed=true);
+        void printDevice(Print *stream, const tNMEA2000::tDevice *pDevice);
 
 };
 

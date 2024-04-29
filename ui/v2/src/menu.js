@@ -36,8 +36,6 @@ class Menu  extends Component {
                 <a href="${mainUrl}">Main</a>
                 <a href="${storeUrl}">Store</a>
                 <a href="${framesUrl}">Frames</a>
-                <a href="${messagesUrl}">Messages</a>
-                <a href="${logsUrl}">Logs</a>
                 <a href="${adminUrl}">Admin</a>
             </div> `;
     }

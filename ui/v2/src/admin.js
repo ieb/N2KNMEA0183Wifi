@@ -10,7 +10,8 @@ class AdminView  extends Component {
         this.apiUrl = `http://${props.host}`;
         this.state = {
             pauseButton: "Pause",
-            fileSystem: {}
+            fileSystem: {},
+            rebootMessage: ''
         };
         this.uploadReference = undefined;
         this.uploadPathReference = undefined;
@@ -20,6 +21,7 @@ class AdminView  extends Component {
         this.deleteFile = this.deleteFile.bind(this);
         this.clickUpload = this.clickUpload.bind(this);
         this.updateFileSystem = this.updateFileSystem.bind(this);
+        this.rebootDevice = this.rebootDevice.bind(this);
 
     }
 
@@ -65,6 +67,52 @@ class AdminView  extends Component {
         const result = await response.json();
         console.log("Delete result ", result);
         await this.updateFileSystem();
+    }
+
+    async rebootDevice() {
+
+        const body = "";
+        const response = await fetch(`${this.apiUrl}/api/reboot.json`, {
+            method: "POST",
+            mode: "cors", 
+            credentials: "include",
+            body
+        });
+        const result = await response.json();
+        console.log("Reboot result ", result);
+        let readyCountDown = 5;
+        const countdown = async () => {
+
+            if ( readyCountDown > 0 ) {
+                readyCountDown--;
+                this.setState({
+                    rebootMessage: `device ready in ${readyCountDown}`
+                });
+                setTimeout(countdown, 1000);
+            } else {
+                this.setState({
+                    rebootMessage: `trying device`
+                });
+                try {
+                    await this.updateFileSystem();
+                    this.setState({
+                        rebootMessage: ''
+                    });
+                } catch (e) {
+                    this.setState({
+                        rebootMessage: `not ready, wait 1s and retry`
+                    });
+
+                    setTimeout(countdown, 1000)
+                }
+            }
+        };
+        this.setState({
+            dir: undefined
+        });
+        countdown();
+
+
     }
 
     setUploadRef(ref) {
@@ -152,11 +200,15 @@ class AdminView  extends Component {
     }
 
     render() {
-        let totalSize=0, usedSize=0, freeSize=0;
+        let totalSize=0, usedSize=0, freeSize=0, heapFree=0, heapSize=0, heapMin=0, heapMaxAlloc=0;
         if ( this.state.dir ) {
             totalSize = this.formatBytes(this.state.dir.disk.size);
             usedSize = this.formatBytes(this.state.dir.disk.used);
             freeSize = this.formatBytes(this.state.dir.disk.free);
+            heapFree = this.formatBytes(this.state.dir.heap.free);
+            heapSize = this.formatBytes(this.state.dir.heap.size);
+            heapMin = this.formatBytes(this.state.dir.heap.minFree);
+            heapMaxAlloc = this.formatBytes(this.state.dir.heap.maxAlloc);
         }
         return html`
             <div className="adminview" >
@@ -166,10 +218,12 @@ class AdminView  extends Component {
                 <input ref=${this.setPathRef} type="text" />
                 <button onClick=${this.clickUpload} title="Upload new file ">Upload</button>
                 <button onClick=${this.updateFileSystem} title="Refresh">Refresh</button>
+                <button onClick=${this.rebootDevice} title="Reboot">Reboot</button>
+                ${this.state.rebootMessage}
             </div>
             <div className="logviewer">${this.renderFileList()}</div>
             <div>
-                Filesystem Total:${totalSize} Used:${usedSize} Free:${freeSize}
+                Filesystem Total:${totalSize} Used:${usedSize} Free:${freeSize} Heap Size:${heapSize} Free:${heapFree} min:${heapMin} maxAlloc:${heapMaxAlloc}
             </div>
             </div> `;
     }

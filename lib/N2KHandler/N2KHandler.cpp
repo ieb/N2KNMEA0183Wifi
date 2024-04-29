@@ -153,6 +153,40 @@ void N2KHandler::handle(const tN2kMsg &N2kMsg) {
   }
 }
 
+#define OUTPUTD(x) if (x == -1e9) { stream->print(","); } else { stream->print(x); stream->print(","); }
+#define OUTPUTPOS(x) if (x == -1e9) { stream->print(","); } else { stream->printf("%.8f",x); stream->print(","); }
+#define OUTPUTB(x) if (x) { stream->print("1,"); } else { stream->print("0,"); }
+#define OUTPUT16(x) if (x == 0xffff ) { stream->print(","); } else { stream->print(x); stream->print(","); }
+#define OUTPUT32(x) if (x == 0xffffffff ) { stream->print(","); } else { stream->print(x); stream->print(","); }
+
+void N2KHandler::output(Print *stream) {
+  stream->print("H,");
+  OUTPUTD(headingTrue);
+  OUTPUTD(headingMagnetic);
+  OUTPUTB(faaValid);
+  OUTPUTD(sog);
+  OUTPUTD(cogt);
+  OUTPUTD(cogm);
+  OUTPUTD(variation);
+  OUTPUTD(fixSecondsSinceMidnight);
+  OUTPUTPOS(latitude);
+  OUTPUTPOS(longitude);
+  OUTPUTD(aparentWindAngle);
+  OUTPUTD(aparentWindSpeed);
+  OUTPUTD(waterSpeed);
+  OUTPUTD(roll);
+  OUTPUT16(daysSince1970);
+  OUTPUT32(log);
+  OUTPUT32(tripLog);
+  OUTPUTD(pressure);
+  OUTPUTD(engineSpeed);
+  OUTPUTD(engineCoolantTemp);
+  stream->println("");
+}
+
+
+
+
 
 /**
  * variation

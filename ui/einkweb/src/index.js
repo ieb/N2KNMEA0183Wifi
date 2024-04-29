@@ -9,50 +9,90 @@
 */
 
 
+
+                    // handler state
+
+    /*
+             
+             From feed.
+                    state.headingTrue = getDouble(props[1]);
+                    state.headingMagnetic = getDouble(props[2]);
+                    state.faaValid = (props[3]==='V');
+                    state.sog = getDouble(props[4]);
+                    state.cogt = getDouble(props[5]);
+                    state.cogm = getDouble(props[6]);
+                    state.variation = getDouble(props[7]);
+                    state.fixSecondsSinceMidnight = getDouble(props[8]);
+                    state.latitude = getDouble(props[9]);
+                    state.longitude = getDouble(props[10]);
+                    state.aparentWindAngle = getDouble(props[11]);
+                    state.aparentWindSpeed = getDouble(props[12]);
+                    state.waterSpeed = getDouble(props[13]);
+                    state.roll = getDouble(props[14]);
+                    state.daysSince1970 = getDouble(props[15]);
+                    state.log = getDouble(props[16]);
+                    state.tripLog = getDouble(props[17]);
+                    state.pressure = getDouble(props[18]);
+                    state.engineSpeed = getDouble(props[19]);
+                    state.engineCoolantTemp = getDouble(props[20]);
+                } else if (props[0] == 'P') {
+                    state.tws = getDouble(props[1]);
+                    state.twa = getDouble(props[2]);
+                    state.leeway = getDouble(props[3]);
+                    state.polarSpeed = getDouble(props[4]);
+                    state.polarSpeedRatio = getDouble(props[5]);
+                    state.polarVmg = getDouble(props[6]);
+                    state.vmg = getDouble(props[7]);
+                    state.targetTwa = getDouble(props[8]);
+                    state.targetVmg = getDouble(props[9]);
+                    state.targetStw = getDouble(props[10]);
+                    state.polarVmgRatio = getDouble(props[11]);
+                    state.windDirectionTrue = getDouble(props[12]);
+                    state.windDirectionMagnetic = getDouble(props[13]);
+                    state.oppositeTrackHeadingTrue = getDouble(props[14]);
+                    state.oppositeTrackHeadingMagnetic = getDouble(props[15]);
+                    state.oppositeTrackTrue = getDouble(props[16]);
+                    state.oppositeTrackMagnetic = getDouble(props[17]);
+
+    */
+
+
     var layout = new FlowLayout(3,2);
     layout.setPageTitle("Engine");
-    layout.append(EInkTextBox.number("1.engine.[instance==0].speed","engine","rpm",0));
-    layout.append(EInkTextBox.number("1.engine.[instance==0].altenatorVoltage","alternator","V"));
-    layout.append(EInkTextBox.number("1.engine.[instance==0].hours","hours","h", 2, 1/3600));
-    layout.append(EInkTextBox.number("1.engine.[instance==0].coolantTemp","coolant","C", 1, 1,  -273.15));
-    layout.append(new EInkEngineStatus("1.engine.[instance==0]"));
-    layout.append(EInkTextBox.number("1.fluidLevel.[instance==0,fluidType==0,debug].level","fuel","%",0)); // should be fuel
+    layout.append(EInkTextBox.number("engineSpeed","engine","rpm",0));
+    layout.append(EInkTextBox.number("altenatorVoltage","alternator","V"));
+    layout.append(EInkTextBox.number("engineHours","hours","h", 2, 1/3600));
+    layout.append(EInkTextBox.number("engineCoolantTemp","coolant","C", 1, 1,  -273.15));
+    layout.append(new EInkEngineStatus("engineStatus"));
+    layout.append(EInkTextBox.number("fuelLevel","fuel","%",0)); // should be fuel
     // No need to call new page as its full already.
     //layout.newPage();
     layout.setPageTitle("Batteries");
-    layout.append(EInkTextBox.number("1.battery.[instance==0].voltage","engine","V"));
-    layout.append(EInkTextBox.number("1.battery.[instance==1].voltage","service","V"));
-    layout.append(EInkTextBox.number("1.engine.[instance==0].altenatorVoltage","alternator","V"));
-    layout.append(EInkTextBox.number("1.battery.[instance==2].voltage","engine controls","V"));
+    layout.append(EInkTextBox.number("engineBatteryVoltage","engine","V"));
+    layout.append(EInkTextBox.number("serviceBatteryVoltage","service","V"));
+    layout.append(EInkTextBox.number("altenatorVoltage","alternator","V"));
+    layout.append(EInkTextBox.number("systemVoltage","engine controls","V"));
     layout.newPage();
     layout.setPageTitle("Environment");
-    layout.append(EInkTextBox.number("4.pressure.0.actual","n2k","mbar", 1, 0.01, 0));
-    layout.append(EInkTextBox.number("4.pressure.0.actual","n2k","mbar", 1, 0.01, 0));
-    layout.append(EInkTextBox.number("5.temperatureExt.0.actual","n2k","C", 1, 1, -273.15));
-    layout.append(EInkTextBox.number("4.humidity.0.actual","n2k","%RH",1));
+    layout.append(EInkTextBox.number("pressure","n2k","mbar", 1, 0.01, 0));
+    layout.append(EInkTextBox.number("cabinTemperature","n2k","C", 1, 1, -273.15));
+    layout.append(EInkTextBox.number("humidity","n2k","%RH",1));
 
 
     layout.newPage();
     layout.setPageTitle("Temperature");
-    layout.append(EInkTextBox.number("6.temperatures.0.temperature","Engine Room","C", 2));
-    layout.append(EInkTextBox.number("6.temperatures.1.temperature","Exhaust","C", 2));
-    layout.append(EInkTextBox.number("6.temperatures.2.temperature","Battery S","C", 2));
-    layout.append(EInkTextBox.number("6.temperatures.3.temperature","Alternator","C", 2));
+    layout.append(EInkTextBox.number("engineRoomTemperature","Engine Room","C", 2));
+    layout.append(EInkTextBox.number("exhaustTemperature","Exhaust","C", 2));
+    layout.append(EInkTextBox.number("alternatorTemperature","Alternator","C", 2));
+    layout.append(EInkTextBox.number("a2bTemperature","Charger","C", 2));
 
-
-    layout.newPage();
-    layout.setPageTitle("Voltages");
-    layout.append(EInkTextBox.number("8.battery.0.voltage","service","V", 2));
-    layout.append(EInkTextBox.number("8.voltages.0.current","service","A", 1));
-    layout.append(EInkTextBox.number("8.voltages.1.voltage","engine","V", 2));
-    layout.append(EInkTextBox.number("8.voltages.1.current","engine","A", 1));
 
     layout.newPage();
     layout.setPageTitle("Performance");
-    layout.append(EInkTextBox.number("performance.polarSpeed", 'polar stw',"Kn"));
-    layout.append(EInkTextBox.number("performance.vmg", 'polar vmg', "Kn"));
-    layout.append(EInkTextBox.number("performance.polarVmg","best polar vmg","Kn"));
-    layout.append(EInkTextBox.number("performance.targetStw","target stw","Kn"));
+    layout.append(EInkTextBox.number("polarSpeed", 'polar stw',"Kn"));
+    layout.append(EInkTextBox.number("vmg", 'polar vmg', "Kn"));
+    layout.append(EInkTextBox.number("polarVmg","best polar vmg","Kn"));
+    layout.append(EInkTextBox.number("targetStw","target stw","Kn"));
 
 
 
@@ -141,8 +181,7 @@
 //        console.log("Using DataServer", window.DataServerAddress);
 
         var updater =  new EInkUpdater({
-            url: `${window.DataServerAddress}/api/data/all.json`,
-            calculations: new Calcs(),
+            url: `${window.DataServerAddress}/api/store`,
             context: drawingContext,
             period: 5000
         });

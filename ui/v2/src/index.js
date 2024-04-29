@@ -3,7 +3,6 @@ import htm from './deps/htm/index.module.js';
 const html = htm.bind(h);
 
 import { NMEALayout } from './layout.js';
-import { Logs } from './logs.js';
 import { StoreView, FrameView } from './storeview.js';
 import { AdminView } from './admin.js';
 import { Menu } from './menu.js';
@@ -30,21 +29,21 @@ const getLocationProperties = () => {
 const rootElement = document.getElementById('root');
 const properties = getLocationProperties();
 if ( properties.view ===  "admin" ) {
-   render(html`<${Menu} locationProperties=${properties} /><${AdminView} title="Admin" host=${properties.host} />`, rootElement);   
+   render(html`<${Menu} locationProperties=${properties} />
+      <${AdminView} title="Admin" host=${properties.host} />`, rootElement);   
 } else {
    const storeAPI = new StoreAPIImpl();
    storeAPI.start(properties.host);
    const mainAPI = new MainAPIImpl();
    if ( properties.view ===  "dump-store") {
-      render(html`<${Menu} locationProperties=${properties} /><${StoreView} title="Store" storeAPI=${storeAPI}  />`, rootElement);
+      render(html`<${Menu} locationProperties=${properties} />
+         <${StoreView} title="Store" storeAPI=${storeAPI}  />`, rootElement);
    } else if ( properties.view ===  "can-frames") { 
-       render(html`<${Menu} locationProperties=${properties} /><${FrameView} title="CAN Frames" storeAPI=${storeAPI} />`, rootElement);
-   } else if ( properties.view ===  "can-messages") { 
-      render(html`<${Menu} locationProperties=${properties} /><${Logs} title="CAN Messages" mainAPI=${mainAPI} enableFeed=${mainAPI.onCanMessage} />`, rootElement);
-   } else if ( properties.view ===  "debug-logs") { 
-      render(html`<${Menu} locationProperties=${properties} /><${Logs} title="Debug Logs" mainAPI=${mainAPI} enableFeed=${mainAPI.onLogMessage} />`, rootElement);
+       render(html`<${Menu} locationProperties=${properties} />
+         <${FrameView} title="CAN Frames" storeAPI=${storeAPI} />`, rootElement);
    } else {
-      render(html`<${Menu} locationProperties=${properties} /><${NMEALayout} mainAPI=${mainAPI} storeAPI=${storeAPI} />`, rootElement);
+      render(html`<${Menu} locationProperties=${properties} />
+         <${NMEALayout} mainAPI=${mainAPI} storeAPI=${storeAPI} />`, rootElement);
    }
 
 }

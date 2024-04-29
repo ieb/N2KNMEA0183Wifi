@@ -155,7 +155,7 @@ private:
 
 class WebServer {
     public:
-        WebServer(Stream *outputStream) : outputStream{outputStream} {};
+        WebServer(Stream *outputStream ) : outputStream{outputStream} {};
         void begin(const char * configurationFile = "/config.txt");
         String getBasicAuth() { return basicAuth; };
         void sendN0183(const char *buffer);
@@ -163,6 +163,15 @@ class WebServer {
         bool shouldSend(unsigned long pgn) {
             return n2kWS.shouldSend(pgn);
         }
+        typedef std::function<void(Print *stream)> FnResponseOutputHandler;
+
+        void setStoreCallback(FnResponseOutputHandler h) {
+            storeOutputFn = h;
+        }
+        void setDeviceListCallback(FnResponseOutputHandler h) {
+            listDeviceOutputFn = h;
+        }
+
 
     private:  
         Stream *outputStream;
@@ -173,6 +182,8 @@ class WebServer {
         String httpauth;
         String basicAuth;
 
+        FnResponseOutputHandler storeOutputFn = NULL;
+        FnResponseOutputHandler listDeviceOutputFn = NULL;
         String handleTemplate(AsyncWebServerRequest * request, const String &var);
         void handleAllFileUploads(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
         bool authorized(AsyncWebServerRequest *request);
