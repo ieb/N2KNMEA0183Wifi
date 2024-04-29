@@ -308,7 +308,7 @@ button {
   flex-direction: row;
 }
 
-.logviewer > div.line::before {
+.logviewer .line::before {
   content: counter(line); /* Add a period and a space after the line number */
   margin-right: 0.5rem; /* Add some spacing between the line number and the Key */
   width: 1rem;
@@ -362,6 +362,50 @@ button {
 .logviewer .line > div.combined > div:nth-child(4) {
   text-wrap: nowrap;
 }
+
+.adminview button {
+  margin: 10px;
+  padding-top:2px;
+  padding-bottom:2px;
+  padding-left:5px;
+  padding-right:5px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border-color: grey;
+  border-width: 1px;
+  border-style: solid;
+  min-width: 2rem;
+  background-color: #42310d;
+}
+
+.adminview button:hover {
+  background-color: #6b1e13;
+}
+
+.adminview .line button {
+  margin: 1px;
+  padding-left:2px;
+  padding-right:2px;
+  font-size: 1.2rem;
+}
+
+.logviewer .line > div.fileInfo > div:nth-child(1) {
+  width: 15rem;
+
+}
+.logviewer .line > div.fileInfo > div:nth-child(2) {
+  width: 4rem;
+}
+
+
+.fileInfo a {
+  text-decoration: none;
+  color: white;
+}
+.fileInfo a:hover {
+  text-decoration: underline;
+}
+
 
 .line:nth-child(even) {
   background-color: #202020; /* Light gray color for even rows */

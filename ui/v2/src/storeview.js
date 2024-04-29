@@ -96,7 +96,6 @@ class StoreView  extends Component {
 
 
     render() {
-        console.log("Viewer Text ", text);
         return html`
             <div className="storeviewer" >
             <div>${this.title}<button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button></div>

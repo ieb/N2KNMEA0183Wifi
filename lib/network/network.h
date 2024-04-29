@@ -234,6 +234,8 @@ class WebServer {
         String handleTemplate(AsyncWebServerRequest * request, const String &var);
         void handleAllFileUploads(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
         bool authorized(AsyncWebServerRequest *request);
+        void addCORS(AsyncWebServerRequest *request, AsyncWebServerResponse * response );
+
 
 };
 

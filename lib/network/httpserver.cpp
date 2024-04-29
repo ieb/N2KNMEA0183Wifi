@@ -28,203 +28,217 @@ void WebServer::begin(const char * configurationFile) {
     n2kWSraw.begin();
 
 
-
-    server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/index.html", "text/html", false, [this, request](const String& var){
-            return this->handleTemplate(request, var);
-        });
-    });
-    server.on("/admin.html", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    //list the filesystem
+    server.on("/api/fs.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
-            request->send(SPIFFS, "/admin.html", "text/html", false, [this, request](const String& var){
-                return this->handleTemplate(request, var);
-            });
-        }
-    });
-    server.on("/admin.js", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if ( this->authorized(request) ) {
-            request->send(SPIFFS, "/admin.js", "application/javascript");
-        }
-    });
-    server.on("/admin.css", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if ( this->authorized(request) ) {
-            request->send(SPIFFS, "/admin.css", "text/css");
-        }
-    });
-
-
-    server.on("^\\/(.*)\\.html$", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        String path = String("/") + request->pathArg(0) + String(".html");
-        outputStream->print("GET ");outputStream->println(path);
-        request->send(SPIFFS, path, "text/html", false, [this, request](const String& var){
-            return this->handleTemplate(request, var);
-        });
-    });
-    server.on("^\\/(.*)\\.js$", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        String path = String("/") + request->pathArg(0) + String(".js");
-        outputStream->print("GET ");outputStream->println(path);
-        request->send(SPIFFS, path, "text/javascript");
-    });
-    server.on("^\\/(.*)\\.css$", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        String path = String("/") + request->pathArg(0) + String(".css");
-        outputStream->print("GET ");outputStream->println(path);
-        request->send(SPIFFS, path, "text/css");
-    });
-
-
-
-    server.on("/api/logbook.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        AsyncResponseStream *response = request->beginResponseStream("application/json");
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        response->setCode(200);
-        response->print("{ \"logbooks\": [ \"/api/logbookj.json\" ");
-
-        outputStream->println("GET /api/logbook.json");
-        File f = SPIFFS.open("/logbook");
-        File lf = f.openNextFile();
-        while(lf) {
-            response->printf(",\n{ \"name\":\"%s\", \"size\":%d }",lf.name(),lf.size());
-            lf = f.openNextFile();
-        }
-        response->print("\n]}");
-        request->send(response);
-    });
-
-    server.on("^\\/logbook/(.*)$", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        String path = String("/logbook/") + request->pathArg(0);
-        outputStream->print("GET ");outputStream->println(path);
-        request->send(SPIFFS, path, "text/plain");
-    });
-
-    server.on("^\\/logbook/(.*)$", HTTP_DELETE, [this](AsyncWebServerRequest *request) {
-        String path = String("/logbook/") + request->pathArg(0);
-        outputStream->print("DELETE ");outputStream->println(path);
-        if ( SPIFFS.exists(path)) {
-            SPIFFS.remove(path);
-            request->send(200,"application/json","{ \"ok\":true,\"msg\":\"deleted\"}");
-        } else {
-            request->send(404);
-        }
-    });
-
-
-
-    server.on("^\\/api\\/data\\/([0-9]*).csv$", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        int id = request->pathArg(0).toInt();
-        unsigned long start = millis();
-        outputStream->print("http GET /api/data/");
-        outputStream->print(id);
-        outputStream->print(".csv");
-        
-        if ( id >= 0 && id < MAX_DATASETS && this->csvHandlers[id] != NULL) {
-            AsyncResponseStream *response = request->beginResponseStream("text/csv");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->setCode(200);
-            this->csvHandlers[id]->outputCsv(response);
-            request->send(response);
-        } else {
-            AsyncResponseStream *response = request->beginResponseStream("text/csv");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->setCode(404);
-            request->send(response);
-        }
-        outputStream->print(" ");
-        outputStream->println(millis() - start);
-    });
-
-
-    server.on("^\\/api\\/data\\/([0-9]*).json$", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        int id = request->pathArg(0).toInt();
-        unsigned long start = millis();
-        outputStream->print("http GET /api/data/");
-        outputStream->print(id);
-        outputStream->print(".json");
-        
-        if ( id >= 0 && id < MAX_DATASETS && this->jsonHandlers[id] != NULL) {
+            outputStream->println("GET /api/fs.json");
             AsyncResponseStream *response = request->beginResponseStream("application/json");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->setCode(200);
-            this->jsonHandlers[id]->outputJson(response);
-            request->send(response);
-        } else {
-            AsyncResponseStream *response = request->beginResponseStream("application/json");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->setCode(404);
-            request->send(response);
-        }
-        outputStream->print(" ");
-        outputStream->println(millis() - start);
-    });
-    server.on("/api/data/all.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        unsigned long start = millis();
-        outputStream->print("http GET /api/data/all");
-        AsyncResponseStream *response = request->beginResponseStream("application/json");
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        response->setCode(200);
-        response->print("{");
-        bool first = true;
-        for (int i = 0; i < MAX_DATASETS; i++) {
-            if (this->jsonHandlers[i] != NULL) {
-                if (!first) {
-                    response->print(",");
+            addCORS(request, response);
+            File root = SPIFFS.open("/");
+            if (!root || !root.isDirectory() ) {
+                response->setCode(404);
+                response->println("{ \"files\":[], error:\"not mounted\" }");
+                request->send(response);
+            } else {
+                response->setCode(200);
+                response->print("{ \"files\":[");
+                File file = root.openNextFile();
+                bool firstTime = true;
+                while (file) {
+                    if (!firstTime) {
+                        response->print(",");    
+                    }
+                    firstTime = false;
+                    response->printf("{ \"path\":\"%s\",  \"size\":%d }",  file.name(), file.size() );
+                    file = root.openNextFile();
                 }
-                first = false;
-                response->print("\"");response->print(i);response->print("\":");
-                this->jsonHandlers[i]->outputJson(response);
+                size_t total = SPIFFS.totalBytes();
+                size_t used = SPIFFS.usedBytes();
+                size_t free = total-used;
+                response->printf("], \"disk\":{ \"size\":%d, \"used\":%d, \"free\":%d}}\n", total, used, free );
+                request->send(response);
             }
         }
-        response->print("}");
-        request->send(response);
-        outputStream->print(" ");
-        outputStream->println(millis() - start);
     });
 
 
 
 
+
+    // perform operations on the filesystem
+    server.on("/api/fs.json", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        if ( this->authorized(request) ) {
+            outputStream->println("POST /api/fs.json");
+            AsyncResponseStream *response = request->beginResponseStream("application/json");
+            addCORS(request, response);
+            AsyncWebParameter * op = request->getParam("op", true, false);
+            if ( op == NULL ) {
+                // try to get it from multipart
+                op = request->getParam("op", true, true);
+            }
+            if ( op == NULL ) {
+                response->setCode(400);
+                response->println("{ \"ok\":false,\"msg\":\"op required\"}");
+                request->send(response);
+            } else if ( op->value() == "delete" ) {
+                AsyncWebParameter * path = request->getParam("path", true, false);
+                if ( path == NULL ) {
+                    response->setCode(400);
+                    response->println("{ \"ok\":false,\"msg\":\"path to delete required\"}");
+                    request->send(response);
+                } else {
+                    String filePath = path->value();
+                    if ( SPIFFS.exists(filePath) ) {
+                        SPIFFS.remove(filePath);
+                        response->setCode(200);
+                        response->println("{ \"ok\":true,\"msg\":\"deleted\"}");
+                        request->send(response);
+                    } else {
+                        response->setCode(404);
+                        response->println("{ \"ok\":false,\"msg\":\"not found\"}");
+                        request->send(response);
+                    }                    
+                }
+            } else if ( op->value() == "upload") {
+
+                if ( request->_tempObject == NULL ) {
+                    response->setCode(400);
+                    response->println("{ \"ok\":false,\"msg\":\"path and file to upload required\"}");
+                    request->send(response);
+                } else {
+                    // _tempObject was set when processing the first chunk of the upload.
+                    uint16_t * retCode = (uint16_t *)request->_tempObject;
+                    response->setCode(*retCode);
+                    if ( *retCode < 400 ) {
+                        response->println("{ \"ok\":true, \"msg\":\"saved\" }");
+                    } else {
+                        response->println("{ \"ok\":false, \"msg\":\"failed to save\" }");
+                    }
+                    request->send(response);
+                    // free the _tempObject and set to null.
+                    free(request->_tempObject);
+                    request->_tempObject = NULL;
+                }
+            }
+        }
+    }, [this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+
+        if ( !index ) {
+            // first chunk, only start to write the file if there is a path defined.
+            // POSTS need to ensure that path and op are sent first before the body of 
+            // the file.
+            AsyncWebParameter * path = request->getParam("path", true, false);
+            AsyncWebParameter * op = request->getParam("op", true, false);
+            if ( path != NULL && op != NULL && op->value() == "upload" ) {
+                if ( request->_tempObject != NULL ) {
+                    Serial.println("Upload only supports one file at a time");
+                } else {
+                    if ( request->_tempFile ) {
+                        // if there was a file open, close it.
+                        request->_tempFile.close();
+                    }
+
+                    const char * pathValue = path->value().c_str();
+                    // allocate enough space for a uint16_t and the path, including the \0 terminator
+                    request->_tempObject = malloc(2+strlen(pathValue)+1);
+                    // retcode starts at 0
+                    uint16_t * retCode = (uint16_t *)(request->_tempObject);
+                    // the stored path starts at byte 3
+                    char * storedPath = (char *)(request->_tempObject);
+                    storedPath = storedPath+2; 
+                    // copy the stored path in.
+                    strcpy(storedPath, pathValue);
+                    // if the file exists set a sucessfull status code to 200 otherwise 201.
+                    if ( SPIFFS.exists(storedPath)) {
+                        *retCode = 200;
+                    } else {
+                        *retCode = 201;
+                    }
+                    // open the file and keep the pointer to it in _tempFile
+                    request->_tempFile = SPIFFS.open(storedPath, "w");                    
+                }
+            } 
+        }
+        // only if a file has been setup to write
+        if ( request->_tempObject != NULL && request->_tempFile ) {
+
+            // only if there is come data
+            if ( len ) {
+                // append the chunk to the file.
+                if ( request->_tempFile.write(data,len) != len ) {
+                    // if not all the data was written, set the retCode to 500
+                    // close the file and set to null so no more data is written.
+                    uint16_t * retCode = (uint16_t *)(request->_tempObject);
+                    *retCode = 500;
+                    request->_tempFile.close();
+                }
+            }
+            if ( final ) {
+                // write complete, close the file and set to null so no more data is written.
+                request->_tempFile.close();
+            }            
+        }
+    });
+
     // management
-    server.on("/admin/status", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    server.on("/api/status.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
             AsyncResponseStream *response = request->beginResponseStream("application/json");
-            response->addHeader("Access-Control-Allow-Origin", "*");
+            addCORS(request, response);
             response->setCode(200);
             size_t total = SPIFFS.totalBytes();
             size_t used = SPIFFS.usedBytes();
             size_t free = total-used;
             response->print("{ \"heap\":");response->print(ESP.getFreeHeap());
-            response->print(", \"disk\": { \"tota\":");response->print(total);
+            response->print(", \"disk\": { \"total\":");response->print(total);
             response->print(", \"used\":");response->print(used);
             response->print(", \"free\":");response->print(free);
             response->println("}}");
             request->send(response);
         }
     });
-    server.on("/admin/reboot", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    server.on("/api/reboot.json", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
-            request->send(200, "application/json", "{ \"ok\":true, \"msg\":\"reboot in 1s\" }");
+            AsyncResponseStream *response = request->beginResponseStream("application/json");
+            addCORS(request, response);
+            response->setCode(200);
+            response->println("{ \"ok\":true, \"msg\":\"reboot in 1s\" }");
+            request->send(response);
             outputStream->println("Rebooting in 1s, requested by Browser");
             delay(1000);
             ESP.restart();
         }
     });
-    server.on("/admin/config.txt", HTTP_GET, [this](AsyncWebServerRequest *request) {
+
+    // protect the config file from serving static
+    server.on("/config.txt", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
             request->send(SPIFFS, "/config.txt", "text/plain");
         }
     });
+
+
+/*
     server.onFileUpload([this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
          //Handle upload
-        this->handleAllFileUploads(request, filename, index, data, len, final);
+        Serial.println("Handing file upload in onFileUpload");
+        //this->handleAllFileUploads(request, filename, index, data, len, final);
     });
+*/
+    // everything else, serve static.
+    server.serveStatic("/", SPIFFS, "/" )
+        .setDefaultFile("default.html")
+        .setCacheControl("max-age=600");
 
-    server.onNotFound([](AsyncWebServerRequest *request) {
+
+    server.onNotFound([this](AsyncWebServerRequest *request) {
         if (request->method() == HTTP_OPTIONS) {
             AsyncWebServerResponse *response = request->beginResponse(200);
-            response->addHeader("Access-Control-Allow-Origin", "*");
+            this->addCORS(request, response);
             request->send(response);
         } else {
             AsyncWebServerResponse *response = request->beginResponse(404);
-            response->addHeader("Access-Control-Allow-Origin", "*");
+            this->addCORS(request, response);
             request->send(response);
         }
     });
@@ -245,41 +259,35 @@ void WebServer::begin(const char * configurationFile) {
         outputStream->print("Configured http Authorzation header to be ");
         outputStream->println(httpauth);
     }
-
-
     server.begin();
-
-
-
 };
 
-String WebServer::handleTemplate(AsyncWebServerRequest * request, const String &var) {
-    if (var == "WEB_SERVER_URL") {
-        String url = "http://";
-        url += WiFi.localIP().toString();
-        return url;
-    }
-    return String();
-}
+
+
+
+
+       
 
 
 void WebServer::handleAllFileUploads(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
     if ( authorized(request) ) {
-        if ( request->url().equals("/admin/config.txt")) {
-            File file = SPIFFS.open("/config.txt", FILE_WRITE);
-            if ( file ) {
-                if ( file.write(data,len) == len ) {
-                    file.close();
-                    request->send(200, "application/json", "{ \"ok\":true, \"msg\":\"saved\" }");
-                } else {
-                    file.close();
-                    request->send(500, "application/json", "{ \"ok\":false, \"msg\":\"upload incomplete\" }");
-                }
-            } else {
-                    request->send(500, "application/json", "{ \"ok\":false, \"msg\":\"Unable to update config file\" }");
+        AsyncWebParameter * op = request->getParam("path", true, false);
+        AsyncWebParameter * path = request->getParam("path", true, false);
+        if ( request->url() == "/api/fs.json" && op != NULL && path != NULL && op->value() == "upload" ) {
+            Serial.print("Handing a file upload to ");
+            Serial.println(path->value());
+            int status = 201;
+            if ( SPIFFS.exists(path->value()) ) {
+                status = 200;
             }
-        } else {
-            request->send(500, "application/json", "{ \"ok\":false, \"msg\":\"multi part posts not supported\" }");
+            File file = SPIFFS.open(path->value());
+            if ( file.write(data,len) == len ) {
+                file.close();
+                request->send(status, "application/json", "{ \"ok\":true, \"msg\":\"saved\" }");
+            } else {
+                file.close();
+                request->send(500, "application/json", "{ \"ok\":false, \"msg\":\"upload incomplete\" }");
+            }
         }
     }
 }
@@ -288,6 +296,7 @@ bool WebServer::authorized(AsyncWebServerRequest *request) {
     AsyncWebHeader *authorization = request->getHeader("Authorization");
     if ( authorization == NULL || !httpauth.equals(authorization->value()) ) {
         AsyncWebServerResponse * response = request->beginResponse(401,"application/json","{ \"ok\": false, \"msg\":\"not authorized\"}");
+        addCORS(request, response);
         response->addHeader("WWW-Authenticate","Basic realm=\"BoatSystems Admin\", charset=\"UTF-8\"");
         request->send(response);
         return false;
@@ -296,7 +305,17 @@ bool WebServer::authorized(AsyncWebServerRequest *request) {
     }
 }
 
-
+void WebServer::addCORS(AsyncWebServerRequest *request, AsyncWebServerResponse * response ) {
+    AsyncWebHeader *orgin = request->getHeader("Origin");
+    if ( orgin != NULL) {
+        String originValue = orgin->value();
+        if ( originValue != NULL ) {
+            response->addHeader("Access-Control-Allow-Origin", originValue);
+            response->addHeader("Access-Control-Allow-Credentials", "true");            
+        }
+    
+    }
+}
 
 
 void WebServer::sendN0183(const char *buffer) {

@@ -5,6 +5,7 @@ const html = htm.bind(h);
 import { NMEALayout } from './layout.js';
 import { Logs } from './logs.js';
 import { StoreView, FrameView } from './storeview.js';
+import { AdminView } from './admin.js';
 import { StoreAPIImpl, MainAPIImpl } from './n2kmodule.js';
 
 const getLocationProperties = () => {
@@ -21,30 +22,33 @@ const getLocationProperties = () => {
       props[kv[0]] = decodeURIComponent(kv[1]);
    }
    console.log("URL properties", props);
+   props.host = props.host || window.location.host;
    return props;
 }
 
 const rootElement = document.getElementById('root');
-
-
-const storeAPI = new StoreAPIImpl();
 const properties = getLocationProperties();
-storeAPI.start(properties.host);
-const mainAPI = new MainAPIImpl();
-
-
-
-if ( properties.view ===  "dump-store") {
-   render(html`<${StoreView} title="Store" storeAPI=${storeAPI}  > </StoreView>`, rootElement);
-} else if ( properties.view ===  "can-frames") { 
-    render(html`<${FrameView} title="CAN Frames" storeAPI=${storeAPI} > </FrameView>`, rootElement);
-} else if ( properties.view ===  "can-messages") { 
-   render(html`<${Logs} title="CAN Messages" mainAPI=${mainAPI} enableFeed=${mainAPI.onCanMessage} > </Logs>`, rootElement);
-} else if ( properties.view ===  "debug-logs") { 
-   render(html`<${Logs} title="Debug Logs" mainAPI=${mainAPI} enableFeed=${mainAPI.onLogMessage} > </Logs>`, rootElement);
+if ( properties.view ===  "admin" ) {
+   render(html`<${AdminView} title="Admin" host=${properties.host} />`, rootElement);   
 } else {
-   render(html`<${NMEALayout} mainAPI=${mainAPI} storeAPI=${storeAPI} > </NMEALayout>`, rootElement);
+   const storeAPI = new StoreAPIImpl();
+   storeAPI.start(properties.host);
+   const mainAPI = new MainAPIImpl();
+   if ( properties.view ===  "dump-store") {
+      render(html`<${StoreView} title="Store" storeAPI=${storeAPI}  />`, rootElement);
+   } else if ( properties.view ===  "can-frames") { 
+       render(html`<${FrameView} title="CAN Frames" storeAPI=${storeAPI} />`, rootElement);
+   } else if ( properties.view ===  "can-messages") { 
+      render(html`<${Logs} title="CAN Messages" mainAPI=${mainAPI} enableFeed=${mainAPI.onCanMessage} />`, rootElement);
+   } else if ( properties.view ===  "debug-logs") { 
+      render(html`<${Logs} title="Debug Logs" mainAPI=${mainAPI} enableFeed=${mainAPI.onLogMessage} />`, rootElement);
+   } else {
+      render(html`<${NMEALayout} mainAPI=${mainAPI} storeAPI=${storeAPI} />`, rootElement);
+   }
+
 }
+
+
 
 
 

@@ -651,7 +651,8 @@ class StoreAPIImpl {
         // if host is set, save the host config in local storage
         // otherwise try and get from local storage.
         // if nothing in local storage do nothing.
-        host = host || "192.168.1.11";
+        
+        host = host || window.location.hostname;
         this.seasmart.start(`ws://${host}/ws/seasmart`);
         this.host = host;
     }
