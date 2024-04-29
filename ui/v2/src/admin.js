@@ -19,6 +19,7 @@ class AdminView  extends Component {
         this.onFileChange = this.onFileChange.bind(this);
         this.deleteFile = this.deleteFile.bind(this);
         this.clickUpload = this.clickUpload.bind(this);
+        this.updateFileSystem = this.updateFileSystem.bind(this);
 
     }
 
@@ -159,12 +160,17 @@ class AdminView  extends Component {
         }
         return html`
             <div className="adminview" >
-            <div>Filesystem Total:${totalSize} Used:${usedSize} Free:${freeSize}
-            <input ref=${this.setUploadRef} type="file" onInput=${this.onFileChange} /> 
-            as
-            <input ref=${this.setPathRef} type="text" />
-            <button onClick=${this.clickUpload} title="Upload new file ">Upload</button></div>
+            <div>
+                <input ref=${this.setUploadRef} type="file" onInput=${this.onFileChange} /> 
+                as
+                <input ref=${this.setPathRef} type="text" />
+                <button onClick=${this.clickUpload} title="Upload new file ">Upload</button>
+                <button onClick=${this.updateFileSystem} title="Refresh">Refresh</button>
+            </div>
             <div className="logviewer">${this.renderFileList()}</div>
+            <div>
+                Filesystem Total:${totalSize} Used:${usedSize} Free:${freeSize}
+            </div>
             </div> `;
     }
 }

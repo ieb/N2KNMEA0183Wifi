@@ -13,6 +13,29 @@ body {
   /*padding-left: 11px;*/
 }
 
+.topmenu {
+
+}
+.topmenu a {
+  text-decoration: none;
+  color: white;
+  padding: 1px;
+  margin-right: 10px;
+  border: 1px solid grey;
+  border-radius: 5px;
+}
+.topmenu a:hover {
+  text-decoration: underline;
+  border: 1px solid white;
+  border-radius: 5px;
+}
+.topmenu a:click {
+  text-decoration: underline;
+  background-color: lightgray;
+  border: 1px solid white;
+  border-radius: 5px;
+}
+
 
 /*  menu --------------------------*/
 .menu {
@@ -290,7 +313,7 @@ button {
 
 .storeviewer {
     width: 100%;
-    height: calc(100vh - 10px);
+    height: calc(100vh - 100px);
 }
 
 /* log viewer, with hits from Mistal 7B in Brave Chat... because css is so painful to get right */
@@ -363,7 +386,9 @@ button {
   text-wrap: nowrap;
 }
 
-.adminview button {
+.adminview button ,
+.adminview input[type="file"],
+.adminview input[type="text"] {
   margin: 10px;
   padding-top:2px;
   padding-bottom:2px;
@@ -376,6 +401,7 @@ button {
   border-style: solid;
   min-width: 2rem;
   background-color: #42310d;
+  color: white;
 }
 
 .adminview button:hover {
