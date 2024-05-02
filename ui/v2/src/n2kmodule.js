@@ -101,10 +101,30 @@ class SeaSmartStream {
     constructor(seasmartParser) {
         this.startsWith = undefined;
         this.seasmartParser = seasmartParser;
+        this.keepUp = false;
+        this.url = undefined;
+        setInterval( () => {
+            if ( this.keepUp ) {
+                if ((Date.now() - this.lastMessage) > 10000)  {
+                    console.log("Web Socket reconnect");
+                    this.keepRunning();
+                }
+            }
+        }, 10000);
     }
     start(url) {
-        this.stop();
-        this.ws = new WebSocket(url);
+        this.keepUp = true
+        this.url = url;
+        this.keepRunning();
+    }
+    stop() {
+        this.keepUp = false;
+        this.stopRunning();
+    }
+
+    keepRunning() {
+        this.stopRunning();
+        this.ws = new WebSocket(this.url);
         this.ws.onopen = () => {
           console.log('ws opened on browser')
           this.ws.send('hello world')
@@ -114,10 +134,11 @@ class SeaSmartStream {
         }
 
         this.ws.onmessage = (message) => {
+            this.lastMessage = Date.now();
             this.seasmartParser.parseSeaSmartMessages(message);
         }
     }
-    stop() {
+    stopRunning() {
         if ( this.ws !== undefined ) {
             this.ws.close();
             this.ws = undefined;
@@ -138,6 +159,9 @@ class Store extends EventEmitter {
             lastChange: Date.now()
         };
         this.messages = {};
+        // last time a valid update was recieved.
+        // not all messages need this.
+        this.lastUpdate = {};
         this.history = {
             awa: new AngularHistory(),
             aws: new LinearHistory(),
@@ -253,7 +277,6 @@ class Store extends EventEmitter {
         this.emit("change", changedState);
     }
 
-
     // When streaming NMEA2000 messages.
     updateFromNMEA2000Stream(message) {
         // only messages where there is a value in putting them into the store\
@@ -261,19 +284,16 @@ class Store extends EventEmitter {
         // in the visualisation. (how TBD)
         // Reasoning, is to mimimise CPU usage by not doing unecessary work that isnt used.
         const newState = {};
+        const now = Date.now();
+
         switch(message.pgn) {
-            case 126992: // System time
-                // Use GNSS message
-                //if ( message.timeSource.name === "GPS") {
-                //    newState.systemDate = message.systemDate;
-                //    newState.systemTime = message.systemTime;
-                //}
-                break;
             case 127250: // Heading
                 if ( message.ref.name === "Magnetic") {
                     newState.hdm = message.heading;
+                    if (this.state.variationSource == undefined ) {
+                        newState.variation = message.variation;
+                    }
                     newState.deviation = message.deviation;
-                    newState.variation = message.variation;
                 }
                 break;
             case 127257: // attitude
@@ -283,9 +303,15 @@ class Store extends EventEmitter {
                 break;
             case 127258: // variation
                 // Use heading message
-                //newState.variationValue = message.variation;
-                //newState.variationdaysSince1970 = message.daysSince1970;
-                //newState.variationModel = message.source.name;
+                // {"pgn":127258,"src":30,"count":906,"message":"N2K Magnetic Variation","sid":89,"source":{"id":8,"name":"wmm2020"},"daysSince1970":19827,"variation":0.219}
+
+                if ( this.state.variationSource == undefined 
+                    || (    message.source 
+                         && message.source.p >= this.state.variationSource.p) ) {
+                    newState.variation = message.variation;
+                    newState.variationdaysSince1970 = message.daysSince1970;
+                    newState.variationSource = message.source;                    
+                }
                 break;
             case 128259: // speed
                 newState.stw = message.waterReferenced;
@@ -295,9 +321,6 @@ class Store extends EventEmitter {
             case 128267: // depth
                 newState.dbt = message.depthBelowTransducer;
                 newState.depthOffset = message.offset;
-
-
-
                 break;
             case 128275: // log
                 //newState.logSecondsSinceMidnight = message.secondsSinceMidnight;
@@ -305,26 +328,49 @@ class Store extends EventEmitter {
                 newState.log = message.log;
                 newState.tripLog = message.tripLog;
                 break;
+            case 129025: // rapid possition
+                //{"pgn":129025,"src":30,"count":5242,"message":"N2K Rapid Positions","latitude":51.9589473,"longitude":1.2762917999999999}
+                if ( message.src === this.state.gnssSource ) {
+                    newState.latitude = message.latitude;
+                    newState.longitude = message.longitude;
+                }
+                break;
+            case 129026: // sog cog rapid
+                if ( message.src === this.state.gnssSource ) {
+                    if ( message.ref.name === "True" ) {
+                        newState.cogt = message.cog;
+                        newState.sog = message.sog;
+                    } else if ( message.ref.name === "Magnetic" ) {
+                        newState.cogx = message.cog;
+                        newState.sog = message.sog;
+                    }
+                }
+                break;
             case 129029: // GNSS
                 // if a more complete view of GNSS is required, then create a subscriber to the 
                 // messages directly.
-                if ( message.GNSStype && message.GNSStype.id < 9 ) {
+                // use the most prefered source available.
+                // this will also select other messages from the gnss source.
+                if ( this.state.GNSStype === undefined 
+                    || (message.GNSStype && message.GNSStype.p >= this.state.GNSStype.p) ) {
+                    newState.GNSStype = message.GNSStype;
+                    newState.gnssSource = message.src;
                     newState.latitude = message.latitude;
                     newState.longitude = message.longitude;
+                    newState.gnssIntegrety = message.integrety;
                     newState.gpsDaysSince1970 = message.daysSince1970;
-                    newState.gpsSecondsSinceMidnight = message.secondsSinceMidnight;                    
+                    newState.gpsSecondsSinceMidnight = message.secondsSinceMidnight; 
+                    newState.gnssLastUpdate = now;                   
                 } else  {
                     return; // dont save message as its come from an untrusted gnss source with an unrecognized GNSS type
                 }
                 break;
-            case 129026: // sog cog rapid
-                if ( message.ref.name === "True" ) {
-                    newState.cogt = message.cog;
-                    newState.sog = message.sog;
-                } else if ( message.ref.name === "Magnetic" ) {
-                    newState.cogm = message.cog;
-                    newState.sog = message.sog;
-                }
+            case 126992: // System time
+                // Use GNSS message
+                //if ( message.timeSource.name === "GPS") {
+                //    newState.systemDate = message.systemDate;
+                //    newState.systemTime = message.systemTime;
+                //}
                 break;
             case 129283: // XTE
                 // ignore for now.
@@ -350,7 +396,6 @@ class Store extends EventEmitter {
 
 
 /*
-Dont store 
 
         "temperatureSource": {
             0: { id: 0, name:"Sea Temperature"},
@@ -382,6 +427,24 @@ Dont store
         };
 */
 
+                switch(message.source.id) {
+                    case 0: // sea temperature
+                        newState.seaTemperature = message.actualTemperature;
+                        break;
+                    case 3: // engine room temperature
+                        newState.engineRoomTemperature = message.actualTemperature;
+                        break;
+                    case 4: // engine room temperature
+                        newState.mainCabinTemperature = message.actualTemperature;
+                        break;
+                    case 14: // exhaust temperature
+                        newState.exhaustTemperature = message.actualTemperature;
+                        break;
+                    case 15: // exhaust temperature
+                        newState.alternatorTemperature = message.actualTemperature;
+                        break;
+                }
+
 
                 break;
             case 127505: // fluid level
@@ -394,7 +457,10 @@ Dont store
                 // ignore most fields for storage
                 newState["engineCoolantTemperature_"+message.engineInstance] = message.engineCoolantTemperature;
                 newState["alternatorVoltage_"+message.engineInstance] = message.alternatorVoltage;
-                break;
+                // this is an abuse, specific to my boat which has LiFePo4 and the
+                // oil temperature sensor is on the alternator to warn of overheating.
+                newState["alternatorTemperature_"+message.engineInstance] = message.engineOilTemperature;
+               break;
             case 127488: // Engine Rapiod
                 newState["engineSpeed_"+message.engineInstance] = message.engineSpeed;
                 break;
@@ -404,7 +470,15 @@ Dont store
                 }
                 break;
             case 127245: // rudder
-                newState.rudderPosition = message.rudderPosition;
+                // sometimes multiple rudder sources cause the possition to flip.
+                if ( message.rudderPosition !== -1e9 ) {
+                    newState.rudderPosition = message.rudderPosition;
+                    this.lastUpdate[127245] = now;
+                } else if ( this.lastUpdate[127245] == undefined ) {
+                    newState.rudderPosition = -1e9;
+                } else if ( (now - this.state[127245]) > 10000 ) {
+                    newState.rudderPosition = -1e9;
+                }
                 break;
             }
             if ( this.messages[message.pgn] !== undefined ) {
@@ -413,7 +487,6 @@ Dont store
             this.messages[message.pgn] = message;
 
 
-            const now = Date.now();
             const changedState = {};
             for ( let k in newState ) {
                 if ( newState[k] !== this.state[k]) {
@@ -651,7 +724,7 @@ class StoreAPIImpl {
         // if host is set, save the host config in local storage
         // otherwise try and get from local storage.
         // if nothing in local storage do nothing.
-        
+
         host = host || window.location.hostname;
         this.seasmart.start(`ws://${host}/ws/seasmart`);
         this.host = host;

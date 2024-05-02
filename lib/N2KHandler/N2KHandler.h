@@ -24,19 +24,16 @@ enum tN2kGNSSIntegrety {
   N2kGNSSIntegrety_Unsafe=3
 };
 
-
-
-
+class FrameFilter;
 
 class N2KHandler  {
 public:
-  N2KHandler(NMEA0183N2KMessages &messageEncoder, 
+  N2KHandler( NMEA0183N2KMessages &messageEncoder, 
       Performance &performance,
       LogBook &logbook ) : 
     messageEncoder{messageEncoder}, 
     performance{performance},
-    logbook{logbook}
-    {};
+    logbook{logbook} {}
   void handle(const tN2kMsg &N2kMsg);
   void output(Print *stream);
   
@@ -116,9 +113,7 @@ private:
 
     const char * getFaaValid();
     bool updateWithTimeout(double &v, double iv, unsigned long &lastUpdate, unsigned long period);
-
 };
-
 
 
 

@@ -21,7 +21,7 @@ class NMEA2000MessageDecoder {
         if ( NMEA2000MessageDecoder.messages[canMessage.pgn] ) {
             return NMEA2000MessageDecoder.messages[canMessage.pgn].fromMessage(canMessage);
         }
-        console.log("NMEA2000MessageDecoder: Decoder Not found for PGN ", canMessage, " to fix, register one ");
+        //console.log("NMEA2000MessageDecoder: Decoder Not found for PGN ", canMessage, " to fix, register one ");
         return undefined;
     }
 
@@ -320,15 +320,22 @@ class NMEA2000Reference {
              3: { id: 3, name:"Unavailable"},
         },
         "variationSource": {
-            0: { id: 0, name:"manual"},
-            1: { id: 1, name:"chart"},
-            2: { id: 2, name:"table"},
-            3: { id: 3, name:"calc"},
-            4: { id: 4, name:"wmm2000"},
-            5: { id: 5, name:"wmm2005"},
-            6: { id: 6, name:"wmm2010"},
-            7: { id: 7, name:"wmm2015"},
-            8: { id: 8, name:"wmm2020"},
+            0: { id: 0, name:"manual", p: 1},
+            1: { id: 1, name:"chart", p:2},
+            2: { id: 2, name:"table", p:3},
+            3: { id: 3, name:"calc", p:4},
+            4: { id: 4, name:"wmm2000", p:5},
+            5: { id: 5, name:"wmm2005", p:6},
+            6: { id: 6, name:"wmm2010", p:7},
+            7: { id: 7, name:"wmm2015", p:8},
+            8: { id: 8, name:"wmm2020", p:9},
+            9: { id: 9, name:"unknown_9", p: 0},
+            10: { id: 10, name:"unknown_10", p: 0},
+            11: { id: 11, name:"unknown_11", p: 0},
+            12: { id: 12, name:"unknown_12", p: 0},
+            13: { id: 13, name:"unknown_13", p: 0},
+            14: { id: 14, name:"unknown_14", p: 0},
+            15: { id: 15, name:"unknown_15", p: 0},
         },
         "swrtType": {
             0: { id: 0, name:"Paddle wheel"},
@@ -348,23 +355,25 @@ class NMEA2000Reference {
             5: { id: 5, name:"??"},
             6: { id: 6, name:"??"},
         },
+        // p indicates the preference when there are > 1 gnss sources.
+        // higher is preferred.
         "gnssType": {
-            0: { id: 0, name:"GPS"},
-            1: { id: 1, name:"GLONASS"},
-            2: { id: 2, name:"GPSGLONASS"},
-            3: { id: 3, name:"GPSSBASWAAS"},
-            4: { id: 4, name:"GPSSBASWAASGLONASS"},
-            5: { id: 5, name:"Chayka"},
-            6: { id: 6, name:"integrated"},
-            7: { id: 7, name:"surveyed"},
-            8: { id: 8, name:"Galileo"},
-            9: { id: 9, name:"unknown_9"},
-            10: { id: 10, name:"unknown_10"},
-            11: { id: 11, name:"unknown_11"},
-            12: { id: 12, name:"unknown_12"},
-            13: { id: 13, name:"unknown_13"},
-            14: { id: 14, name:"unknown_14"},
-            15: { id: 15, name:"unknown_15"},
+            0: { id: 0, name:"GPS", p: 7 },
+            1: { id: 1, name:"GLONASS", p: 5},
+            2: { id: 2, name:"GPSGLONASS", p: 6},
+            3: { id: 3, name:"GPSSBASWAAS", p: 9},
+            4: { id: 4, name:"GPSSBASWAASGLONASS", p: 10},
+            5: { id: 5, name:"Chayka", p: 7},
+            6: { id: 6, name:"integrated", p: 5},
+            7: { id: 7, name:"surveyed", p: 4},
+            8: { id: 8, name:"Galileo", p: 7},
+            9: { id: 9, name:"unknown_9", p: 0},
+            10: { id: 10, name:"unknown_10", p: 0},
+            11: { id: 11, name:"unknown_11", p: 0},
+            12: { id: 12, name:"unknown_12", p: 0},
+            13: { id: 13, name:"unknown_13", p: 0},
+            14: { id: 14, name:"unknown_14", p: 0},
+            15: { id: 15, name:"unknown_15", p: 0},
         },
         "gnssMethod": {
             0: { id: 0, name:"noGNSS"},

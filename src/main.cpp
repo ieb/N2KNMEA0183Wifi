@@ -52,6 +52,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "N2KPrinter.h"
 #include "performance.h"
 #include "N2KHandler.h"
+#include "N2KFrameFilter.h"
 #include "NMEA0183N2KMessages.h"
 #include "network.h"
 #include "logbook.h"
@@ -84,6 +85,7 @@ NMEA0183N2KMessages messageEncoder;
 Performance performance(&messageEncoder);
 //N2KHandler n2kHander(messageEncoder, pgnEncoder, performance, logbook);
 N2KHandler n2kHander(messageEncoder, performance, logbook);
+N2KFrameFilter frameFilter;
 
 
 unsigned long lastButtonPress = 0;
@@ -152,7 +154,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
     }
 
     // check if any client has requested this PGN
-    if ( webServer.shouldSend(N2kMsg.PGN) ) {
+    if ( !frameFilter.isFiltered(N2kMsg.PGN, N2kMsg.Source ) && webServer.shouldSend(N2kMsg.PGN) ) {
       // todo, use real time based on GPS time.
       // buffer the messages up to reduce websocket overhead.
       size_t maxLen = MAX_NMEA2000_MESSAGE_SEASMART_SIZE-wsOffset-1;
@@ -202,7 +204,6 @@ void setup() {
     Serial.print("Total PSRAM: ");Serial.println(ESP.getPsramSize());
     Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
   }
-
   // Start the wifi
   wifi.begin();
   echoServer.begin();
@@ -220,6 +221,8 @@ void setup() {
   });
 
   webServer.begin();
+
+  frameFilter.begin();
 
   // Set Product information
   NMEA2000.SetProductInformation("00000003", // Manufacturer's Model SerialIO code
@@ -375,19 +378,8 @@ void endTimer(int i) {
 //*****************************************************************************
 void loop() { 
 
-  startTimer();
   NMEA2000.ParseMessages();
-  endTimer(0);
-// Only on demand as it causes startup to take time to complete
-// listDevices.list();
-  startTimer();
   CheckCommand();
-  endTimer(2);
-  startTimer();
-
   echoServer.handle();
-  endTimer(3);
-  startTimer();
   nmeaServer.checkConnections();
-  endTimer(4);
 }

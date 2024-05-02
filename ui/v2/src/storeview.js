@@ -153,13 +153,15 @@ class FrameView  extends Component {
 
     recieveMessage(message) {
         if ( message && message.pgn ) {
-            this.messages[message.pgn] = message;
+            this.messages[message.pgn] = this.messages[message.pgn] || {};
+            this.messages[message.pgn][message.src] = message;
         }
         this.update();
     }
     recieveFrame(canFrame) {
         if ( canFrame ) {
-            this.frames[canFrame.pgn] = canFrame;
+            this.frames[canFrame.pgn] = this.frames[canFrame.pgn] || {};
+            this.frames[canFrame.pgn][canFrame.source] = canFrame;
         }
         this.canFrames = this.canFrames.slice(-50);
         this.frameCount++;
@@ -173,31 +175,51 @@ class FrameView  extends Component {
                 this.updateLogView(this.canFrames, this.renderCanFrameLine);
             } else if (this.state.messageViewClass === 'enabled') {
                 const messageList = [];
+
                 for(let k in this.messages) {
-                    messageList.push({ pgn: k, message: this.messages[k]});
+                    let n = 0;
+                    for (let s in this.messages[k]) {
+                        messageList.push({ pgn: n?'...':k, message: this.messages[k][s]});
+                        n++;
+                    }
                 }
                 this.updateLogView(messageList, this.renderMessageLine);
             } else if (this.state.frameViewClass === 'enabled') {
                 const frameList = [];
                 for(let k in this.frames) {
-                    frameList.push({ pgn: k, canFrame: this.frames[k]});
+                    let n = 0;
+                    for (let s in this.frames[k]) {
+                        frameList.push({ pgn: n?'...':k, canFrame: this.frames[k][s]});
+                        n++;
+                    }
                 }
                 this.updateLogView(frameList, this.renderFrameLine);
             } else if (this.state.combinedViewClass === 'enabled') {
                 const combinedList = [];
-                for(let k in this.messages) {
-                    combinedList.push({ pgn: k, message: this.messages[k], canFrame: this.frames[k]});
+                for(let k in this.frames) {
+                    let n = 0
+                    for (let s in this.frames[k]) {
+                        combinedList.push({ pgn: n?'...':k, message: this.messages[k]?this.messages[k][s]:'--', canFrame: this.frames[k][s]});
+                        n++;
+                    }
                 }
                 this.updateLogView(combinedList, this.renderCombinedLine);
             }
         }
+    }
+
+    toMessage(canFrame) {
+        if ( canFrame ) {
+            return CANMessage.dumpMessage(canFrame);
+        } 
+        return "";
     }
     renderCanFrameLine(frameline) {
         return html`<div className="log" key=${frameline.n} >
                         <div>${frameline.n}</div>
                         <div>${frameline.canFrame.pgn}</div>
                         <div>src:${frameline.canFrame.source}</div>
-                        <div>msg:${CANMessage.dumpMessage(frameline.canFrame)}</div>
+                        <div>msg:${this.toMessage(frameline.canFrame)}</div>
                     </div>`;
 
     }
@@ -211,7 +233,7 @@ class FrameView  extends Component {
         return html`<div className="frame" key=${frame.pgn} >
                         <div>${frame.pgn}</div>
                         <div>src:${frame.canFrame.source}</div>
-                        <div>msg:${CANMessage.dumpMessage(frame.canFrame)}</div>
+                        <div>msg:${this.toMessage(frame.canFrame)}</div>
                     </div>`;        
         
     }
@@ -219,7 +241,7 @@ class FrameView  extends Component {
         return html`<div className="combined" key=${combined.pgn} >
                         <div>${combined.pgn}</div>
                         <div>${JSON.stringify(combined.message)}</div>
-                        <div>msg:${CANMessage.dumpMessage(combined.canFrame)}</div>
+                        <div>msg:${this.toMessage(combined.canFrame)}</div>
                     </div>`;        
         
     }

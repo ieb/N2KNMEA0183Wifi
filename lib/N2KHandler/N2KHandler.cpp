@@ -142,6 +142,9 @@ void N2KHandler::handle(const tN2kMsg &N2kMsg) {
 
   }
 
+
+
+
   performance.update(aparentWindAngle, aparentWindSpeed, waterSpeed, roll, headingMagnetic, variation);
   if ( logbook.shouldLog() ) {
 
@@ -628,6 +631,9 @@ void N2KHandler::handle130313(const tN2kMsg &N2kMsg) {
   }
 
 } // Humidity(N2kMsg); break;
+
+
+
 
 
 

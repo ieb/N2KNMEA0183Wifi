@@ -11,6 +11,7 @@ class PGN126992 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 126992,
+            src: message.source,
             count: 1,
             message: "N2K System Time",
             sid: this.getByte(message, 0),
@@ -29,6 +30,7 @@ class PGN127245 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 127245, 
+            src: message.source,
             count: 1,
             message: "N2K Rudder",
             instance: this.getByte(message, 0),
@@ -47,6 +49,7 @@ class PGN127250 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 127250,
+            src: message.source,
             count: 1,
             message: "N2K Heading",
             sid: this.getByte(message, 0),
@@ -67,6 +70,7 @@ class PGN127251 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 127251,
+            src: message.source,
             count: 1,
             message: "N2K Rate of Turn",
             sid: this.getByte(message, 0),
@@ -84,6 +88,7 @@ class PGN127257 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 127257,
+            src: message.source,
             count: 1,
             message: "N2K Attitude",
             sid: this.getByte(message, 0),
@@ -103,12 +108,13 @@ class PGN127258 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 127258,
+            src: message.source,
             count: 1,
             message: "N2K Magnetic Variation",
             sid: this.getByte(message, 0),
             source: NMEA2000Reference.lookup("variationSource",this.getByte(message, 1) & 0x0f),
             daysSince1970: this.get2ByteUInt(message, 2),
-            variation: this.get2ByteDouble(message, 4, 0.001)
+            variation: this.get2ByteDouble(message, 4, 0.0001)
         }
     }
 }
@@ -121,6 +127,7 @@ class PGN128259 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 128259,
+            src: message.source,
             count: 1,
             message: "N2K Speed",
             sid: this.getByte(message, 0),
@@ -141,6 +148,7 @@ class PGN128267 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 128267,
+            src: message.source,
             count: 1,
             message: "N2K Water Depth",
             sid: this.getByte(message, 0),
@@ -159,6 +167,7 @@ class PGN128275 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 128275,
+            src: message.source,
             count: 1,
             message: "N2K Distance Log",
             daysSince1970: this.get2ByteUInt(message, 0),
@@ -178,6 +187,7 @@ class PGN129026 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 129026,
+            src: message.source,
             count: 1,
             message: "N2K COG SOG Rapid",
             sid: this.getByte(message, 0),
@@ -201,6 +211,7 @@ class PGN129539 extends CANMessage {
         const modes = this.getByte(message, 1);
         return {
             pgn: 129539,
+            src: message.source,
             count: 1,
             message: "N2K GNSS DOPS",
             sid: this.getByte(message, 0),  
@@ -224,6 +235,7 @@ class PGN129025 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 129025,
+            src: message.source,
             count: 1,
             message: "N2K Rapid Positions",
             latitude: this.get4ByteDouble(message, 0, 1e-7), 
@@ -254,6 +266,7 @@ class PGN129029 extends CANMessage {
         }
         return {
             pgn: 129029,
+            src: message.source,
             count: 1,
             message: "N2K GNSS",
             sid: this.getByte(message, 0),
@@ -284,6 +297,7 @@ class PGN129283 extends CANMessage {
         const xteModeNav = this.getByte(message, 1);
         return {
             pgn: 129283,
+            src: message.source,
             count: 1,
             message: "N2K Cross Track Error",
             sid: this.getByte(message, 0),
@@ -304,6 +318,7 @@ class PGN130306 extends CANMessage {
 
         const decoded = {
             pgn: 130306,
+            src: message.source,
             count: 1,
             message: "N2K Wind",
             sid: this.getByte(message, 0),
@@ -329,6 +344,7 @@ class PGN130310 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 130310,
+            src: message.source,
             count: 1,
             message: "N2K Outside Environment Parameters",
             sid: this.getByte(message, 0),
@@ -348,6 +364,7 @@ class PGN130311 extends CANMessage {
         const vb = this.getByte(message, 1);
         return {
             pgn: 130311,
+            src: message.source,
             count: 1,
             message: "N2K Environment Parameters",
             sid: this.getByte(message, 0),
@@ -368,6 +385,7 @@ class PGN130313 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 130313,
+            src: message.source,
             count: 1,
             message: "N2K Humidity",
             sid: this.getByte(message, 0),
@@ -387,6 +405,7 @@ class PGN130314 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 130314,
+            src: message.source,
             count: 1,
             message: "N2K Pressure",
             sid: this.getByte(message, 0),
@@ -405,6 +424,7 @@ class PGN130315 extends CANMessage {
     fromMessage(message) {
         return{
             pgn: 130315,
+            src: message.source,
             count: 1,
             message: "N2K Set Pressure",
             sid: this.getByte(message, 0),
@@ -423,6 +443,7 @@ class PGN130316 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 130316,
+            src: message.source,
             count: 1,
             message: "N2K Temperature Extended",
             sid: this.getByte(message, 0),
@@ -443,6 +464,7 @@ class PGN127506 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 127506,
+            src: message.source,
             count: 1,
             message: "N2K DC Status",
             sid: this.getByte(message, 0),
@@ -466,6 +488,7 @@ class PGN130916 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 130916,
+            src: message.source,
             count: 1,
             message: "Raymarine Proprietary unknown",
             canmessage: CANMessage.dumpMessage(message)
@@ -492,6 +515,7 @@ class PGN126720 extends CANMessage {
                     case 132:           
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk 1 Pilot Mode",
                             canmessage: CANMessage.dumpMessage(message),
@@ -510,6 +534,7 @@ class PGN126720 extends CANMessage {
                     case 134:
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk 1 Keystroke",
                             canmessage: CANMessage.dumpMessage(message),
@@ -525,6 +550,7 @@ class PGN126720 extends CANMessage {
                     case 144:
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk 1 Device Identification",
                             canmessage: CANMessage.dumpMessage(message),
@@ -539,6 +565,7 @@ class PGN126720 extends CANMessage {
                     default:
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk 1 UnknownCommand",
                             canmessage: CANMessage.dumpMessage(message),
@@ -556,6 +583,7 @@ class PGN126720 extends CANMessage {
                         // this is sent but filtered.
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk1 Display Birghtness",
                             canmessage: CANMessage.dumpMessage(message),
@@ -571,6 +599,7 @@ class PGN126720 extends CANMessage {
                     case 1:
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk1 Display Color",
                             canmessage: CANMessage.dumpMessage(message),
@@ -586,6 +615,7 @@ class PGN126720 extends CANMessage {
                     default:
                         return {
                             pgn: 126720,
+                            src: message.source,
                             count: 1,
                             message: "Raymarine Seatalk1 Unknown 3212 ",
                             canmessage: CANMessage.dumpMessage(message),
@@ -602,6 +632,7 @@ class PGN126720 extends CANMessage {
             } else {
                 return {
                     pgn: 126720,
+                    src: message.source,
                     count: 1,
                     message: "Unknown Raymarine Proprietary message",
                     canmessage: CANMessage.dumpMessage(message),
@@ -616,6 +647,7 @@ class PGN126720 extends CANMessage {
             return {
                 pgn: 126720,
                 count: 1,
+                src: message.source,
                 message: "Unknown Proprietary message",
                 canmessage: CANMessage.dumpMessage(message),
                 manufacturerCode:  NMEA2000Reference.lookup("manufacturerCode", manufacturerCode),
@@ -640,6 +672,7 @@ class PGN127237 extends CANMessage {
         // not sent from test.
         return {
             pgn: 127237,
+            src: message.source,
             count: 1,
             message: "Raymarine Proprietary Heading Track Control",
             rudderLimitExceeded: NMEA2000Reference.lookup("yesNo",(v1 & 0x03)), // lookup
@@ -675,6 +708,7 @@ class PGN65359 extends CANMessage {
         if ( (((f1 >> 5)&0x07ff == 1851) && ((f1)&0x07 === 4)) )  {
             return {
                 pgn: 65359,
+                src: message.source,
                 count: 1,
                 message: "Raymarine Seatalk Pilot Heading",
                 canmessage: CANMessage.dumpMessage(message),
@@ -690,6 +724,7 @@ class PGN65359 extends CANMessage {
         } else {
             return {
                 pgn: 65359,
+                src: message.source,
                 count: 1,
                 message: "Unknown Proprietary",
                 canmessage: CANMessage.dumpMessage(message),
@@ -713,6 +748,7 @@ class PGN65379 extends CANMessage {
         if ( (((f1 >> 5)&0x07ff == 1851) && ((f1)&0x07 === 4)) )  {
             return {
                 pgn: 65379,
+                src: message.source,
                 count: 1,
                 message: "Raymarine Seatalk Pilot Heading 2",
                 canmessage: CANMessage.dumpMessage(message),
@@ -726,6 +762,7 @@ class PGN65379 extends CANMessage {
         } else {
             return {
                 pgn: 65379,
+                src: message.source,
                 count: 1,
                 message: "Unknown Proprietary",
                 canmessage: CANMessage.dumpMessage(message),
@@ -748,6 +785,7 @@ class PGN65384 extends CANMessage {
         if ( (((f1 >> 5)&0x07ff == 1851) && ((f1)&0x07 === 4)) )  {
             return {
                 pgn: 65384,
+                src: message.source,
                 count: 1,
                 message: "Raymarine Seatalk Pilot Heading 3",
                 canmessage: CANMessage.dumpMessage(message),
@@ -759,6 +797,7 @@ class PGN65384 extends CANMessage {
         } else {
             return {
                 pgn: 65384,
+                src: message.source,
                 count: 1,
                 message: "Unknown Proprietary",
                 canmessage: CANMessage.dumpMessage(message),
@@ -780,6 +819,7 @@ class PGN61184 extends CANMessage {
     fromMessage(message) {
         return {
             pgn: 61184,
+            src: message.source,
             count: 1,
             message: "Raymarine Seatalk Wireless keypad",
             info: "not decoded"

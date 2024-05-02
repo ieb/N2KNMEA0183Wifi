@@ -10,6 +10,7 @@ class PGN60928_IsoAddressClaim  extends CANMessage {
         const industryGroupAndSystemInstance = message.data.getUint8(7);
         return {
             pgn: 60928,
+            src: message.source,
             count: 1,
             message: "IsoAddressClaim",
             manufacturerCode: (codeAndManNumber>>21)&0x07ff, // top 11 bits
@@ -29,6 +30,7 @@ class PGN126993_HeartBeat  extends CANMessage {
     fromMessage(message) {
        return {
             pgn: 126993,
+            src: message.source,
             count: 1,
             message: "Heartbeat"
         }

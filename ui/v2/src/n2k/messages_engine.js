@@ -47,6 +47,7 @@ class PGN127489_EngineDynamicParam extends CANMessage{
     fromMessage(message) {
         return {
             pgn: 127489,
+            src: message.source,
             count: 1,
             message: "EngineDynamicParam",
             engineInstance: this.getByte(message, 0),
@@ -80,6 +81,7 @@ class PGN127488_RapidEngineData extends CANMessage{
     fromMessage(message) {
         return {
             pgn: 127488,
+            src: message.source,
             count: 1,
             message: "RapidEngineData",
             engineInstance: this.getByte(message,0),
@@ -101,6 +103,7 @@ class PGN130312_Temperature extends CANMessage {
     fromMessage(message) {
         return  {
             pgn: 130312,
+            src: message.source,
             count: 1,
             message: "Temperature",
             sid: this.getByte(message,0),
@@ -124,6 +127,7 @@ class PGN127508_DCBatteryStatus extends CANMessage {
     fromMessage(message) {
         return  {
             pgn: 127508,
+            src: message.source,
             count: 1,
             message: "DCBatteryStatus",
             instance: this.getByte(message,0),
@@ -148,6 +152,7 @@ class PGN127505_FluidLevel extends CANMessage {
         const b = this.getByte(message,0)
         return {
             pgn: 127505,
+            src: message.source,
             count: 1,
             message: "FluidLevel",
             instance: b&0x0f,
