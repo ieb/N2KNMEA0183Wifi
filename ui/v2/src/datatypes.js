@@ -688,7 +688,7 @@ class GPSDate {
     static tl = "";
     static tr = "";
     static type = 'date';
-    static units = "age s";
+    static units = "";
     static toDisplayUnits(v) {
         if ( v == undefined || v === -1E9)  {
             0;
@@ -809,6 +809,10 @@ class DataTypes {
             "current": Current,
             "gpsDaysSince1970": GPSDate,
             "gpsSecondsSinceMidnight": GPSTime,
+            "seaTemperature": Temperature,
+            "variationdaysSince1970": GPSDate,
+            "speedGroundReferenced": Speed,
+            "gnssLastUpdate": TimeStamp,
     };
     static displayNames = {
         engineCoolantTemperature: "coolant",

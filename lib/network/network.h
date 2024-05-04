@@ -95,6 +95,9 @@ private:
     WiFiUDP udp;
     uint16_t udpPort = 10110;
     IPAddress destination;
+    bool started = false;
+    uint16_t restarts = 0;
+    uint16_t disconnects = 0;
 };
 
 

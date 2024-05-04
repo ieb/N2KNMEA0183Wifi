@@ -43,7 +43,7 @@ if ( properties.view ===  "admin" ) {
          <${FrameView} title="CAN Frames" storeAPI=${storeAPI} />`, rootElement);
    } else {
       render(html`<${Menu} locationProperties=${properties} />
-         <${NMEALayout} mainAPI=${mainAPI} storeAPI=${storeAPI} />`, rootElement);
+         <${NMEALayout} locationProperties=${properties} mainAPI=${mainAPI} storeAPI=${storeAPI}  />`, rootElement);
    }
 
 }

@@ -190,7 +190,7 @@ void showHelp() {
 
 void SendNMEA0183Message(const char * buf) {
   nmeaServer.sendBufToClients(buf); // TCP
-  nmeaSender.sendBufToClients(buf); // UDP
+  nmeaSender.sendBufToClients(buf);
   webServer.sendN0183(buf); // websocket
 }
 

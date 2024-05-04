@@ -203,7 +203,7 @@ class Store extends EventEmitter {
             fuelCapacity_0: new LinearHistory(),
             temperature_0: new LinearHistory(),
             voltage_0: new LinearHistory(),
-            voltage_1: new LinearHistory()
+            voltage_1: new LinearHistory(),
 
 
         };

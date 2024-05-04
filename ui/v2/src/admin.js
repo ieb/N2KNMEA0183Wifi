@@ -158,6 +158,7 @@ class AdminView  extends Component {
         }
     }
 
+
     renderFile(n, fileInfo) {
         const clickDelete = () => {
             this.deleteFile(fileInfo.path);

@@ -93,7 +93,62 @@ void WebServer::begin(const char * configurationFile) {
         }
     });
 
+    server.on("/api/layouts.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        outputStream->println("GET /api/layouts.json");
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+        addCORS(request, response);
+        File root = SPIFFS.open("/");
+        if (!root || !root.isDirectory() ) {
+            response->setCode(404);
+            response->println("{ \"layouts\":[], error:\"not mounted\" }");
+            request->send(response);
+        } else {
+            response->setCode(200);
+            response->print("{ \"layouts\":[");
+            File file = root.openNextFile();
+            bool firstTime = true;
+            while (file) {
+                String fileName = file.name();
+                if ( fileName.startsWith("/layout-") && fileName.endsWith(".json") ) {
+                    if (!firstTime) {
+                        response->print(",");    
+                    }
+                    firstTime = false;
+                    response->printf("\"%s\"",  fileName.substring(8, fileName.length()-5).c_str() );
+                }
+                file = root.openNextFile();
+            }
+            response->println("]}");
+            request->send(response);
+        }        
+    });
 
+    server.on("/api/layout.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        outputStream->print("GET /api/layout.json");
+        AsyncWebParameter * layout = request->getParam("layout", false, false);
+        if ( layout == NULL) {
+            AsyncResponseStream *response = request->beginResponseStream("application/json");
+            addCORS(request, response);
+            response->setCode(400);
+            response->printf("{ \"ok\":false,\"msg\":\"layout required\"}\n");
+            request->send(response);
+        } else {
+            String layoutFile = "/layout-";
+            layoutFile = layoutFile + layout->value() + ".json";
+            outputStream->println(layoutFile);
+            AsyncWebServerResponse * fileResponse = request->beginResponse(SPIFFS, layoutFile, "application/json");
+            if ( fileResponse == NULL) {
+                AsyncResponseStream * response = request->beginResponseStream("application/json");
+                addCORS(request, response);
+                response->setCode(404);
+                response->printf("{ \"ok\":false,\"msg\":\"layout not found\"}\n");
+                request->send(response);
+            } else {
+                addCORS(request, fileResponse);
+                request->send(fileResponse);                
+            }
+        }
+    });
 
 
 
@@ -251,7 +306,7 @@ void WebServer::begin(const char * configurationFile) {
 
     // everything else, serve static.
     server.serveStatic("/", SPIFFS, "/" )
-        .setDefaultFile("default.html")
+        .setDefaultFile("index.html")
         .setCacheControl("max-age=600");
 
 

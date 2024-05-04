@@ -33,6 +33,12 @@ class NMEALayout extends Component {
         this.props = props;
         this.storeAPI = props.storeAPI;
         this.mainAPI = props.mainAPI;
+        if ( props.locationProperties.host ) {
+            this.apiUrl = `http://${props.locationProperties.host}`;
+        } else {
+            this.apiUrl = '';
+        }
+        this.layoutName = props.locationProperties.layout || "main";
         this.onEditLayout = this.onEditLayout.bind(this);
         this.onAddItem = this.onAddItem.bind(this);
         this.onChangeItem = this.onChangeItem.bind(this);
@@ -45,7 +51,7 @@ class NMEALayout extends Component {
             editing: "",
             options: [],
             dataIndicatorOn: false,
-            layout: this.loadLayout(),
+            layout: undefined,
             nmea0183Address: "no server",
             connectedClients: 0,
             packetsRecieved: 0
@@ -55,17 +61,15 @@ class NMEALayout extends Component {
         this.mainAPI.onPlaybackEnd(() => {
             alert("Playback has ended");
         });
-
-        // Not in use at the moment.
-        //storeAPI.onStateChange((newState) => {
-        //    console.log("Got State Change", newState);
-        //});
-
+        setTimeout( async () => {
+            const layout = await this.loadLayout();
+            this.setState({layout});
+        }, 10 );
 
     }
 
 
-    componentDidMount() {
+    async componentDidMount() {
         console.log("Register window for events");
         this.mainAPI.addListener();
         window.addEventListener('beforeunload', this.mainAPI.removeListener, false);
@@ -92,39 +96,47 @@ class NMEALayout extends Component {
     }
 
 
+//    "{"pageId":1,"pages":[{"id":1,"name":"Home","boxes":[{"id":1713688208539,"field":"stw"},{"id":1714720124318,"field":"awa"},{"id":1714720128961,"field":"aws"},{"id":1713688180180,"field":"Position"},{"id":1714720345973,"field":"sog"},{"id":1714720350780,"field":"twa"},{"id":1714720353242,"field":"tws"},{"id":1714720364795,"field":"Log"},{"id":1714720385573,"field":"polarSpeed"},{"id":1714720417941,"field":"targetTwa"},{"id":1714720476494,"field":"vmg"},{"id":1714720494522,"field":"polarVmg"},{"id":1714720485837,"field":"polarSpeedRatio"},{"id":1714720524662,"field":"rudderPosition"},{"id":1714720552606,"field":"seaTemperature"},{"id":1714720566404,"field":"atmosphericPressure_0"}]}]}"
 
 
-    loadLayout() {
-        let layout = localStorage.getItem('layout');
+
+    async loadLayout() {
+        let layout = undefined;
+        try {
+            const layoutUrl = `${this.apiUrl}/api/layout.json?layout=${encodeURIComponent(this.layoutName)}`;
+            const response = await fetch(layoutUrl, {
+                credentials: "include"
+            });
+            console.log("Layout request Response ", response);
+            if ( response.status === 200 ) {
+                layout = await response.json();
+                if ( layout &&  layout.pageId !== undefined && layout.pages !== undefined ) {
+                    console.log(`Got Layout from server`, layout);  
+                    return layout;                          
+                }
+                console.log(`Layout from ${layoutUrl} not valid`, layout);  
+            } else {
+                console.log(`Layout from ${layoutUrl} not found`);  
+            }
+
+        } catch (e) {
+            console.log(`Failed to get layout from ${layoutUrl}`, e);
+        }
+
+        layout = localStorage.getItem('layout');
         if (layout) {
             const l = JSON.parse(layout);
             if (l.pageId !== undefined && l.pages !== undefined ) {
-                return layout;
+                console.log(`Got Layout from localstorage`, layout);  
+                return l;
             }
         }
+        // load a default
         const start = Date.now();
-        if ( false ) {
-            return JSON.stringify({
-                    pageId: 1,
-                    pages: [
-                        {id: 1, name: 'Home',
-                            boxes: [
-                                { id: start, field:"awa", testValue: 24*Math.PI/180},
-                                { id: start+1, field:"aws", testValue: 3.4},
-                                { id: start+2, field:"twa", testValue: -22*Math.PI/180},
-                                { id: start+3, field:"Position", testValue: { latitide: 55.322134512, longitude: 22.32112}},
-                                { id: start+4, field:"engineCoolantTemperature", testValue: 325.212},
-                                { id: start+5, field:"alternatorVoltage", testValue: 14.2321},
-                                { id: start+6, field:"Log", testValue: { log: 4285528, tripLog: 964892 }},
-                                { id: start+7, field:"polarSpeedRatio", testValue: 0.232},
-                            ]}
-                    ]
-                });
-        }
-        return JSON.stringify({
+        return {
                 pageId: 1,
                 pages: [
-                    {id: 1, name: 'Home',
+                    {id: 1, name: "Home",
                         boxes: [
                             { id: start, field:"awa"},
                             { id: start+1, field:"aws"},
@@ -136,14 +148,27 @@ class NMEALayout extends Component {
                             { id: start+7, field:"polarSpeedRatio"},
                         ]}
                 ]
-            });
+            };
 
+    }
+
+    async onSave() {
+        localStorage.setItem('layout-'+this.layoutName, JSON.stringify(this.state.layout));
     }
 
 
 
     getLayout() {
-        const layout = JSON.parse(this.state.layout);
+        const layout = this.state.layout || {
+                pageId: 1,
+                pages: [
+                    {
+                        id: 1, name: "Home",
+                        boxes: [
+                        ]
+                    }
+                ]
+            };
         const page = layout.pages.find((p) => p.id === layout.pageId);
         return {
             layout,
@@ -236,9 +261,6 @@ class NMEALayout extends Component {
         }
 
     }
-    onSave() {
-        localStorage.setItem('layout', this.state.layout);
-    }
 
     onMenuChange() {
         this.setState({ showMenu: !this.state.showMenu });
@@ -291,6 +313,9 @@ class NMEALayout extends Component {
         `;
     }
     renderItem(item) {
+        if ( item == undefined || item.field == undefined) {
+            return html`<div>undefined box</div>`;
+        }
         switch (item.field ) {
             case 'Position':
                 return html`<${LatitudeBox} 

@@ -37,6 +37,9 @@ class PGN126993_HeartBeat  extends CANMessage {
     }
 }
 
+// 126996 product information
+// PGN 059392 - ISO Acknowledgement
+
 
 const register = (pgnRegistry) => {
     pgnRegistry[60928] = new PGN60928_IsoAddressClaim();
