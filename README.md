@@ -54,8 +54,14 @@ ToDo
 * [x] Emit data for websockets in raw form tbd.
 * [x] Emit raw pgn messages in some form.
 * [x] Port in web apps from Electron NMEA App in ui/v2
-* [ ] Fix messages display in v2 ui
+* [x] Fix messages display in v2 ui
 * [ ] Port eink displays
+* [x] Apply eslint
+* [x] Convert to installable PWA
+* [-] Support ESP32 on https for PWA - Too much effort. allow insecure content on localhost and load service worker from localhost.
+* [x] Implement service worker cache
+* [ ] Implement Admin Login (Workarround, go to admin, open dev tools, bypasss services worker to login, then re-enable)
+* [ ] Urls not easy to use to nav (Workaround, open in browser, change url, open in app)
 
 
 ## HTTP APIs

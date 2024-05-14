@@ -4,9 +4,12 @@ const CompressionPlugin = require("compression-webpack-plugin");
 module.exports = {
   mode: 'production',
   devtool: 'source-map',
-  entry: './src/index.js',
+  entry: {
+    main: './src/index.js',
+    worker: './src/worker.js'
+  },
   output: {
-    filename: 'main.js',
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
   },
   plugins: [new CompressionPlugin()],

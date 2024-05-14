@@ -1,0 +1,18 @@
+{
+    "lang": "en-us",
+    "name": "NMEA2000 app",
+    "short_name": "Nmea2000 Instruments",
+    "description": "Marine instruments",
+    "start_url": "/",
+    "background_color": "#2f3d58",
+    "theme_color": "#2f3d58",
+    "orientation": "any",
+    "display": "standalone",
+    "icons": [
+        {
+            "src": "/icon512.png",
+            "sizes": "512x512",
+            "purpose": "any"
+        }
+    ]
+}
