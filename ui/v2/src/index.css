@@ -1,7 +1,7 @@
 body {
   font-family: Arial, sans-serif;
-  background: #333;
-  color: white;
+  background: #333; 
+  color: white; 
 }
 
 
@@ -500,5 +500,111 @@ button {
 
 .logviewer .enabled {
     border: solid 0.5px white;
+}
+
+
+.login-box {
+  background-color: #222;
+  padding: 20px;
+  width: 300px;
+  border-radius: 10px;
+  margin: 13px;
+}
+
+.user-box {
+  display: flex;
+}
+
+.user-box input {
+  padding: 4px 7px;
+  margin-bottom: 2px;
+  width: 177px;
+  color: white;
+  border: none;
+  outline: none;
+  background: #444;
+  height: 29px;
+  border-radius: 5px;
+}
+
+.user-box label {
+  font-size: 0.9rem;
+  width: 66px;
+  padding: 10px 10px;
+  pointer-events: none;
+}
+
+.user-box button {
+    cursor: pointer;
+    margin-left: 213px;
+    background: #555;
+    color: #999;
+    border: 1px;
+    margin-top: 14px;
+    border-radius: 3px;
+    font-size: 1.1rem;
+    padding: 6px;
+  transition: color 0.3s ease-in-out;
+}
+
+.user-box button:hover {
+  color: #fff;
+}
+
+.password-toggle-icon {
+  transform: translate(6px, 13px);
+  cursor: pointer;
+}
+
+.password-toggle-icon i {
+  font-size: 18px;
+  line-height: 1;
+  color: #555;
+  transition: color 0.3s ease-in-out;
+}
+
+.password-toggle-icon i:hover {
+  color: #fff;
+}
+
+
+/**
+ * fa-min-400.woff2 contains a subset of the Free FontAwesome Fonts.
+ * Extractions was done by woff2 -> svg -> extract the glyphs into a new
+ * svg font file -> woff2. This minimizes the size of the fonts for flash.
+ * Source file files
+ * https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.css
+ * https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/woff2/fa-regular-400.woff2
+ * Font Awesome Free 6.4.0 by @fontawesome - https://fontawesome.com
+ * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+ * Copyright 2023 Fonticons, Inc.
+ */ 
+
+.fa {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 400; 
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-rendering: auto; 
+}
+
+.fa-eye-slash::before {
+  content: "\f070"; 
+}
+.fa-eye::before {
+  content: "\f06e"; 
+}
+
+
+@font-face {
+  font-family: 'Font Awesome 6 Free';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("fa-min-400.woff2") format("woff2"); 
 }
 

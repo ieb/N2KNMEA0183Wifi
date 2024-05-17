@@ -3,6 +3,169 @@ import htm from './deps/htm/index.module.js';
 
 const html = htm.bind(h);
 
+/**
+ * When there is a service worker, normal basic auth fails to work
+ * So all requests that need auth must perform the auth explicitly, hence
+ * the AdminRequest class that encapsulates the credentials and the AdminCredentials
+ * component that handles login. Neither are exported and neither are used in properties.
+ * Nothing really to stop other code accessing the sessionStorage, so protection is minimal...
+ * but that is always the case inside 1 process.
+ */
+
+class AdminRequest {
+  constructor() {
+    this.loadCredentials();
+  }
+
+  async fetch(url, options) {
+    const opts = options || {};
+    opts.credentials = 'include';
+    opts.headers = opts.headers || {};
+    opts.headers.Authorization = `Basic ${btoa(this.authorization)}`;
+    opts.headers.Origin = window.location;
+    const ret = await fetch(url, opts);
+    if (ret && ret.status === 401) {
+      this.authorization = undefined;
+    }
+    return ret;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  async fetchWithCredentials(url, username, password) {
+    const opts = {};
+    opts.credentials = 'include';
+    opts.headers = {};
+    const auth = btoa(`${username}:${password}`);
+    opts.headers.Authorization = `Basic ${auth}`;
+    opts.headers.Origin = window.location;
+    const ret = await fetch(url, opts);
+    return ret;
+  }
+
+  needsCredentials() {
+    return (this.authorization === undefined);
+  }
+
+  loadCredentials() {
+    if (this.authorization === undefined) {
+      this.authorization = sessionStorage.getItem('credentials');
+      return (this.authorization !== undefined);
+    }
+    return true;
+  }
+
+  saveCredentials(username, password) {
+    this.authorization = `${username}:${password}`;
+    sessionStorage.setItem('credentials', this.authorization);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  logout() {
+    sessionStorage.removeItem('credentials');
+  }
+
+
+  get username() {
+    if (this.authorization) {
+      return this.authorization.split(':')[0];
+    }
+    return '';
+  }
+
+  get password() {
+    if (this.authorization) {
+      return this.authorization.split(':', 2)[1];
+    }
+    return '';
+  }
+}
+
+class AdminCredentals extends Component {
+  constructor(props) {
+    super();
+    this.credentialsOk = props.credentialsOk;
+    this.checkLoginUrl = props.checkLoginUrl;
+    this.adminRequest = new AdminRequest();
+    this.state = {
+      username: this.adminRequest.username,
+      password: this.adminRequest.password,
+      showPw: false,
+    };
+    this.updateUsername = this.updateUsername.bind(this);
+    this.updatePassword = this.updatePassword.bind(this);
+    this.showPassword = this.showPassword.bind(this);
+    this.clickLogin = this.clickLogin.bind(this);
+  }
+
+  updateUsername(event) {
+    this.setState({
+      username: event.target.value,
+      msg: '',
+    });
+  }
+
+  updatePassword(event) {
+    this.setState({
+      password: event.target.value,
+      msg: '',
+    });
+  }
+
+  showPassword() {
+    this.setState({
+      showPw: !this.state.showPw,
+      msg: '',
+    });
+  }
+
+  async clickLogin() {
+    this.setState({
+      msg: 'checking...',
+    });
+    const response = await this.adminRequest.fetchWithCredentials(
+      this.checkLoginUrl,
+      this.state.username,
+      this.state.password,
+    );
+    if (response.status === 200) {
+      this.setState({
+        msg: 'correct, reloading...',
+      });
+      await this.adminRequest.saveCredentials(this.state.username, this.state.password);
+      await this.credentialsOk();
+    } else {
+      this.setState({
+        msg: 'incorrect',
+      });
+    }
+  }
+
+
+  render() {
+    const passwordType = this.state.showPw ? 'text' : 'password';
+    const showPwClass = this.state.showPw ? 'fa fa-eye' : 'fa fa-eye-slash';
+    return html`<div className="container">
+                  <div className="login-box">
+                      <div className="user-box">
+                        <label>Username</label>
+                        <input type="text" value=${this.state.username} onChange=${this.updateUsername} />
+                      </div>
+                      <div className="user-box">
+                        <label>Password</label>
+                        <input type=${passwordType} value=${this.state.password} onChange=${this.updatePassword} />
+                        <span className="password-toggle-icon"><i className=${showPwClass}  onCLick=${this.showPassword} ></i></span>
+                      </div>
+                      <div className="user-box">
+                          <button title="login" onClick=${this.clickLogin} >Login</button>
+                      </div>
+                      <div className="user-box message">
+                          ${this.state.msg}
+                      </div>
+                  </div>
+              </div>`;
+  }
+}
+
 class AdminView extends Component {
   constructor(props) {
     super(props);
@@ -22,21 +185,31 @@ class AdminView extends Component {
     this.clickUpload = this.clickUpload.bind(this);
     this.updateFileSystem = this.updateFileSystem.bind(this);
     this.rebootDevice = this.rebootDevice.bind(this);
+    this.logout = this.logout.bind(this);
   }
 
   async componentDidMount() {
     await this.updateFileSystem();
   }
 
+
+
   async updateFileSystem() {
-    const response = await fetch(`${this.apiUrl}/api/fs.json`, {
-      credentials: 'include',
-    });
+    const adminRequest = new AdminRequest();
+    const response = await adminRequest.fetch(`${this.apiUrl}/api/fs.json`);
     console.log('Response ', response);
     const dir = await response.json();
     console.log('Got Files', dir);
     this.setState({
       dir,
+    });
+  }
+
+  async logout() {
+    const adminRequest = new AdminRequest();
+    await adminRequest.logout();
+    this.setState({
+      dir: {},
     });
   }
 
@@ -54,7 +227,8 @@ class AdminView extends Component {
       formBody.push(`${encodedKey}=${encodedValue}`);
     }
     const body = formBody.join('&');
-    const response = await fetch(`${this.apiUrl}/api/fs.json`, {
+    const adminRequest = new AdminRequest();
+    const response = await adminRequest.fetch(`${this.apiUrl}/api/fs.json`, {
       method: 'POST',
       mode: 'cors',
       credentials: 'include',
@@ -67,7 +241,8 @@ class AdminView extends Component {
 
   async rebootDevice() {
     const body = '';
-    const response = await fetch(`${this.apiUrl}/api/reboot.json`, {
+    const adminRequest = new AdminRequest();
+    const response = await adminRequest.fetch(`${this.apiUrl}/api/reboot.json`, {
       method: 'POST',
       mode: 'cors',
       credentials: 'include',
@@ -107,6 +282,7 @@ class AdminView extends Component {
     countdown();
   }
 
+
   setUploadRef(ref) {
     this.uploadReference = ref;
   }
@@ -139,7 +315,8 @@ class AdminView extends Component {
       formData.append('op', 'upload');
       formData.append('path', path);
       formData.append('file', this.uploadReference.files[0]);
-      const response = await fetch(`${this.apiUrl}/api/fs.json`, {
+      const adminRequest = new AdminRequest();
+      const response = await adminRequest.fetch(`${this.apiUrl}/api/fs.json`, {
         method: 'POST',
         mode: 'cors',
         credentials: 'include',
@@ -194,7 +371,7 @@ class AdminView extends Component {
       return `${b.toFixed(0)}B`;
     };
 
-    if (this.state.dir) {
+    if (this.state.dir && this.state.dir.files) {
       totalSize = formatBytes(this.state.dir.disk.size);
       usedSize = formatBytes(this.state.dir.disk.used);
       freeSize = formatBytes(this.state.dir.disk.free);
@@ -202,23 +379,28 @@ class AdminView extends Component {
       heapSize = formatBytes(this.state.dir.heap.size);
       heapMin = formatBytes(this.state.dir.heap.minFree);
       heapMaxAlloc = formatBytes(this.state.dir.heap.maxAlloc);
+
+      return html`
+              <div className="adminview" >
+              <div>
+                  <input ref=${this.setUploadRef} type="file" onInput=${this.onFileChange} /> 
+                  as
+                  <input ref=${this.setPathRef} type="text" />
+                  <button onClick=${this.clickUpload} title="Upload new file ">Upload</button>
+                  <button onClick=${this.updateFileSystem} title="Refresh">Refresh</button>
+                  <button onClick=${this.rebootDevice} title="Reboot">Reboot</button>
+                  <button onClick=${this.logout} title="Logout">Logout</button>
+                  ${this.state.rebootMessage}
+              </div>
+              <div className="logviewer">${this.renderFileList()}</div>
+              <div>
+                  Filesystem Total:${totalSize} Used:${usedSize} Free:${freeSize} Heap Size:${heapSize} Free:${heapFree} min:${heapMin} maxAlloc:${heapMaxAlloc}
+              </div>
+              </div> `;
     }
-    return html`
-            <div className="adminview" >
-            <div>
-                <input ref=${this.setUploadRef} type="file" onInput=${this.onFileChange} /> 
-                as
-                <input ref=${this.setPathRef} type="text" />
-                <button onClick=${this.clickUpload} title="Upload new file ">Upload</button>
-                <button onClick=${this.updateFileSystem} title="Refresh">Refresh</button>
-                <button onClick=${this.rebootDevice} title="Reboot">Reboot</button>
-                ${this.state.rebootMessage}
-            </div>
-            <div className="logviewer">${this.renderFileList()}</div>
-            <div>
-                Filesystem Total:${totalSize} Used:${usedSize} Free:${freeSize} Heap Size:${heapSize} Free:${heapFree} min:${heapMin} maxAlloc:${heapMaxAlloc}
-            </div>
-            </div> `;
+
+    const checkLoginUrl = `${this.apiUrl}/api/login.json`;
+    return html`<${AdminCredentals} credentialsOk=${this.updateFileSystem} checkLoginUrl=${checkLoginUrl} />`;
   }
 }
 

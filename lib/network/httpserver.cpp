@@ -53,6 +53,15 @@ void WebServer::begin(const char * configurationFile) {
             request->send(response);
         }
     });
+    server.on("/api/login.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if ( this->authorized(request) ) {
+            AsyncWebServerResponse * response = request->beginResponse(
+                200,
+                "application/json","{ \"ok\": true, \"msg\":\"authorized\"}");
+            addCORS(request, response);
+            request->send(response);
+        }
+    });
 
     //list the filesystem
     server.on("/api/fs.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
@@ -313,6 +322,7 @@ void WebServer::begin(const char * configurationFile) {
     server.onNotFound([this](AsyncWebServerRequest *request) {
         if (request->method() == HTTP_OPTIONS) {
             AsyncWebServerResponse *response = request->beginResponse(200);
+            // handle preflights
             this->addCORS(request, response);
             request->send(response);
         } else {
@@ -389,6 +399,9 @@ void WebServer::addCORS(AsyncWebServerRequest *request, AsyncWebServerResponse *
     if ( orgin != NULL) {
         String originValue = orgin->value();
         if ( originValue != NULL ) {
+            response->addHeader("Access-Control-Max-Age", "600");
+            response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+            response->addHeader("Access-Control-Allow-Headers", "Authorization");
             response->addHeader("Access-Control-Allow-Origin", originValue);
             response->addHeader("Access-Control-Allow-Credentials", "true");            
         }

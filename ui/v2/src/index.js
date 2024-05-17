@@ -28,6 +28,7 @@ const getLocationProperties = () => {
   }
   console.log('URL properties', props);
   props.host = props.host || window.location.host;
+  props.host = '192.168.1.11';
   return props;
 };
 

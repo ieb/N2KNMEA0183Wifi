@@ -50,18 +50,19 @@ ToDo
 * [x] Emit NMEA0183 messages generated from calculations
 * [x] Verify performance messages
 * [x] Remove N2KCollector
-* [ ] Verify target VMG down wind.
 * [x] Emit data for websockets in raw form tbd.
 * [x] Emit raw pgn messages in some form.
 * [x] Port in web apps from Electron NMEA App in ui/v2
 * [x] Fix messages display in v2 ui
-* [ ] Port eink displays
 * [x] Apply eslint
 * [x] Convert to installable PWA
-* [-] Support ESP32 on https for PWA - Too much effort. allow insecure content on localhost and load service worker from localhost.
+* [-] ~~Support ESP32 on https for PWA~~  Too much effort, AsyncTCP support not there. Workaround: allow insecure content on localhost and load service worker from localhost.
 * [x] Implement service worker cache
-* [ ] Implement Admin Login (Workarround, go to admin, open dev tools, bypasss services worker to login, then re-enable)
+* [x] Implement Admin Login without relying on Browser, as BasicAuth popups in ServciceWorkers dont work offlin. On fixing found out: Explicitly setting headers works, but service workers use preflight on GET urls and are stricter about the cors headers than a direct fetch from a window context.  Username and password are now stored in sessionStorage and logout works.
 * [ ] Urls not easy to use to nav (Workaround, open in browser, change url, open in app)
+* [ ] Persist history in local storage
+* [ ] Verify target VMG down wind.
+* [ ] Port eink displays
 
 
 ## HTTP APIs

@@ -4,6 +4,8 @@
  * The worker is here to allow installation, its not
  * here to for much more as doing anything complex makes
  * reloading the worker hard.
+ * 
+ * Not using preload as this causes failures when on an isolated network.
  */
 
 const CACHE_NAME = 'marineInstruments';
@@ -17,6 +19,7 @@ self.addEventListener('install', (event) => {
   })());
 });
 
+
 self.addEventListener('beforeinstallprompt', (event) => {
   console.log('Before Event Install ', event);
 });
@@ -24,19 +27,22 @@ self.addEventListener('beforeinstallprompt', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method === 'GET') {
     event.respondWith((async () => {
-      if (event.request.destination === 'image'
+      if (!event.request.headers.get('Authorization')
+          && (event.request.destination === 'image'
           || event.request.destination === 'script'
-          || event.request.destination === 'manifest') {
+          || event.request.destination === 'style'
+          || event.request.destination === 'document'
+          || event.request.destination === 'manifest')) {
         const cache = await caches.open(CACHE_NAME);
-        const cachedResponse = await cache.match(event.request);
+        const cachedResponse = await cache.match(event.request, { ignoreSearch: true });
         if (cachedResponse) {
           const date = cachedResponse.headers.get('date');
           if (date
             && (Date.now() - Date.parse(date)) < 60000) {
-            console.log('HIT', cachedResponse);
+            console.debug('HIT', cachedResponse);
             return cachedResponse;
           }
-          console.log('Expired', cachedResponse, (Date.now() - Date.parse(date)));
+          console.debug('Expired', cachedResponse, (Date.now() - Date.parse(date)));
         }
         try {
           // If the resource was not in the cache or too old in the cache try the network.
@@ -46,58 +52,38 @@ self.addEventListener('fetch', (event) => {
             const cacheControl = fetchResponse.headers.get('cache-control');
             if (!(cacheControl.includes('private') || cacheControl.includes('no-store'))) {
               // Save the resource in the cache and return it.
-              console.log('MISS', fetchResponse);
+              console.debug('MISS', fetchResponse);
               cache.put(event.request, fetchResponse.clone());
               return fetchResponse;
             }
           }
-          console.log('PASS', fetchResponse);
+          console.debug('PASS', fetchResponse);
         } catch (e) {
-          console.log('Network Failed ', e);
+          console.debug('Network Failed ', e);
           // The network failed.
         }
-        // serve stale if its available
-        console.log('STALE', cachedResponse);
-        return cachedResponse;
+        if (cachedResponse) {
+          // serve stale if its available
+          console.debug('STALE', cachedResponse);
+          return cachedResponse;
+        }
       }
-      const passResponse = await fetch(event.request, {
-        credentials: 'include',
-      });
-      console.log('PASS request', event.request);
-      for (const k of event.request.headers.keys()) {
-        console.log(`   ${k}: ${event.request.headers.get(k)}`);
+      try {
+        console.log("Request ", event.request);
+        const passResponse = await fetch(event.request);
+        console.debug('PASS request', event.request);
+        for (const k of event.request.headers.keys()) {
+          console.debug(`   ${k}: ${event.request.headers.get(k)}`);
+        }
+        console.debug('PASS response', passResponse);
+        for (const k of passResponse.headers.keys()) {
+          console.debug(`   ${k}: ${passResponse.headers.get(k)}`);
+        }
+        return passResponse;
+      } catch (e) {
+        console.debug('Network Failed ', e);
       }
-      console.log('PASS response', passResponse);
-      for (const k of passResponse.headers.keys()) {
-        console.log(`   ${k}: ${passResponse.headers.get(k)}`);
-      }
-      return passResponse;
+      return new Response('', { status: 504, statusText: 'offline' });
     })());
   }
 });
-/*
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-
-
-
-    // Get the resource from the cache.
-    const cachedResponse = await cache.match(event.request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    try {
-      // If the resource was not in the cache, try the network.
-      const fetchResponse = await fetch(event.request);
-
-
-      // Save the resource in the cache and return it.
-      cache.put(event.request, fetchResponse.clone());
-      return fetchResponse;
-    } catch (e) {
-      // The network failed.
-    }
-    return undefined;
-  })());
-}); */
-
