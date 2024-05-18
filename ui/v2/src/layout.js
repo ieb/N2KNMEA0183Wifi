@@ -56,8 +56,6 @@ class NMEALayout extends Component {
       options: [],
       dataIndicatorOn: false,
       layout: undefined,
-      nmea0183Address: 'no server',
-      connectedClients: 0,
       packetsRecieved: 0,
 
     };
@@ -72,13 +70,9 @@ class NMEALayout extends Component {
   async componentDidMount() {
     this.updateInterval = setInterval((async () => {
       const packetsRecieved = this.storeAPI.getPacketsRecieved();
-      const nmea0183Address = this.storeAPI.getNmea0183Address();
-      const connectedClients = this.storeAPI.getConnectedClients();
       if (this.state.packetsRecieved !== packetsRecieved
-                || this.state.nmea0183Address !== nmea0183Address
-                || this.state.connectedClients !== connectedClients
       ) {
-        this.setState({ packetsRecieved, nmea0183Address, connectedClients });
+        this.setState({ packetsRecieved });
       }
     }), 1000);
   }
@@ -307,12 +301,6 @@ class NMEALayout extends Component {
                 <${EditUIControl} onEdit=${this.onEditLayout} 
                     onSave=${this.onSave}
                     onAddItem=${this.onAddItem}/>
-                <div className="debugControls">
-                  address: ${this.state.nmea0183Address}
-                </div>
-                <div className="debugControls">
-                  connected: ${this.state.connectedClients}
-                </div>
                 <div className="debugControls">
                   packetsRecieved: ${this.state.packetsRecieved}
                 </div>

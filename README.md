@@ -61,6 +61,7 @@ ToDo
 * [x] Implement Admin Login without relying on Browser, as BasicAuth popups in ServciceWorkers dont work offlin. On fixing found out: Explicitly setting headers works, but service workers use preflight on GET urls and are stricter about the cors headers than a direct fetch from a window context.  Username and password are now stored in sessionStorage and logout works.
 * [x] Urls not easy to use to nav (Workaround, open in browser, change url, open in app)
 * [x] Add ability to set the server url for data
+* [ ] Add day night themes.
 * [ ] Persist history in local storage
 * [ ] Verify target VMG down wind.
 * [ ] Port eink displays

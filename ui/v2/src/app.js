@@ -23,6 +23,7 @@ class App extends Component {
       layout: props.layout,
       layoutList: [],
       menuKey: Date.now(),
+      appKey: Date.now(),
     };
     this.setView = this.setView.bind(this);
     this.setApiUrl = this.setApiUrl.bind(this);
@@ -70,6 +71,7 @@ class App extends Component {
     }
     return false;
   }
+
 
   setView(view, layout) {
     if (layout) {
@@ -128,7 +130,6 @@ class App extends Component {
 
   render() {
     const view = this.renderView();
-    console.log("Connection state ",this.state.apiChangeMessage);
     return html`<div>
               <${Menu} 
                 key=${this.state.menuKey}

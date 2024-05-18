@@ -21,13 +21,16 @@ class Menu extends Component {
 
   // eslint-disable-next-line class-methods-use-this
   async onClickMenu(event) {
-    const { view, layout } = event.target.attributes;
+    const { view, layout, theme } = event.target.attributes;
     if (view) {
       if (layout) {
         this.setView(view.value, layout.value);
       } else {
         this.setView(view.value);
       }
+    }
+    if (theme) {
+      document.getElementById('root').className = theme.value;
     }
     event.preventDefault();
     return false;
@@ -73,7 +76,14 @@ class Menu extends Component {
             <div class="nav-item"><a href="#" view="frames" onClick=${this.onClickMenu} >Frames</a></div>
             <div class="nav-item"><a href="#" view="admin" onClick=${this.onClickMenu} >Admin</a></div>
             <div class="nav-item">
-              Host: <input type="text" name="apiurl" value=${this.state.apiUrl} onChange=${this.apiChange} />
+              <a href="#" view="admin" onClick=${this.onClickMenu} >Theme</a>
+              <div class="dropdown-content">
+                <a key="day" theme="day" href="#" onClick=${this.onClickMenu} >day</a>
+                <a key="night" theme="night" href="#" onClick=${this.onClickMenu} >night</a>
+              </div>
+            </div>
+            <div class="nav-item">
+              <input type="text" name="apiurl" value=${this.state.apiUrl} onChange=${this.apiChange} />
               ${this.state.apiChangeMessage}
             </div>
         </div>`;

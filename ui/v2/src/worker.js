@@ -24,7 +24,7 @@ self.addEventListener('beforeinstallprompt', (event) => {
   console.log('Before Event Install ', event);
 });
 
-const cacheEnabled = true;
+const cacheEnabled = false;
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method === 'GET') {

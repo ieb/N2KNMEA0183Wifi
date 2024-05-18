@@ -2,8 +2,20 @@ body {
   font-family: Arial, sans-serif;
   background: #333; 
   color: white; 
+  --main-foreground-color: white;
+  --menu-forground: lightgrey;
 }
 
+.day {
+  --main-foreground-color: white;
+  --menu-forground: lightgrey;
+}
+
+
+.night {
+  --main-foreground-color: red;
+  --menu-forground: red;
+}
 
 .nmeaLayout {
   display: flex;
@@ -17,7 +29,22 @@ body {
   display: flex;
   /*justify-content: space-around; */
   align-items: center;
+  color: var(--main-foreground-color);
 }
+
+.navbar input {
+  padding: 0px 6px;
+  margin: 0px 9px;
+  width: 177px;
+  color: var(--main-foreground-color);
+  border: none;
+  outline: none;
+  background: #444;
+  height: 29px;
+  border-radius: 5px;
+}
+
+
 
 .nav-item {
   position: relative;
@@ -30,7 +57,7 @@ body {
 .dropdown-content {
   display: none;
   position: absolute;
-  color: lightgray;
+  color: var(--menu-forground);
   background: #444;
   /*min-width: 160px; */
   box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
@@ -46,7 +73,7 @@ body {
 }
 
 .nav-item a {
-  color: lightgray;
+  color: var(--menu-forground);;
   padding: 12px 16px;
   text-decoration: none;
   display: block;
@@ -56,16 +83,13 @@ body {
   border-radius: 5px;
 }
 
+
+
 .dropdown-content a {
   border: none;
   text-wrap: nowrap;
 }
 .dropdown-content a:hover {
-/*  text-decoration: underline; */
-/*  border: 1px solid white;
-  border-radius: 5px; */
-
-/*  background-color: #f1f1f1; */
 }
 
 
@@ -74,7 +98,7 @@ body {
 }
 .topmenu a {
   text-decoration: none;
-  color: white;
+  color: var(--main-foreground-color);
   padding: 1px;
   margin-right: 10px;
   border: 1px solid grey;
@@ -82,15 +106,17 @@ body {
 }
 .topmenu a:hover {
   text-decoration: underline;
-  border: 1px solid white;
+  border: 1px solid var(--main-foreground-color);
   border-radius: 5px;
 }
 .topmenu a:click {
   text-decoration: underline;
-  background-color: lightgray;
-  border: 1px solid white;
+  background-color: var(--menu-forground);;
+  border: 1px solid var(--main-foreground-color);
   border-radius: 5px;
 }
+
+
 
 
 /*  menu --------------------------*/
@@ -169,12 +195,14 @@ body {
 /*  instuments --------------------------*/
 
 .textbox {
-    position: relative;
-    display: inline-block;
-    width: 10rem;
-    height: 6rem;
-    border: 1px solid;
-    border-radius: 10px;
+  position: relative;
+  display: inline-block;
+  width: 10rem;
+  height: 6rem;
+  border: 1px solid;
+  border-radius: 10px;
+  stroke: var(--main-foreground-color);
+  color: var(--main-foreground-color);
 }
 
 .size-maximum {
@@ -199,12 +227,12 @@ body {
 }
 
 .textbox svg .path {
-  stroke: white;
+  stroke: var(--main-foreground-color);
   stroke-width:  1px;
 }
 
 .textbox svg .meanline {
-  stroke: white;
+  stroke: var(--main-foreground-color);
   stroke-width:  1px;
   opacity: 50%;
 }
@@ -221,7 +249,7 @@ body {
 }
 
 .textbox svg .small {
-  stroke: white;
+  stroke: var(--main-foreground-color);
   font-size: 0.7rem;
   font-weight: lighter;
   stroke-width:  1px;
@@ -311,7 +339,7 @@ body {
   display: contents;
 }
 .nmea2000Messages > div {
-  border: solid 1px white;
+  border: solid 1px var(--main-foreground-color);
   border-radius: 5px;
 }
 
@@ -339,7 +367,7 @@ button {
   cursor: pointer;
   margin-left: 20px;
   background: #0000;
-  color: #fff;
+  color: var(--main-foreground-color);
   border: 0px;
 }
 
@@ -348,7 +376,7 @@ button {
   background-color: #D14836;
   background-image: -webkit-linear-gradient(top,#DD4B39,#D14836);
   border: 1px solid transparent;
-  color: white;
+  color: var(--main-foreground-color);
   border-radius: 2px;
 }
 
@@ -368,8 +396,12 @@ button {
 }
 
 .storeviewer {
-    width: 100%;
-    height: calc(100vh - 110px);
+  width: 100%;
+  height: calc(100vh - 110px);
+  color: var(--main-foreground-color);
+}
+.frameviewer {
+  color: var(--main-foreground-color);
 }
 
 /* log viewer, with hits from Mistal 7B in Brave Chat... because css is so painful to get right */
@@ -377,6 +409,8 @@ button {
     width: 100%;
     height: calc(100vh - 110px);
   counter-reset: line; /* Reset the line number at the start of the .logview container */
+    color: var(--main-foreground-color);
+
 }
 
 .logviewer .line {
@@ -442,6 +476,10 @@ button {
   text-wrap: nowrap;
 }
 
+.adminview {
+    color: var(--main-foreground-color);
+}
+
 .adminview button ,
 .adminview input[type="file"],
 .adminview input[type="text"] {
@@ -457,7 +495,22 @@ button {
   border-style: solid;
   min-width: 2rem;
   background-color: #42310d;
-  color: white;
+  color: var(--main-foreground-color);
+}
+
+.adminview input[type="file"]::file-selector-button  {
+  color: var(--main-foreground-color);
+  background-color: #42310d;
+  border-color: grey;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 5px;
+
+
+}
+
+.adminview input[type="file"] button {
+  color: var(--main-foreground-color);  
 }
 
 .adminview button:hover {
@@ -482,7 +535,7 @@ button {
 
 .fileInfo a {
   text-decoration: none;
-  color: white;
+  color: var(--main-foreground-color);
 }
 .fileInfo a:hover {
   text-decoration: underline;
@@ -499,11 +552,12 @@ button {
 
 
 .logviewer .enabled {
-    border: solid 0.5px white;
+    border: solid 0.5px var(--main-foreground-color);
 }
 
 
 .login-box {
+  color: var(--main-foreground-color);
   background-color: #222;
   padding: 20px;
   width: 300px;
@@ -519,7 +573,7 @@ button {
   padding: 4px 7px;
   margin-bottom: 2px;
   width: 177px;
-  color: white;
+  color: var(--main-foreground-color);
   border: none;
   outline: none;
   background: #444;
@@ -548,7 +602,7 @@ button {
 }
 
 .user-box button:hover {
-  color: #fff;
+  color: var(--main-foreground-color);
 }
 
 .password-toggle-icon {
@@ -564,7 +618,7 @@ button {
 }
 
 .password-toggle-icon i:hover {
-  color: #fff;
+  color: var(--main-foreground-color);
 }
 
 
