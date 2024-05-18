@@ -24,10 +24,13 @@ self.addEventListener('beforeinstallprompt', (event) => {
   console.log('Before Event Install ', event);
 });
 
+const cacheEnabled = true;
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method === 'GET') {
     event.respondWith((async () => {
-      if (!event.request.headers.get('Authorization')
+      if (cacheEnabled 
+        && !event.request.headers.get('Authorization')
           && (event.request.destination === 'image'
           || event.request.destination === 'script'
           || event.request.destination === 'style'

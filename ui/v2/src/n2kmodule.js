@@ -550,12 +550,16 @@ class StoreAPIImpl {
 
 
 
-  start(host) {
+  start(url) {
     // if host is set, save the host config in local storage
     // otherwise try and get from local storage.
     // if nothing in local storage do nothing.
-    if (host) {
-      this.url = `ws://${host}/ws/seasmart`;
+    if (url) {
+      if (url.port !== '') {
+        this.url = `ws://${url.host}:${url.port}/ws/seasmart`;
+      } else {
+        this.url = `ws://${url.host}/ws/seasmart`;
+      }
     }
     console.log('Starting websocket on ', this.url);
     this.seasmart.start(this.url);

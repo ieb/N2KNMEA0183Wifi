@@ -13,7 +13,8 @@ const html = htm.bind(h);
  */
 
 class AdminRequest {
-  constructor() {
+  constructor(base) {
+    this.base = base;
     this.loadCredentials();
   }
 
@@ -23,7 +24,7 @@ class AdminRequest {
     opts.headers = opts.headers || {};
     opts.headers.Authorization = `Basic ${btoa(this.authorization)}`;
     opts.headers.Origin = window.location;
-    const ret = await fetch(url, opts);
+    const ret = await fetch(new URL(url, this.base), opts);
     if (ret && ret.status === 401) {
       this.authorization = undefined;
     }
@@ -38,7 +39,7 @@ class AdminRequest {
     const auth = btoa(`${username}:${password}`);
     opts.headers.Authorization = `Basic ${auth}`;
     opts.headers.Origin = window.location;
-    const ret = await fetch(url, opts);
+    const ret = await fetch(new URL(url, this.base), opts);
     return ret;
   }
 
@@ -85,7 +86,7 @@ class AdminCredentals extends Component {
     super();
     this.credentialsOk = props.credentialsOk;
     this.checkLoginUrl = props.checkLoginUrl;
-    this.adminRequest = new AdminRequest();
+    this.adminRequest = new AdminRequest(props.apiUrl);
     this.state = {
       username: this.adminRequest.username,
       password: this.adminRequest.password,
@@ -169,8 +170,7 @@ class AdminCredentals extends Component {
 class AdminView extends Component {
   constructor(props) {
     super(props);
-    this.props = props;
-    this.apiUrl = `http://${props.host}`;
+    this.apiUrl = props.apiUrl;
     this.state = {
       pauseButton: 'Pause',
       fileSystem: {},
@@ -195,8 +195,8 @@ class AdminView extends Component {
 
 
   async updateFileSystem() {
-    const adminRequest = new AdminRequest();
-    const response = await adminRequest.fetch(`${this.apiUrl}/api/fs.json`);
+    const adminRequest = new AdminRequest(this.apiUrl);
+    const response = await adminRequest.fetch('/api/fs.json');
     console.log('Response ', response);
     const dir = await response.json();
     console.log('Got Files', dir);
@@ -206,7 +206,7 @@ class AdminView extends Component {
   }
 
   async logout() {
-    const adminRequest = new AdminRequest();
+    const adminRequest = new AdminRequest(this.apiUrl);
     await adminRequest.logout();
     this.setState({
       dir: {},
@@ -227,8 +227,8 @@ class AdminView extends Component {
       formBody.push(`${encodedKey}=${encodedValue}`);
     }
     const body = formBody.join('&');
-    const adminRequest = new AdminRequest();
-    const response = await adminRequest.fetch(`${this.apiUrl}/api/fs.json`, {
+    const adminRequest = new AdminRequest(this.apiUrl);
+    const response = await adminRequest.fetch('/api/fs.json', {
       method: 'POST',
       mode: 'cors',
       credentials: 'include',
@@ -241,8 +241,8 @@ class AdminView extends Component {
 
   async rebootDevice() {
     const body = '';
-    const adminRequest = new AdminRequest();
-    const response = await adminRequest.fetch(`${this.apiUrl}/api/reboot.json`, {
+    const adminRequest = new AdminRequest(this.apiUrl);
+    const response = await adminRequest.fetch('/api/reboot.json', {
       method: 'POST',
       mode: 'cors',
       credentials: 'include',
@@ -315,8 +315,8 @@ class AdminView extends Component {
       formData.append('op', 'upload');
       formData.append('path', path);
       formData.append('file', this.uploadReference.files[0]);
-      const adminRequest = new AdminRequest();
-      const response = await adminRequest.fetch(`${this.apiUrl}/api/fs.json`, {
+      const adminRequest = new AdminRequest(this.apiUrl);
+      const response = await adminRequest.fetch('/api/fs.json', {
         method: 'POST',
         mode: 'cors',
         credentials: 'include',
@@ -399,8 +399,10 @@ class AdminView extends Component {
               </div> `;
     }
 
-    const checkLoginUrl = `${this.apiUrl}/api/login.json`;
-    return html`<${AdminCredentals} credentialsOk=${this.updateFileSystem} checkLoginUrl=${checkLoginUrl} />`;
+    return html`<${AdminCredentals} 
+      credentialsOk=${this.updateFileSystem} 
+      checkLoginUrl='/api/login.json'
+      apiUrl=${this.apiUrl} />`;
   }
 }
 

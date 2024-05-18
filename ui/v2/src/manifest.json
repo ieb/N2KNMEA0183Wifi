@@ -13,6 +13,12 @@
             "src": "/icon512.png",
             "sizes": "512x512",
             "purpose": "any"
+        },
+        {
+            "src": "/icon512_maskable.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable" // <-- New property value `"maskable"`
         }
     ]
 }

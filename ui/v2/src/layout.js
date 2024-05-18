@@ -40,14 +40,9 @@ class NMEALayout extends Component {
 
   constructor(props) {
     super(props);
-    this.props = props;
     this.storeAPI = props.storeAPI;
-    if (props.locationProperties.host) {
-      this.apiUrl = `http://${props.locationProperties.host}`;
-    } else {
-      this.apiUrl = '';
-    }
-    this.layoutName = props.locationProperties.layout || 'main';
+    this.apiUrl = props.apiUrl;
+    this.layoutName = props.layout || 'main';
     this.onEditLayout = this.onEditLayout.bind(this);
     this.onAddItem = this.onAddItem.bind(this);
     this.onChangeItem = this.onChangeItem.bind(this);
@@ -76,9 +71,9 @@ class NMEALayout extends Component {
 
   async componentDidMount() {
     this.updateInterval = setInterval((async () => {
-      const packetsRecieved = this.props.storeAPI.getPacketsRecieved();
-      const nmea0183Address = this.props.storeAPI.getNmea0183Address();
-      const connectedClients = this.props.storeAPI.getConnectedClients();
+      const packetsRecieved = this.storeAPI.getPacketsRecieved();
+      const nmea0183Address = this.storeAPI.getNmea0183Address();
+      const connectedClients = this.storeAPI.getConnectedClients();
       if (this.state.packetsRecieved !== packetsRecieved
                 || this.state.nmea0183Address !== nmea0183Address
                 || this.state.connectedClients !== connectedClients
@@ -110,7 +105,8 @@ class NMEALayout extends Component {
 
   async loadLayout() {
     let layout;
-    const layoutUrl = `${this.apiUrl}/api/layout.json?layout=${encodeURIComponent(this.layoutName)}`;
+    const layoutUrl = new URL('/api/layout.json', this.apiUrl);
+    layoutUrl.searchParams.set('layout', this.layoutName);
     try {
       const response = await fetch(layoutUrl, {
         credentials: 'include',

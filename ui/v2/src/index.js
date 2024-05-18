@@ -1,12 +1,6 @@
 import { h, render } from './deps/preact/preact.module.js';
 import htm from './deps/htm/index.module.js';
-
-import { NMEALayout } from './layout.js';
-import { StoreView, FrameView } from './storeview.js';
-import { AdminView } from './admin.js';
-import { Menu } from './menu.js';
-import { StoreAPIImpl } from './n2kmodule.js';
-
+import { App } from './app.js';
 const html = htm.bind(h);
 
 if ('serviceWorker' in navigator) {
@@ -34,20 +28,8 @@ const getLocationProperties = () => {
 
 const rootElement = document.getElementById('root');
 const properties = getLocationProperties();
-if (properties.view === 'admin') {
-  render(html`<${Menu} locationProperties=${properties} />
-      <${AdminView} title="Admin" host=${properties.host} />`, rootElement);
-} else {
-  const storeAPI = new StoreAPIImpl();
-  storeAPI.start(properties.host);
-  if (properties.view === 'dump-store') {
-    render(html`<${Menu} locationProperties=${properties} />
-         <${StoreView} title="Store" storeAPI=${storeAPI}  />`, rootElement);
-  } else if (properties.view === 'can-frames') {
-    render(html`<${Menu} locationProperties=${properties} />
-         <${FrameView} title="CAN Frames" storeAPI=${storeAPI} />`, rootElement);
-  } else {
-    render(html`<${Menu} locationProperties=${properties} />
-         <${NMEALayout} locationProperties=${properties} storeAPI=${storeAPI}  />`, rootElement);
-  }
-}
+
+render(html`<${App} host=${properties.host} view=${properties.view} layout=${properties.layout} />`, rootElement);
+
+
+

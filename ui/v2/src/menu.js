@@ -6,46 +6,40 @@ const html = htm.bind(h);
 class Menu extends Component {
   constructor(props) {
     super(props);
-    if (props.locationProperties.host) {
-      this.apiUrl = `http://${props.locationProperties.host}`;
-    } else {
-      this.apiUrl = '';
-    }
-
-    this.currentView = props.locationProperties.view || 'main';
-    const propsArr = [];
-    for (const k in props.locationProperties) {
-      if (k !== 'view' && k !== 'layout') {
-        propsArr.push(`${encodeURIComponent(k)}=${encodeURIComponent(props.locationProperties[k])}`);
-      }
-    }
-    this.propsAsString = propsArr.join('&');
     this.state = {
-      layoutList: [],
-      layoutName: props.locationProperties.layout || 'local',
+      layoutList: props.layoutList,
+      layout: props.layout || 'local',
+      apiUrl: props.apiUrl,
+      apiChangeMessage: props.apiChangeMessage,
     };
+    this.setView = props.setView;
+    this.setApiUrl = props.setApiUrl;
+    this.onClickMenu = this.onClickMenu.bind(this);
+    this.apiChange = this.apiChange.bind(this);
   }
 
-  async componentDidMount() {
-    await this.updateFileSystem();
-  }
 
-  async updateFileSystem() {
-    try {
-      const response = await fetch(`${this.apiUrl}/api/layouts.json`, {
-        credentials: 'include',
-      });
-      if (response.status === 200) {
-        const dir = await response.json();
-        this.setState({
-          layoutList: dir.layouts,
-        });
+  // eslint-disable-next-line class-methods-use-this
+  async onClickMenu(event) {
+    const { view, layout } = event.target.attributes;
+    if (view) {
+      if (layout) {
+        this.setView(view.value, layout.value);
+      } else {
+        this.setView(view.value);
       }
-    } catch (e) {
-      this.setState({
-        layoutList: [],
-      });
     }
+    event.preventDefault();
+    return false;
+  }
+
+  async apiChange(event) {
+    const apiUrl = new URL(event.target.value);
+    this.setState({
+      apiChangeMessage: 'trying...',
+      apiUrl,
+    });
+    await this.setApiUrl(apiUrl);
   }
 
   generateLayoutMenu() {
@@ -55,7 +49,10 @@ class Menu extends Component {
     const layoutMenu = [];
     for (let x = 0; x < this.state.layoutList.length; x++) {
       layoutMenu.push(html`<a key=${x} 
-                    href="?view=main&layout=${encodeURIComponent(this.state.layoutList[x])}&${this.propsAsString}">
+                    href="#"
+                    view="main"
+                    layout=${this.state.layoutList[x]} 
+                    onClick=${this.onClickMenu} >
                     ${this.state.layoutList[x]}
                     </a>`);
     }
@@ -63,25 +60,22 @@ class Menu extends Component {
   }
 
   render() {
-    const mainUrl = `?view=main&${this.propsAsString}`;
-    const storeUrl = `?view=dump-store&${this.propsAsString}`;
-    const framesUrl = `?view=can-frames&${this.propsAsString}`;
-    // const messagesUrl = `?view=can-messages&${this.propsAsString}`;
-    // const logsUrl = `?view=debug-logs&${this.propsAsString}`;
-    const adminUrl = `?view=admin&${this.propsAsString}`;
-
     return html`
         <div class="navbar">
-             <div class="nav-info">${this.state.layoutName} page</div>
+             <div class="nav-info">${this.state.layout} page</div>
              <div class="nav-item">
-                <a href="${mainUrl}">Page Layout </a>
+                <a href="#" view="main" layout="local" onClick=${this.onClickMenu} >Page Layout </a>
                 <div class="dropdown-content">
                     ${this.generateLayoutMenu()}
                 </div>
             </div>
-            <div class="nav-item"><a href="${storeUrl}">Store</a></div>
-            <div class="nav-item"><a href="${framesUrl}">Frames</a></div>
-            <div class="nav-item"><a href="${adminUrl}">Admin</a></div>
+            <div class="nav-item"><a href="#" view="store" onClick=${this.onClickMenu} >Store</a></div>
+            <div class="nav-item"><a href="#" view="frames" onClick=${this.onClickMenu} >Frames</a></div>
+            <div class="nav-item"><a href="#" view="admin" onClick=${this.onClickMenu} >Admin</a></div>
+            <div class="nav-item">
+              Host: <input type="text" name="apiurl" value=${this.state.apiUrl} onChange=${this.apiChange} />
+              ${this.state.apiChangeMessage}
+            </div>
         </div>`;
   }
 }
