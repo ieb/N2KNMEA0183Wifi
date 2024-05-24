@@ -1,0 +1,20 @@
+{
+    "lang": "en-us",
+    "name": "JBD BMS Monitor App",
+    "short_name": "JBD BMS Monitor",
+    "description": "JBD BMS Monitor",
+    "id": "/lifepo4/",   
+    "start_url": "/lifepo4/",
+    "scope": "/lifepo4/",
+    "background_color": "#2f3d58",
+    "theme_color": "#2f3d58",
+    "orientation": "any",
+    "display": "standalone",
+    "icons": [
+        {
+            "src": "/lifepo4/icon512.png",
+            "sizes": "512x512",
+            "purpose": "any"
+        }
+    ]
+}

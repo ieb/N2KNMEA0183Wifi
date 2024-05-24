@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "browserslist": "> 0.5%, last 2 versions, not dead",
+  "scripts": {
+    "start": "http-server ./src",
+    "build": "webpack",
+    "lint:js": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "lint:css": "stylelint  'src/*.css'",
+    "lint:css:fix": "stylelint --fix  'src/*.css'",
+    "lint": "npm run lint:js"
+
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "compression-webpack-plugin": "^11.1.0",
+    "http-server": "^14.1.1",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4",
+    "eslint": "8.35.0",
+    "eslint-config-airbnb-base": "15.0.0",
+    "stylelint": "15.2.0",
+    "stylelint-config-standard": "30.0.1"
+  }
+}

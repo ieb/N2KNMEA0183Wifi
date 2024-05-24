@@ -4,7 +4,7 @@ import { App } from './app.js';
 const html = htm.bind(h);
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/worker.js', { scope: '/', type: 'module' });
+  navigator.serviceWorker.register('/n2k/worker.js', { scope: '/n2k/', type: 'module' });
 }
 
 const getLocationProperties = () => {

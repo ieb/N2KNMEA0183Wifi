@@ -3,19 +3,21 @@
     "name": "NMEA2000 app",
     "short_name": "Nmea2000 Instruments",
     "description": "Marine instruments",
-    "start_url": "/",
+    "id": "/n2k/",
+    "start_url": "/n2k/",
+    "scope": "/n2k/",
     "background_color": "#2f3d58",
     "theme_color": "#2f3d58",
     "orientation": "any",
     "display": "standalone",
     "icons": [
         {
-            "src": "/icon512.png",
+            "src": "/n2k/icon512.png",
             "sizes": "512x512",
             "purpose": "any"
         },
         {
-            "src": "/icon512_maskable.png",
+            "src": "/n2k/icon512_maskable.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable" // <-- New property value `"maskable"`

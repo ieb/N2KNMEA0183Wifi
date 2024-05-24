@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="manifest" href="/lifepo4/manifest.json" crossorigin="use-credentials" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JBD BMS Monitor</title>
+    <script src="bmsblereader.js" ></script>
+    <script src="history.js" ></script>
+    <script src="d3.v7.min.js"></script>
+    <script src="index.js" ></script>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<body>
+
+
+<button id="connect"  >Connect</button>
+<button id="disconnect" class="hidden">Disconnect</button>
+
+<div class="views">
+    <button id="viewBms"  >Bms</button>
+    <button id="viewHistory"  >Voltages</button>
+<div>
+
+<div class="bms">
+<ul class="state">
+    <li>State</li>
+    <li>Voltage: <span id="status.voltage">?</span> V</li>
+    <li>Current: <span id="status.current">?</span> A</li>
+    <li>State Of Charge: <span id="status.capacity.stateOfCharge">?</span> %</li>
+    <li>Full Capacity: <span id="status.capacity.fullCapacity">?</span> Ah</li>
+    <li><span id="status.charging" class="enabled">Charging</span> <span id="status.discharging" class="disabled">Dischaging</span></li>
+ </ul>
+
+  <ul class="cells">
+    <li>Cells</li>
+    <li>0:  <span id="cell.voltage0">0.0</span> V <span id="status.balanceActive0">&#9673;</span></li>
+    <li>1:  <span id="cell.voltage1">0.0</span> V <span id="status.balanceActive1">&#9673;</span></li>
+    <li>2:  <span id="cell.voltage2">0.0</span> V <span id="status.balanceActive2">&#9673;</span></li>
+    <li>3:  <span id="cell.voltage3">0.0</span> V <span id="status.balanceActive3">&#9673;</span></li>
+    <li>Range <span id="cell.range">0.0</span> V</li>
+    <li>Difference <span id="cell.diff">0.0</span> V</li>
+
+  </ul>
+  <ul class="temperatures">
+    <li>Temperatures</li>
+    <li>Board   <span id="status.tempSensorValues0">?</span> C </li>
+    <li>Cell 0  <span id="status.tempSensorValues1">?</span> C </li>
+    <li>Cell 1  <span id="status.tempSensorValues2">?</span> C </li>
+  </ul>
+
+  <ul class="errors">
+    <li>Protections</li>
+    <li class="disabled" id="status.errors.singleCellOvervolt">singleCellOvervolt</li>
+    <li class="disabled" id="status.errors.singleCellUndervolt">singleCellUndervolt</li>
+    <li class="disabled" id="status.errors.packOvervolt">packOvervolt</li>
+    <li class="disabled" id="status.errors.packUndervolt">packUndervolt</li>
+    <li class="disabled" id="status.errors.chargeOvertemp">chargeOvertemp</li>
+    <li class="disabled" id="status.errors.chargeUndertemp">chargeUndertemp</li>
+    <li class="disabled" id="status.errors.dischargeOvertemp">dischargeOvertemp</li>
+    <li class="disabled" id="status.errors.dischargeUndertemp">dischargeUndertemp</li>
+    <li class="disabled" id="status.errors.chargeOvercurrent">chargeOvercurrent</li>
+    <li class="disabled" id="status.errors.dischargeOvercurrent">dischargeOvercurrent</li>
+    <li class="disabled" id="status.errors.shortCircut">shortCircut</li>
+    <li class="disabled" id="status.errors.frontEndDetectionICError">frontEndDetectionICError</li>
+    <li class="disabled" id="status.errors.softwareLockMOS">softwareLockMOS</li>
+</ul>
+
+ <ul class="info">
+    <li>Info</li>
+    <li>Chemistry: <span id="status.chemistry">?</span></li>
+    <li>Charge Cycles: <span id="status.chargeCycles">?</span></li>
+    <li>Pack Capacity: <span id="status.packBalCap">?</span> Ah</li>
+    <li>ProductionDate: <span id="status.productionDate">?</span></li>
+    <li>BMS SW Version: <span id="status.bmsSWVersion">?</span></li>
+    <li>Number of Cells: <span id="status.numberOfCells">?</span></li>
+    <li>Number of NTC Sensors: <span id="status.tempSensorCount">?</span></li>
+  </ul>
+
+</div>
+<div id="status.lastUpdate"></div>
+
+
+<div class="history" >
+    <div id="packVoltageGraph" ></div>
+    <div id="cellVoltagesGraph" ></div>
+    <div id="currentGraph" ></div>
+    <div id="temperatureGraph" ></div>
+    <div id="stateOfChargeGraph" ></div>
+    <div id="chargeRemainingGraph" ></div>
+
+</div>
+
+
+<script type="text/javascript">
+</script>
+
+</body>
+</html>
+
+

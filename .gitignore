@@ -6,3 +6,4 @@
 pcb/*.bak
 *secret*
 data/*
+node_modules
