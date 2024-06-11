@@ -63,6 +63,7 @@ class Menu extends Component {
   }
 
   render() {
+    console.log("LOading new menu");
     return html`
         <div class="navbar">
              <div class="nav-info">${this.state.layout} page</div>
@@ -75,6 +76,7 @@ class Menu extends Component {
             <div class="nav-item"><a href="#" view="store" onClick=${this.onClickMenu} >Store</a></div>
             <div class="nav-item"><a href="#" view="frames" onClick=${this.onClickMenu} >Frames</a></div>
             <div class="nav-item"><a href="#" view="admin" onClick=${this.onClickMenu} >Admin</a></div>
+            <div class="nav-item"><a href="#" view="debug" onClick=${this.onClickMenu} >Debug</a></div>
             <div class="nav-item">
               <a href="#" view="admin" onClick=${this.onClickMenu} >Theme</a>
               <div class="dropdown-content">

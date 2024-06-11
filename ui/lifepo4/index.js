@@ -1,6 +1,6 @@
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/lifepo4/bmsbleworker.js', { scope: '/lifepo4/', type: 'module' });
+  navigator.serviceWorker.register('/lifepo4/worker.js', { scope: '/lifepo4/', type: 'module' });
 }
 
 

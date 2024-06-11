@@ -662,3 +662,15 @@ button {
   src: url("fa-min-400.woff2") format("woff2"); 
 }
 
+
+.feedback:nth-child(even) {
+  background-color: #202020; /* Light gray color for even rows */
+}
+
+.feedback:nth-child(odd) {
+  background-color: #101010; /* Darker gray color for odd rows */
+}
+.feedback > div > span:first-child {
+  width: 10rem;
+}
+

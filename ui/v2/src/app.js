@@ -3,6 +3,7 @@ import htm from './deps/htm/index.module.js';
 
 import { NMEALayout } from './layout.js';
 import { StoreView, FrameView } from './storeview.js';
+import { DebugView } from './debugview.js';
 import { AdminView } from './admin.js';
 import { Menu } from './menu.js';
 import { StoreAPIImpl } from './n2kmodule.js';
@@ -120,6 +121,15 @@ class App extends Component {
       return html`<${FrameView} 
             key=${this.state.menuKey}
             storeAPI=${this.storeAPI} />`;
+    }
+    if (this.state.view === 'debug') {
+      return html`<div><${DebugView} 
+            key=${this.state.menuKey}
+            storeAPI=${this.storeAPI} />
+            <${StoreView} 
+            key=${this.state.menuKey}
+            storeAPI=${this.storeAPI}  />
+            `;
     }
     return html`<${NMEALayout} 
       key=${this.state.menuKey}

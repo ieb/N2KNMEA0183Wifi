@@ -4,11 +4,11 @@
  * The worker is here to allow installation, its not
  * here to for much more as doing anything complex makes
  * reloading the worker hard.
- * 
+ *
  * Not using preload as this causes failures when on an isolated network.
  */
 
-const CACHE_NAME = 'lifepo4';``
+const CACHE_NAME = 'lifepo4';
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -24,12 +24,12 @@ self.addEventListener('beforeinstallprompt', (event) => {
   console.log('Before Event Install ', event);
 });
 
-const cacheEnabled = false;
+const cacheEnabled = true;
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method === 'GET') {
     event.respondWith((async () => {
-      if (cacheEnabled 
+      if (cacheEnabled
         && !event.request.headers.get('Authorization')
           && (event.request.destination === 'image'
           || event.request.destination === 'script'
@@ -45,6 +45,7 @@ self.addEventListener('fetch', (event) => {
             console.debug('HIT', cachedResponse);
             return cachedResponse;
           }
+          cachedResponse.headers.forEach(console.debug);
           console.debug('Expired', cachedResponse, (Date.now() - Date.parse(date)));
         }
         try {
@@ -53,10 +54,24 @@ self.addEventListener('fetch', (event) => {
 
           if (fetchResponse.status === 200) {
             const cacheControl = fetchResponse.headers.get('cache-control');
-            if (!(cacheControl.includes('private') || cacheControl.includes('no-store'))) {
+            if (!cacheControl
+                || !(cacheControl.includes('private') || cacheControl.includes('no-store'))) {
               // Save the resource in the cache and return it.
-              console.debug('MISS', fetchResponse);
-              cache.put(event.request, fetchResponse.clone());
+              // create a new copy so that we can set the date header as Chrome Web Server
+              // doesnt set this.
+              // clone so that we can read the body.
+              const copy = fetchResponse.clone();
+              const headers = new Headers(copy.headers);
+              headers.set('date', new Date().toUTCString());
+              const body = await copy.blob();
+              const cacheResponse = new Response(body, {
+                status: fetchResponse.status,
+                statusText: fetchResponse.statusText,
+                headers,
+                ok: fetchResponse.ok,
+              });
+              console.debug('MISS', cacheResponse);
+              cache.put(event.request, cacheResponse);
               return fetchResponse;
             }
           }
@@ -72,7 +87,7 @@ self.addEventListener('fetch', (event) => {
         }
       }
       try {
-        console.log("Request ", event.request);
+        console.log('Request ', event.request);
         const passResponse = await fetch(event.request);
         console.debug('PASS request', event.request);
         for (const k of event.request.headers.keys()) {

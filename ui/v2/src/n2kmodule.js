@@ -477,6 +477,8 @@ class Store extends EventEmitter {
     }
     this.messages[message.pgn] = message;
 
+    this.emit('newstate', newState);
+
     const changedState = {};
     for (const k of Object.keys(newState)) {
       if (newState[k] !== this.state[k]) {
