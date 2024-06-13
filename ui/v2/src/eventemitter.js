@@ -9,6 +9,11 @@ class EventEmitter {
         this.listeners[event][i](payload);
       }
     }
+    if (this.listeners['*']) {
+      for (let i = 0; i < this.listeners['*'].length; i++) {
+        this.listeners['*'][i](event, payload);
+      }
+    }
   }
 
   addListener(event, l) {

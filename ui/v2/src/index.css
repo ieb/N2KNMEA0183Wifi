@@ -4,17 +4,20 @@ body {
   color: white; 
   --main-foreground-color: white;
   --menu-forground: lightgrey;
+  --menu-selected: #222;
 }
 
 .day {
   --main-foreground-color: white;
   --menu-forground: lightgrey;
+  --menu-selected: #222;
 }
 
 
 .night {
   --main-foreground-color: red;
   --menu-forground: red;
+  --menu-selected: #222;
 }
 
 .nmeaLayout {
@@ -83,6 +86,9 @@ body {
   border-radius: 5px;
 }
 
+.nav-item a.selected {
+  background-color: var(--menu-selected); 
+}
 
 
 .dropdown-content a {

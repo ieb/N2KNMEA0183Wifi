@@ -13,13 +13,15 @@ const html = htm.bind(h);
 
 class DebugCanFrame {
   static parse(canFrameAsString) {
-    try {
-      const canFrame = JSON.parse(canFrameAsString);
-      canFrame.timetamp = Date.now();
-      canFrame.data = new DataView(DebugCanFrame.toBuffer(canFrame.msg));
-      return canFrame;
-    } catch (e) {
-      console.log('Failed to parse ', canFrameAsString, e);
+    if (canFrameAsString && canFrameAsString.trim().length > 0 ) {
+      try {
+        const canFrame = JSON.parse(canFrameAsString);
+        canFrame.timetamp = Date.now();
+        canFrame.data = new DataView(DebugCanFrame.toBuffer(canFrame.msg));
+        return canFrame;
+      } catch (e) {
+        console.log('Failed to parse ', canFrameAsString, e);
+      }
     }
     return undefined;
   }
@@ -58,7 +60,8 @@ class DebugView extends Component {
         + '{"n": 1, "pgn": 127245, "src": 182, "msg": "fcf8ff7febfaffff"}\n'
         + '{"n": 2, "pgn": 130306, "src": 199, "msg": "0031038417faffff"}\n'
         + '{"n": 3, "pgn": 127250, "src": 205, "msg": "ffc3a8ff7fff7ffd"}\n'
-        + '{"n": 1, "pgn": 127245, "src": 182, "msg": "fcf8ff7febfaffff"}',
+        + '{"n": 1, "pgn": 127245, "src": 182, "msg": "fcf8ff7febfaffff"}\n'
+        + '{"n": 10, "pgn": 128275, "src": 199, "msg": "ffffffffffff004d3f00004d3f00"}\n',
     };
     this.pauseUpdates = this.pauseUpdates.bind(this);
     this.startPlayback = this.startPlayback.bind(this);
@@ -119,7 +122,6 @@ class DebugView extends Component {
 
   // eslint-disable-next-line class-methods-use-this
   inputFramesChange(event) {
-    console.log('Changed ', event.target.value);
     this.setState({
       framesTxt: event.target.value,
     });
@@ -173,7 +175,7 @@ class DebugView extends Component {
                 <button onClick=${this.startPlayback} >${this.state.playbackButton}</button>
                 <button onClick=${this.parseText} >Parse</button>
             </div>
-              <textarea cols="130" rows="10" onChange="${this.inputFramesChange}">
+              <textarea name="debugview-frames" cols="130" rows="10" onChange="${this.inputFramesChange}">
                   ${this.state.framesTxt}
               </textarea>
               ${this.outputFeedback()}

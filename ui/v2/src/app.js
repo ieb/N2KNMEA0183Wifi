@@ -7,6 +7,8 @@ import { DebugView } from './debugview.js';
 import { AdminView } from './admin.js';
 import { Menu } from './menu.js';
 import { StoreAPIImpl } from './n2kmodule.js';
+import { EventEmitter } from './eventemitter.js';
+
 
 const html = htm.bind(h);
 
@@ -14,96 +16,119 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.storeAPI = new StoreAPIImpl();
-    let apiUrl = new URL(window.location);
+    this.initialApiUrl = new URL(window.location);
     if (props.host) {
-      apiUrl = new URL(`http://${props.host}`);
+      this.initialApiUrl = new URL(`http://${props.host}`);
     }
     this.state = {
-      apiUrl,
       view: props.view,
       layout: props.layout,
       layoutList: [],
       menuKey: Date.now(),
       appKey: Date.now(),
+      apiUrl: this.initialApiUrl,
     };
-    this.setView = this.setView.bind(this);
+    this.onMenuCommand = this.onMenuCommand.bind(this);
     this.setApiUrl = this.setApiUrl.bind(this);
     this.updateFileSystem = this.updateFileSystem.bind(this);
+    this.eventEmitter = new EventEmitter();
   }
+
 
   async componentDidMount() {
     await this.setApiUrl(this.state.apiUrl);
   }
 
   async updateFileSystem(apiUrl) {
-    try {
-      const timeout = new AbortController();
-      setTimeout(() => {
-        timeout.abort();
-      }, 5000);
-      const response = await fetch(new URL('/api/layouts.json', apiUrl), {
-        credentials: 'include',
-        signal: timeout.signal,
-      });
-      if (response.status === 200) {
-        const dir = await response.json();
-        console.log("Layouts data", dir);
-        this.setState({
-          layoutList: dir.layouts,
-          apiUrl,
-          menuKey: Date.now(),
+    if (apiUrl) {
+      try {
+        const timeout = new AbortController();
+        setTimeout(() => {
+          timeout.abort();
+        }, 5000);
+        const response = await fetch(new URL('/api/layouts.json', apiUrl), {
+          credentials: 'include',
+          signal: timeout.signal,
         });
-        return true;
-      }
-      if (response.status === 404) {
+        if (response.status === 200) {
+          const dir = await response.json();
+          console.log('Layouts data', dir);
+          this.setState({
+            layoutApi: apiUrl,
+          });
+          return dir.layouts;
+        }
+        if (response.status === 404) {
+          this.setState({
+            layoutApi: apiUrl,
+          });
+          return [];
+        }
+      } catch (e) {
+        // Some other failure, leave as is
         this.setState({
-          layoutList: [],
-          apiUrl,
-          menuKey: Date.now(),
+          layoutApi: apiUrl,
         });
-        return true;
       }
-    } catch (e) {
-      // Some other failure, leave as is
-      this.setState({
-        layoutList: [],
-        menuKey: Date.now(),
-      });
+      return undefined;
     }
-    return false;
+    this.setState({
+      layoutApi: undefined,
+    });
+    return undefined;
   }
 
 
-  setView(view, layout) {
-    if (layout) {
-      this.setState({
-        view,
-        layout,
-        menuKey: Date.now(),
-      });
+  onMenuCommand(command, payload) {
+    if (command === 'set-view'
+      || command === 'load-layout'
+      || command === 'new-layout') {
+      if (payload.view && payload.layout) {
+        this.setState({
+          view: payload.view,
+          layout: payload.layout,
+          menuKey: Date.now(),
+        });
+      } else {
+        this.setState({
+          view: payload.view,
+          menuKey: Date.now(),
+        });
+      }
     } else {
-      this.setState({
-        view,
-        menuKey: Date.now(),
-      });
+      console.log('Command not handled ', command, payload);
     }
+    this.eventEmitter.emit(command, payload);
   }
+
 
   async setApiUrl(apiUrl) {
-    if (await this.updateFileSystem(apiUrl)) {
-      // host is responding switch over the feed.
-      this.storeAPI.stop();
-      this.storeAPI.start(apiUrl);
-      this.setState({
-        apiChangeMessage: 'connected',
-        menuKey: Date.now(),
-      });
-    } else {
-      this.setState({
-        apiChangeMessage: 'failed, switched back',
-        menuKey: Date.now(),
-      });
+    if (apiUrl) {
+      const layoutList = await this.updateFileSystem(apiUrl);
+      if (layoutList) {
+        // host is responding switch over the feed.
+        this.storeAPI.stop();
+        this.storeAPI.start(apiUrl);
+        return {
+          msg: 'connected',
+          btn: 'disconnect',
+          apiUrl,
+          layoutList,
+        };
+      }
+      return {
+        msg: 'failed',
+        btn: 'connect',
+        layoutList: [],
+      };
     }
+    await this.updateFileSystem();
+    this.storeAPI.stop();
+    return {
+      msg: 'disconnected',
+      btn: 'connect',
+      layoutList: [],
+    };
   }
 
   renderView() {
@@ -134,21 +159,19 @@ class App extends Component {
     return html`<${NMEALayout} 
       key=${this.state.menuKey}
       storeAPI=${this.storeAPI} 
-      apiUrl=${this.state.apiUrl} 
-      layout=${this.state.layout}  />`;
+      apiUrl=${this.state.layoutApi} 
+      layout=${this.state.layout}
+      menuEvents=${this.eventEmitter} />`;
   }
 
   render() {
+    
     const view = this.renderView();
     return html`<div>
               <${Menu} 
-                key=${this.state.menuKey}
-                layout=${this.state.layout} 
-                layoutList=${this.state.layoutList} 
-                setView=${this.setView}
-                apiUrl=${this.state.apiUrl}
+                onMenuCommand=${this.onMenuCommand}
                 setApiUrl=${this.setApiUrl}
-                apiChangeMessage=${this.state.apiChangeMessage}
+                initialApiUrl=${this.initialApiUrl}
                 />
               ${view}
             </div>`;

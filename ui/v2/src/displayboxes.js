@@ -55,7 +55,7 @@ class TextBox extends Component {
     const changes = {};
     changes[this.field] = {
       state: this.storeAPI.getState(this.field),
-      history: this.storeAPI.getHistory(this.history),
+      history: this.storeAPI.getHistory(this.field),
     };
     this.updateDisplayState(changes);
     this.storeAPI.addListener('change', this.updateDisplayState);
@@ -289,6 +289,23 @@ class LogBox extends TextBox {
     return valueNow;
   }
 
+  componentDidMount() {
+    this.updateDisplayState(
+      {
+        log: {
+          state: this.storeAPI.getState('log'),
+          history: this.storeAPI.getHistory('log'),
+        },
+        tripLog: {
+          state: this.storeAPI.getState('tripLog'),
+          history: this.storeAPI.getHistory('tripLog'),
+        },
+      },
+    );
+    super.componentDidMount();
+  }
+
+
   updateDisplayState(changes) {
     this.debug(this.field, 'Update State');
     const logDisplay = LogBox.getDisplayValue('log', changes, this.state.logDisplay);
@@ -326,6 +343,22 @@ class TimeBox extends TextBox {
     this.testValue = props.testValue;
   }
 
+  componentDidMount() {
+    this.updateDisplayState(
+      {
+        gpsDaysSince1970: {
+          state: this.storeAPI.getState('gpsDaysSince1970'),
+          history: this.storeAPI.getHistory('gpsDaysSince1970'),
+        },
+        gpsSecondsSinceMidnight: {
+          state: this.storeAPI.getState('gpsSecondsSinceMidnight'),
+          history: this.storeAPI.getHistory('gpsSecondsSinceMidnight'),
+        },
+      },
+    );
+    super.componentDidMount();
+  }
+
 
   static getDisplayValue(field, changes, valueNow) {
     if (changes[field] !== undefined) {
@@ -333,6 +366,7 @@ class TimeBox extends TextBox {
     }
     return valueNow;
   }
+
 
 
   updateDisplayState(changes) {
@@ -377,6 +411,22 @@ class LatitudeBox extends TextBox {
       return DataTypes.getDataType(field).display(changes[field].state);
     }
     return valueNow;
+  }
+
+  componentDidMount() {
+    this.updateDisplayState(
+      {
+        latitude: {
+          state: this.storeAPI.getState('latitude'),
+          history: this.storeAPI.getHistory('latitude'),
+        },
+        longitude: {
+          state: this.storeAPI.getState('longitude'),
+          history: this.storeAPI.getHistory('longitude'),
+        },
+      },
+    );
+    super.componentDidMount();
   }
 
 

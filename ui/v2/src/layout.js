@@ -3,7 +3,6 @@ import htm from './deps/htm/index.module.js';
 import {
   TextBox, LogBox, TimeBox, LatitudeBox, NMEA2000, SystemStatus,
 } from './displayboxes.js';
-import { EditUIControl } from './uicontrol.js';
 import { MenuButton } from './menubutton.js';
 
 
@@ -42,28 +41,24 @@ class NMEALayout extends Component {
     super(props);
     this.storeAPI = props.storeAPI;
     this.apiUrl = props.apiUrl;
-    this.layoutName = props.layout || 'main';
-    this.onEditLayout = this.onEditLayout.bind(this);
     this.onAddItem = this.onAddItem.bind(this);
     this.onChangeItem = this.onChangeItem.bind(this);
-    this.onSave = this.onSave.bind(this);
     this.onMenuChange = this.onMenuChange.bind(this);
-    this.onPageChange = this.onPageChange.bind(this);
     this.onDumpStore = this.onDumpStore.bind(this);
+    this.onMenuCommand = this.onMenuCommand.bind(this);
+    this.renderItem = this.renderItem.bind(this);
     this.lastPacketsRecived = 0;
+    this.menuEvents = props.menuEvents;
     this.state = {
       editing: '',
       options: [],
       dataIndicatorOn: false,
       layout: undefined,
       packetsRecieved: 0,
-
+      layoutName: 'not loaded',
+      viewkey: Date.now(),
     };
-
-    setTimeout(async () => {
-      const layout = await this.loadLayout();
-      this.setState({ layout });
-    }, 10);
+    this.loadLayout(props.layout);
   }
 
 
@@ -75,9 +70,11 @@ class NMEALayout extends Component {
         this.setState({ packetsRecieved });
       }
     }), 1000);
+    this.menuEvents.addListener('*', this.onMenuCommand);
   }
 
   componentWillUnmount() {
+    this.menuEvents.removeListener('*', this.onMenuCommand);
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }
@@ -97,67 +94,56 @@ class NMEALayout extends Component {
   */
 
 
-  async loadLayout() {
-    let layout;
-    const layoutUrl = new URL('/api/layout.json', this.apiUrl);
-    layoutUrl.searchParams.set('layout', this.layoutName);
-    try {
-      const response = await fetch(layoutUrl, {
-        credentials: 'include',
-      });
-      console.log('Layout request Response ', response);
-      if (response.status === 200) {
-        layout = await response.json();
-        if (layout && layout.pageId !== undefined && layout.pages !== undefined) {
-          console.log('Got Layout from server', layout);
-          return layout;
+  loadLayout(layoutName) {
+    if (layoutName !== this.state.layoutName) {
+      const layout = localStorage.getItem(`layout-${layoutName}`);
+      if (layout) {
+        const l = JSON.parse(layout);
+        if (l.pageId !== undefined && l.pages !== undefined) {
+          // eslint-disable-next-line no-console
+          console.debug('Got Layout from localstorage for ', layoutName, l);
+          this.setState({
+            layout: l,
+            layoutName,
+          });
+          return;
         }
-        console.log(`Layout from ${layoutUrl} not valid`, layout);
-      } else {
-        console.log(`Layout from ${layoutUrl} not found`);
       }
-    } catch (e) {
-      console.log(`Failed to get layout from ${layoutUrl}`, e);
-    }
-
-    layout = localStorage.getItem('layout');
-    if (layout) {
-      const l = JSON.parse(layout);
-      if (l.pageId !== undefined && l.pages !== undefined) {
-        console.log('Got Layout from localstorage', layout);
-        return l;
-      }
-    }
-    // load a default
-    const start = Date.now();
-    return {
-      pageId: 1,
-      pages: [
-        {
-          id: 1,
-          name: 'Home',
-          boxes: [
-            { id: start, field: 'awa' },
-            { id: start + 1, field: 'aws' },
-            { id: start + 2, field: 'twa' },
-            { id: start + 3, field: 'Position' },
-            { id: start + 4, field: 'engineCoolantTemperature' },
-            { id: start + 5, field: 'alternatorVoltage' },
-            { id: start + 6, field: 'Log' },
-            { id: start + 7, field: 'polarSpeedRatio' },
+      // load a default
+      // eslint-disable-next-line no-console
+      console.debug('Using default layout for ', layoutName);
+      const start = Date.now();
+      this.setState({
+        layoutName,
+        layout: {
+          pageId: 1,
+          pages: [
+            {
+              id: 1,
+              name: 'Home',
+              boxes: [
+                { id: start, field: 'awa' },
+                { id: start + 1, field: 'aws' },
+                { id: start + 2, field: 'twa' },
+                { id: start + 3, field: 'Position' },
+                { id: start + 4, field: 'engineCoolantTemperature' },
+                { id: start + 5, field: 'alternatorVoltage' },
+                { id: start + 6, field: 'Log' },
+                { id: start + 7, field: 'polarSpeedRatio' },
+              ],
+            },
           ],
         },
-      ],
-    };
+      });
+    } else {
+      // eslint-disable-next-line no-console
+      console.debug('Layout already loaded');
+    }
   }
-
-  async onSave() {
-    localStorage.setItem(`layout-${this.layoutName}`, JSON.stringify(this.state.layout));
-  }
-
-
 
   getLayout() {
+    // eslint-disable-next-line no-console
+    console.debug('Layout state Object', typeof this.state.layout, this.state.layout);
     const layout = this.state.layout || {
       pageId: 1,
       pages: [
@@ -169,6 +155,8 @@ class NMEALayout extends Component {
         },
       ],
     };
+    // eslint-disable-next-line no-console
+    console.debug('Layout', layout.pages, typeof layout);
     const page = layout.pages.find((p) => p.id === layout.pageId);
     return {
       layout,
@@ -177,31 +165,11 @@ class NMEALayout extends Component {
   }
 
   setLayout(l) {
-    this.setState({ layout: JSON.stringify(l.layout) });
+    this.setState({ layout: l.layout });
   }
 
-  async onEditLayout(editing) {
-    if (editing) {
-      const that = this;
-      if (this.storeAPI) {
-        const options = (that.storeAPI.getKeys())
-          .filter(
-            (key) => !NMEALayout.removeOptionKeys.includes(key),
-          )
-          .concat(NMEALayout.addOptionKeys);
-        console.log('options ', options);
-        this.setState({
-          editing: 'editing',
-          options,
-        });
-      }
-    } else {
-      this.setState({ editing: '' });
-    }
-  }
 
   onAddItem(e) {
-    console.log('Add Item ', e.target.value);
     if (e.target.value === 'addbox') {
       const l = this.getLayout();
       l.page.boxes.push({ id: Date.now(), field: 'awa' });
@@ -253,17 +221,82 @@ class NMEALayout extends Component {
     } else if (event === 'update') {
       const l = this.getLayout();
       const box = l.page.boxes.find((b) => b.id === id);
-      console.log('update ', id, field, box, l.page.boxes);
+      // eslint-disable-next-line no-console
+      console.debug('update ', id, field, box, l.page.boxes);
       box.id = Date.now();
       box.field = field;
       this.setLayout(l);
     } else if (event === 'size') {
       const l = this.getLayout();
       const box = l.page.boxes.find((b) => b.id === id);
-      console.log('update ', id, field, box, l.page.boxes);
+      // eslint-disable-next-line no-console
+      console.debug('update ', id, field, box, l.page.boxes);
       box.id = Date.now();
       box.size = field;
       this.setLayout(l);
+    }
+  }
+
+  onMenuCommand(event, payload) {
+    if (event === 'new-layout') {
+      // create new layout
+      this.loadLayout(payload.layout);
+      localStorage.setItem(`layout-${payload.layout}`, JSON.stringify(this.state.layout));
+      // eslint-disable-next-line no-console
+      console.debug('new-layout', payload.layout);
+    } else if (event === 'rename-layout') {
+      // rename layout deleting the old layout
+      this.setState({
+        layoutName: payload.to,
+        viewkey: Date.now(),
+      });
+      localStorage.setItem(`layout-${payload.to}`, JSON.stringify(this.state.layout));
+      localStorage.removeItem(`layout-${payload.from}`);
+      // eslint-disable-next-line no-console
+      console.debug('Renamed layout to ', payload.to);
+    } else if (event === 'copy-layout') {
+      localStorage.setItem(`layout-${payload.layout}`, JSON.stringify(this.state.layout));
+      this.setState({
+        layoutName: payload.layout,
+        viewkey: Date.now(),
+      });
+      // eslint-disable-next-line no-console
+      console.debug('Copied layout to ', payload.layout);
+    } else if (event === 'edit-layout') {
+      const options = this.storeAPI.getKeys()
+        .filter(
+          (key) => !NMEALayout.removeOptionKeys.includes(key),
+        )
+        .concat(NMEALayout.addOptionKeys);
+      // eslint-disable-next-line no-console
+      console.debug('options ', options);
+      this.setState({
+        editing: 'editing',
+        viewkey: Date.now(),
+        options,
+      });
+      // eslint-disable-next-line no-console
+      console.debug('Set state to editing ', this.state);
+    } else if (event === 'add-box') {
+      if (this.state.editing === 'editing') {
+        const l = this.getLayout();
+        l.page.boxes.push({ id: Date.now(), field: 'awa' });
+        this.setLayout(l);
+      }
+    } else if (event === 'save-layout') {
+      localStorage.setItem(`layout-${this.state.layoutName}`, JSON.stringify(this.state.layout));
+      // eslint-disable-next-line no-console
+      console.debug('Saved Layout as ', this.state.layoutName);
+      this.setState({
+        viewkey: Date.now(),
+        editing: '',
+      });
+    } else if (event === 'delete-layout') {
+      localStorage.removeItem(`layout-${payload.currentLayout}`);
+      // eslint-disable-next-line no-console
+      console.debug('Deletd Layout', payload.currentLayout);
+    } else if (event === 'load-layout') {
+      this.loadLayout(payload.layout);
     }
   }
 
@@ -271,17 +304,7 @@ class NMEALayout extends Component {
     this.setState({ showMenu: !this.state.showMenu });
   }
 
-  onPageChange(e) {
-    const l = this.getLayout();
-    l.layout.pageId = +e.target.value;
-    this.setLayout(l);
-  }
 
-  onPageNameChange(e) {
-    const l = this.getLayout();
-    l.page.name = e.target.value;
-    this.setLayout(l);
-  }
 
 
   async onDumpStore() {
@@ -298,9 +321,6 @@ class NMEALayout extends Component {
     const menuClass = this.state.showMenu ? 'menu normal' : 'menu minimised';
     return html`<div className=${menuClass} >
                 <${MenuButton}  storeAPI=${this.storeAPI} onClick=${this.onMenuChange} />
-                <${EditUIControl} onEdit=${this.onEditLayout} 
-                    onSave=${this.onSave}
-                    onAddItem=${this.onAddItem}/>
                 <div className="debugControls">
                   packetsRecieved: ${this.state.packetsRecieved}
                 </div>
@@ -315,12 +335,13 @@ class NMEALayout extends Component {
     if (item === undefined || item.field === undefined) {
       return html`<div>undefined box</div>`;
     }
+    const vk = `${this.state.viewkey}-${item.id}`;
     switch (item.field) {
       case 'Position':
         return html`<${LatitudeBox} 
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id + this.state.editing} 
+                        key=${vk} 
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -331,7 +352,7 @@ class NMEALayout extends Component {
         return html`<${LogBox} 
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id + this.state.editing}
+                        key=${vk}
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -342,7 +363,7 @@ class NMEALayout extends Component {
         return html`<${TimeBox} 
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id + this.state.editing}
+                        key=${vk}
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -353,7 +374,7 @@ class NMEALayout extends Component {
         return html`<${NMEA2000} 
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id + this.state.editing}
+                        key=${vk}
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -364,7 +385,7 @@ class NMEALayout extends Component {
         return html`<${SystemStatus}
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id + this.state.editing}
+                        key=${vk}
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -375,7 +396,7 @@ class NMEALayout extends Component {
         return html`<${TextBox}
                         field=${item.field} 
                         id=${item.id} 
-                        key=${item.id + this.state.editing} 
+                        key=${vk} 
                         size=${item.size}
                         testValue=${item.testValue}
                         onChange=${this.onChangeItem} 
@@ -386,6 +407,8 @@ class NMEALayout extends Component {
   }
 
   render() {
+    // eslint-disable-next-line no-console
+    console.debug('State being rendered is', this.state);
     const l = this.getLayout();
     const boxes = l.page.boxes.map((item) => this.renderItem(item));
     return html`<div className="nmeaLayout">

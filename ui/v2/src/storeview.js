@@ -75,6 +75,7 @@ class StoreView extends Component {
 
   componentDidMount() {
     this.storeAPI.addListener('change', this.update);
+    this.storeAPI.emitAll();
   }
 
   componentWillUnmount() {
@@ -96,7 +97,9 @@ class StoreView extends Component {
   render() {
     return html`
             <div className="storeviewer" >
-            <div>${this.title}<button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button></div>
+            <div>${this.title}
+                <button onClick=${this.pauseUpdates} >${this.state.pauseButton}</button>
+            </div>
             <${LogViewer} text="Waiting for updates..." addListener=${this.addListener} />
             </div> `;
   }

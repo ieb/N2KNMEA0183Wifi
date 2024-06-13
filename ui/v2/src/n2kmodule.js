@@ -493,6 +493,17 @@ class Store extends EventEmitter {
     this.emit('change', changedState);
   }
 
+  emitAll() {
+    const currentState = {};
+    for (const k of Object.keys(this.state)) {
+      currentState[k] = {
+        state: this.state[k],
+        history: this.history[k],
+      };
+    }
+    this.emit('change', currentState);
+  }
+
   getMessages() {
     return this.messages;
   }
@@ -573,6 +584,10 @@ class StoreAPIImpl {
 
   getPacketsRecieved() {
     return this.messageCount;
+  }
+
+  emitAll() {
+    this.store.emitAll();
   }
 
   getState(field) {

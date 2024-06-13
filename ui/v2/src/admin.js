@@ -147,13 +147,14 @@ class AdminCredentals extends Component {
     const showPwClass = this.state.showPw ? 'fa fa-eye' : 'fa fa-eye-slash';
     return html`<div className="container">
                   <div className="login-box">
+                    <form>
                       <div className="user-box">
-                        <label>Username</label>
-                        <input type="text" value=${this.state.username} onChange=${this.updateUsername} />
+                        <label for="login-username">Username</label>
+                        <input id="login-username" autocomplete="on" type="text" value=${this.state.username} onChange=${this.updateUsername} />
                       </div>
                       <div className="user-box">
-                        <label>Password</label>
-                        <input type=${passwordType} value=${this.state.password} onChange=${this.updatePassword} />
+                        <label for="login-password">Password</label>
+                        <input id="login-password" autocomplete="on" type=${passwordType} value=${this.state.password} onChange=${this.updatePassword} />
                         <span className="password-toggle-icon"><i className=${showPwClass}  onCLick=${this.showPassword} ></i></span>
                       </div>
                       <div className="user-box">
@@ -162,6 +163,7 @@ class AdminCredentals extends Component {
                       <div className="user-box message">
                           ${this.state.msg}
                       </div>
+                    </form>
                   </div>
               </div>`;
   }
