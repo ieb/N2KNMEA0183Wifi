@@ -52,7 +52,8 @@ class Menu extends Component {
   constructor(props) {
     super(props);
     this.setApiUrl = props.setApiUrl;
-    this.onMenuCommand = props.onMenuCommand;
+    this.menuEvents = props.menuEvents;
+
     this.state = {
       layoutList: [],
       layout: 'main',
@@ -65,15 +66,25 @@ class Menu extends Component {
     this.apiChange = this.apiChange.bind(this);
     this.onClickConnect = this.onClickConnect.bind(this);
     this.changeLayout = this.changeLayout.bind(this);
+    this.handleMenuEvents = this.handleMenuEvents.bind(this);
   }
 
 
   componentDidMount() {
     this.updateLayouts('main');
+    this.menuEvents.addListener('*', this.handleMenuEvents);
   }
 
-  //  componentWillUnmount() {
-  //  }
+  componentWillUnmount() {
+    this.menuEvents.removeListener('*', this.handleMenuEvents);
+  }
+
+
+  handleMenuEvents(command, payload) {
+    if (command === 'layouts-changed') {
+      this.updateLayouts(payload);
+    }
+  }
 
 
   updateLayouts(layout) {
@@ -91,7 +102,7 @@ class Menu extends Component {
       if (layoutList.length > 1) {
         // eslint-disable-next-line prefer-destructuring
         layoutName = layoutList[0];
-        this.onMenuCommand('load-layout', {
+        this.menuEvents.emit('load-layout', {
           currentLayout: layout,
           layout: layoutName,
           view: 'main',
@@ -134,15 +145,12 @@ class Menu extends Component {
         layoutNameKey: Date.now(),
       });
     }
-    this.onMenuCommand(cmd, {
+    this.menuEvents.emit(cmd, {
       currentLayout: this.state.layout,
       layout: cmdLayout,
       view: event.target.getAttribute('view'),
       theme: event.target.getAttribute('theme'),
     });
-    if (cmdLayout) {
-      this.updateLayouts(cmdLayout);
-    }
     return false;
   }
 
@@ -212,15 +220,29 @@ class Menu extends Component {
                     onClick=${this.onClickMenu} >
                     Delete 
                     </a>`);
-    layoutMenu.push(html`<hr key="-6" />`);
+    layoutMenu.push(html`<a key="-6" 
+                    href="#"
+                    view="main"
+                    cmd="download-layout" 
+                    onClick=${this.onClickMenu} >
+                    Download 
+                    </a>`);
     layoutMenu.push(html`<a key="-7" 
+                    href="#"
+                    view="main"
+                    cmd="upload-layout" 
+                    onClick=${this.onClickMenu} >
+                    Upload 
+                    </a>`);
+    layoutMenu.push(html`<hr key="-50" />`);
+    layoutMenu.push(html`<a key="-60" 
                       href="#"
                       view="main"
                       cmd="add-box" 
                       onClick=${this.onClickMenu} >
                       Append Box
                       </a>`);
-    layoutMenu.push(html`<hr key="-8" />`);
+    layoutMenu.push(html`<hr key="-100" />`);
     if (this.state.layoutList && this.state.layoutList.length > 0) {
       for (let x = 0; x < this.state.layoutList.length; x++) {
         const k = `${this.state.layoutNameKey}-${x}`;
@@ -247,7 +269,7 @@ class Menu extends Component {
     this.setState({
       layout: l,
     });
-    this.onMenuCommand('rename-layout', {
+    this.menuEvents.emit('rename-layout', {
       from: before,
       to: after,
     });

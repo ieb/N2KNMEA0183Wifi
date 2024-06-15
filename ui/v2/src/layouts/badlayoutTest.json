@@ -1,0 +1,77 @@
+{
+   "pageId" : 1,
+   "pagess" : [
+      {
+         "boxes" : [
+            {
+               "field" : "dbt",
+               "id" : 1
+            },
+            {
+               "field" : "cogm",
+               "id" : 2
+            },
+            {
+               "field" : "hdm",
+               "id" : 3
+            },
+            {
+               "field" : "sog",
+               "id" : 4
+            },
+            {
+               "field" : "engineSpeed_0",
+               "id" : 5
+            },
+            {
+               "field" : "engineCoolantTemperature_0",
+               "id" : 6
+            },
+            {
+               "field" : "engineRoomTemperature_0",
+               "id" : 7
+            },
+            {
+               "field" : "exhaustTemperature",
+               "id" : 8
+            },
+            {
+               "field" : "alternatorTemperature",
+               "id" : 9
+            },
+            {
+               "field" : "alternatorTemperature_0",
+               "id" : 10
+            },
+            {
+               "field" : "alternatorVoltage_0",
+               "id" : 11
+            },
+            {
+               "field" : "engineCoolantTemperature_0",
+               "id" : 12
+            },
+            {
+               "field" : "fuelLevel_0",
+               "id" : 13
+            },
+            {
+               "field" : "Log",
+               "id" : 14
+            },
+            {
+               "field" : "Position",
+               "id" : 15
+            },
+            {
+               "field" : "atmosphericPressure_0",
+               "id" : 16
+            }
+         ],
+         "id" : 1,
+         "name" : "Home"
+      }
+   ]
+}
+
+

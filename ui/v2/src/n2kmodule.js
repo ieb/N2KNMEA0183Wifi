@@ -79,7 +79,8 @@ class SeaSmartParser extends EventEmitter {
     if (csCheck === csSentence) {
       return true;
     }
-    console.log('CS failed ', csCheck, sentence);
+    // eslint-disable-next-line no-console
+    console.log('SeaSmart message checksum failed ', csCheck, sentence);
     return false;
   }
 }
@@ -93,6 +94,7 @@ class SeaSmartStream {
     setInterval(() => {
       if (this.keepUp) {
         if ((Date.now() - this.lastMessage) > 10000) {
+          // eslint-disable-next-line no-console
           console.log('Web Socket reconnect');
           this.keepRunning();
         }
@@ -373,6 +375,24 @@ class Store extends EventEmitter {
           newState.twa = message.windAngle;
         }
         break;
+
+/* {"pgn":130577,"count":1,"message":"Direction Data",
+        "residualMode":{"id":0,"name":"Autonomous"},
+        "cogReference":{"id":0,"name":"True"},
+        "sid":223,"cog":-1000000000,"sog":-1000000000,
+        "heading":-1000000000,"stw":-1000000000,
+        "set":3.0094000000000003,"drift":0.27}
+*/
+
+      case 130557: // direction data, set and drift
+        if (message.cogReference.name === 'Magnetic') {
+          newState.setM = message.set;
+          newState.drift = message.drift;
+        } else if (message.cogReference.name === 'True') {
+          newState.setT = message.set;
+          newState.drift = message.drift;
+        }
+        break;
       case 127506: // DC Status
         // ignore for now, may be able to get from LifePO4 BT adapter
         break;
@@ -478,7 +498,11 @@ class Store extends EventEmitter {
     this.messages[message.pgn] = message;
 
     this.emit('newstate', newState);
+    this.updateState(newState);
+  }
 
+  updateState(newState) {
+    const now = Date.now();
     const changedState = {};
     for (const k of Object.keys(newState)) {
       if (newState[k] !== this.state[k]) {
@@ -574,6 +598,7 @@ class StoreAPIImpl {
         this.url = `ws://${url.host}/ws/seasmart`;
       }
     }
+    // eslint-disable-next-line no-console
     console.log('Starting websocket on ', this.url);
     this.seasmart.start(this.url);
   }
@@ -612,7 +637,6 @@ class StoreAPIImpl {
 
   addListener(event, fn) {
     if (event.startsWith('n2k')) {
-      console.log('Add ', event, fn);
       this.seasmartParser.addListener(event, fn);
     } else {
       this.store.addListener(event, fn);
@@ -621,7 +645,6 @@ class StoreAPIImpl {
 
   removeListener(event, fn) {
     if (event.startsWith('n2k')) {
-      console.log('Remove ', event, fn);
       this.seasmartParser.removeListener(event, fn);
     } else {
       this.store.removeListener(event, fn);

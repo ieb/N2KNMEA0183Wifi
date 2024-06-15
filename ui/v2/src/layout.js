@@ -4,6 +4,7 @@ import {
   TextBox, LogBox, TimeBox, LatitudeBox, NMEA2000, SystemStatus,
 } from './displayboxes.js';
 import { MenuButton } from './menubutton.js';
+import { Uploader } from './uploader.js';
 
 
 
@@ -45,8 +46,9 @@ class NMEALayout extends Component {
     this.onChangeItem = this.onChangeItem.bind(this);
     this.onMenuChange = this.onMenuChange.bind(this);
     this.onDumpStore = this.onDumpStore.bind(this);
-    this.onMenuCommand = this.onMenuCommand.bind(this);
+    this.handleMenuEvents = this.handleMenuEvents.bind(this);
     this.renderItem = this.renderItem.bind(this);
+    this.finishUpload = this.finishUpload.bind(this);
     this.lastPacketsRecived = 0;
     this.menuEvents = props.menuEvents;
     this.state = {
@@ -57,6 +59,8 @@ class NMEALayout extends Component {
       packetsRecieved: 0,
       layoutName: 'not loaded',
       viewkey: Date.now(),
+      uploadErrorMessage: '',
+      uploadLayoutName: '',
     };
     this.loadLayout(props.layout);
   }
@@ -70,11 +74,11 @@ class NMEALayout extends Component {
         this.setState({ packetsRecieved });
       }
     }), 1000);
-    this.menuEvents.addListener('*', this.onMenuCommand);
+    this.menuEvents.addListener('*', this.handleMenuEvents);
   }
 
   componentWillUnmount() {
-    this.menuEvents.removeListener('*', this.onMenuCommand);
+    this.menuEvents.removeListener('*', this.handleMenuEvents);
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }
@@ -237,13 +241,14 @@ class NMEALayout extends Component {
     }
   }
 
-  onMenuCommand(event, payload) {
+  handleMenuEvents(event, payload) {
     if (event === 'new-layout') {
       // create new layout
       this.loadLayout(payload.layout);
       localStorage.setItem(`layout-${payload.layout}`, JSON.stringify(this.state.layout));
       // eslint-disable-next-line no-console
       console.debug('new-layout', payload.layout);
+      this.menuEvents.emit('layouts-changed', this.state.layoutName);
     } else if (event === 'rename-layout') {
       // rename layout deleting the old layout
       this.setState({
@@ -254,6 +259,7 @@ class NMEALayout extends Component {
       localStorage.removeItem(`layout-${payload.from}`);
       // eslint-disable-next-line no-console
       console.debug('Renamed layout to ', payload.to);
+      this.menuEvents.emit('layouts-changed', this.state.layoutName);
     } else if (event === 'copy-layout') {
       localStorage.setItem(`layout-${payload.layout}`, JSON.stringify(this.state.layout));
       this.setState({
@@ -262,6 +268,7 @@ class NMEALayout extends Component {
       });
       // eslint-disable-next-line no-console
       console.debug('Copied layout to ', payload.layout);
+      this.menuEvents.emit('layouts-changed', this.state.layoutName);
     } else if (event === 'edit-layout') {
       const options = this.storeAPI.getKeys()
         .filter(
@@ -295,17 +302,87 @@ class NMEALayout extends Component {
       localStorage.removeItem(`layout-${payload.currentLayout}`);
       // eslint-disable-next-line no-console
       console.debug('Deletd Layout', payload.currentLayout);
+      this.menuEvents.emit('layouts-changed', this.state.layoutName);
     } else if (event === 'load-layout') {
       this.loadLayout(payload.layout);
+      this.menuEvents.emit('layouts-changed', payload.layout);
+    } else if (event === 'download-layout') {
+      const blob = new Blob([JSON.stringify(this.state.layout, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `layout-${this.state.layoutName}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else if (event === 'upload-layout') {
+      this.setState({
+        showUploadLayout: true,
+        uploadLayoutKey: Date.now(),
+      });
+    }
+  }
+
+
+  async finishUpload(op, name, uploadBlob) {
+    console.log('Uploaded', op, name, uploadBlob);
+    if (op === 'cancel') {
+      this.setState({
+        showUploadLayout: false,
+        uploadErrorMessage: '',
+        uploadLayoutName: '',
+      });
+    } else if (op === 'upload') {
+      if (name && uploadBlob) {
+        try {
+          const body = await uploadBlob.text();
+          console.log("Got body ", body);
+          const layout = JSON.parse(body);
+          console.log("Parsed ", layout);
+          if (layout.pageId !== undefined
+            && layout.pages !== undefined
+            && Array.isArray(layout.pages)
+            && layout.pages.length > 0) {
+            localStorage.setItem(`layout-${name}`, JSON.stringify(layout));
+            console.log("Saved ", name);
+            this.setState({
+              showUploadLayout: false,
+              uploadErrorMessage: '',
+              uploadLayoutName: '',
+            });
+            this.menuEvents.emit('layouts-changed', this.state.layoutName);
+          } else {
+            console.log("Error with contents ", name);
+            this.setState({
+              uploadErrorMessage: 'Layout must be of the form { pageId:<id>, pages:[<page>] }',
+              uploadLayoutName: name,
+              uploadLayoutKey: Date.now(),
+            });
+          }
+        } catch (e) {
+          console.log("Error with parse ", e);
+          this.setState({
+            uploadErrorMessage: `JSON parse error ${e.message}`,
+            uploadLayoutName: name,
+            uploadLayoutKey: Date.now(),
+          });
+        }
+      } else {
+        console.log("Missing parts ");
+        this.setState({
+          uploadErrorMessage: 'Name and file are required',
+          uploadLayoutName: name,
+          uploadLayoutKey: Date.now(),
+        });
+      }
+    } else {
+      // eslint-disable-next-line no-console
+      console.log('Unexpected upload operation', op);
     }
   }
 
   onMenuChange() {
     this.setState({ showMenu: !this.state.showMenu });
   }
-
-
-
 
   async onDumpStore() {
     const keys = this.storeAPI.getKeys();
@@ -406,6 +483,22 @@ class NMEALayout extends Component {
     }
   }
 
+
+
+  renderUpload() {
+    if (this.state.showUploadLayout) {
+      return html`<${Uploader} 
+        placeholder="Layout name" 
+        nameLabel="Name:" 
+        key=${this.state.uploadLayoutKey}
+        uploadErrorMessage=${this.state.uploadErrorMessage}
+        uploadName=${this.state.uploadLayoutName}
+        uploadLabel="Layout File:"
+        onUpload=${this.finishUpload} />`;
+    }
+    return '';
+  }
+
   render() {
     // eslint-disable-next-line no-console
     console.debug('State being rendered is', this.state);
@@ -413,6 +506,7 @@ class NMEALayout extends Component {
     const boxes = l.page.boxes.map((item) => this.renderItem(item));
     return html`<div className="nmeaLayout">
                 ${this.renderMenu()}
+                ${this.renderUpload()}
                 <div>
                  ${boxes}
                 </div>

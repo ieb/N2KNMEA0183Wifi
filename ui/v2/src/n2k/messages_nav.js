@@ -395,6 +395,38 @@ class PGN130316 extends CANMessage {
   }
 }
 
+
+
+// typically from a chart plotter, eg e7.
+// set and drift are the most interesting and from an e7 these are the only fields 
+// set.
+class PGN130577 extends CANMessage {
+  constructor() {
+    super();
+    this.fastPacket = true;
+  }
+
+  // checked
+  fromMessage(message) {
+    const dataModeReference = this.getByte(message, 0);
+    return {
+      pgn: 130577,
+      src: message.source,
+      count: 1,
+      message: 'Direction Data',
+      residualMode: NMEA2000Reference.lookup('residualMode', dataModeReference & 0x0f),
+      cogReference: NMEA2000Reference.lookup('directionReference', ((dataModeReference >> 4) & 0x03)),
+      sid: this.getByte(message, 1),
+      cog: this.get2ByteUDouble(message, 2, 0.0001), // rad
+      sog: this.get2ByteUDouble(message, 4, 0.01), // m/s
+      heading: this.get2ByteUDouble(message, 6, 0.0001), // rad
+      stw: this.get2ByteUDouble(message, 8, 0.01), // m/s
+      set: this.get2ByteUDouble(message, 10, 0.0001), // rad
+      drift: this.get2ByteUDouble(message, 12, 0.01), // m/s
+    };
+  }
+}
+
 class PGN127506 extends CANMessage {
   constructor() {
     super();
@@ -762,6 +794,7 @@ const register = (pgnRegistry) => {
   pgnRegistry[130314] = new PGN130314();
   pgnRegistry[130315] = new PGN130315();
   pgnRegistry[130316] = new PGN130316();
+  pgnRegistry[130577] = new PGN130577();
   pgnRegistry[130916] = new PGN130916();
   pgnRegistry[65359] = new PGN65359();
   pgnRegistry[65379] = new PGN65379();

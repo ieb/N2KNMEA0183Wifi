@@ -66,8 +66,11 @@ ToDo
 * [x] Add can debug view to v2 ui.
 * [x] Replace layout editing and storage on esp32 with localstorage
 * [x] Add PWA for LifePo4 battery management, standalone PWA over BLE. 
+* [x] Support upload and download of layouts for local editing.
+* [x] Verify target VMG down wind.
+* [x] Support debugging store behavior in debug view to verify polar and calculations.
+* [ ] Load default layouts over http.
 * [ ] Persist history in local storage
-* [ ] Verify target VMG down wind.
 * [ ] Port eink displays
 
 

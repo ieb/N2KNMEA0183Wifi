@@ -10,7 +10,11 @@ To install on a chromebook or work locally the best solution found so far is to 
 
 # Changes
 
+Newest at the top.
+
 * Reworked the menu system and editing layouts to use localstorage rather than the ESP32 flash.
+* Added a debug view to debug raw can messages and their storage.
+
 
 To develop 
 
@@ -21,5 +25,9 @@ To develop
 To build
 
     npm build
+
+
+# Bugs
+
 
 

@@ -48,8 +48,8 @@ class Performance {
   calcPerformance(state) {
     let absTwa = state.twa;
     if (state.twa < 0) absTwa = -state.twa;
-    const twsi = this._findIndexes(this.polarTable.tws, state.tws);
-    let twai = this._findIndexes(this.polarTable.twa, absTwa);
+    const twsi = Performance._findIndexes(this.polarTable.tws, state.tws);
+    let twai = Performance._findIndexes(this.polarTable.twa, absTwa);
     state.polarSpeed = this.polarTable.stw[twai[1]][twsi[1]];
     if (state.polarSpeed !== 0) {
       state.polarSpeedRatio = state.stw / state.polarSpeed;
@@ -72,7 +72,7 @@ class Performance {
     state.targetTwa = 0;
     state.targetStw = 0;
     for (let ttwa = twal; ttwa <= twah; ttwa += Math.PI / 180) {
-      twai = this._findIndexes(this.polarTable.twa, ttwa);
+      twai = Performance._findIndexes(this.polarTable.twa, ttwa);
       const tswt = this.polarTable.stw[twai[1]][twsi[1]];
       const tvmg = tswt * Math.cos(ttwa);
       if (Math.abs(tvmg) > Math.abs(state.targetVmg)) {

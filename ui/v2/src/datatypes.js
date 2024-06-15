@@ -945,6 +945,14 @@ class DataTypes {
       variationdaysSince1970: GPSDate,
       speedGroundReferenced: Speed,
       gnssLastUpdate: TimeStamp,
+      setM: Bearing,
+      setT: Bearing,
+      drift: Speed,
+      engineRoomTemperature: Temperature,
+      mainCabinTemperature: Temperature,
+      exhaustTemperature: Temperature,
+      alternatorTemperature: Temperature,
+      alternatorTemperature_0: Temperature,
     };
   }
 

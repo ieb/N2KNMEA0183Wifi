@@ -28,15 +28,21 @@ class App extends Component {
       appKey: Date.now(),
       apiUrl: this.initialApiUrl,
     };
-    this.onMenuCommand = this.onMenuCommand.bind(this);
+    this.handleMenuEvents = this.handleMenuEvents.bind(this);
     this.setApiUrl = this.setApiUrl.bind(this);
     this.updateFileSystem = this.updateFileSystem.bind(this);
-    this.eventEmitter = new EventEmitter();
+    // shared event bus for all components connected to the menu system.
+    this.menuEvents = new EventEmitter();
   }
 
 
   async componentDidMount() {
     await this.setApiUrl(this.state.apiUrl);
+    this.menuEvents.addListener('*', this.handleMenuEvents);
+  }
+
+  async componentDidUnmount() {
+    this.menuEvents.removeListener('*', this.handleMenuEvents);
   }
 
   async updateFileSystem(apiUrl) {
@@ -79,7 +85,7 @@ class App extends Component {
   }
 
 
-  onMenuCommand(command, payload) {
+  handleMenuEvents(command, payload) {
     if (command === 'set-view'
       || command === 'load-layout'
       || command === 'new-layout') {
@@ -95,10 +101,7 @@ class App extends Component {
           menuKey: Date.now(),
         });
       }
-    } else {
-      console.log('Command not handled ', command, payload);
     }
-    this.eventEmitter.emit(command, payload);
   }
 
 
@@ -148,12 +151,9 @@ class App extends Component {
             storeAPI=${this.storeAPI} />`;
     }
     if (this.state.view === 'debug') {
-      return html`<div><${DebugView} 
+      return html`<${DebugView} 
             key=${this.state.menuKey}
             storeAPI=${this.storeAPI} />
-            <${StoreView} 
-            key=${this.state.menuKey}
-            storeAPI=${this.storeAPI}  />
             `;
     }
     return html`<${NMEALayout} 
@@ -161,17 +161,16 @@ class App extends Component {
       storeAPI=${this.storeAPI} 
       apiUrl=${this.state.layoutApi} 
       layout=${this.state.layout}
-      menuEvents=${this.eventEmitter} />`;
+      menuEvents=${this.menuEvents} />`;
   }
 
   render() {
-    
     const view = this.renderView();
     return html`<div>
               <${Menu} 
-                onMenuCommand=${this.onMenuCommand}
                 setApiUrl=${this.setApiUrl}
                 initialApiUrl=${this.initialApiUrl}
+                menuEvents=${this.menuEvents} 
                 />
               ${view}
             </div>`;

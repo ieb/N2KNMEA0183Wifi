@@ -7,7 +7,6 @@ class LogViewer extends Component {
   constructor(props) {
     super(props);
     this.props = props;
-    console.log('Lines are ', props.text);
     this.state = {
       from: 0,
       to: 0,
@@ -29,7 +28,6 @@ class LogViewer extends Component {
         this.setState({ lines, from, to });
       }
     });
-    console.log('created');
   }
 
   renderLines() {
