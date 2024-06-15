@@ -69,7 +69,7 @@ ToDo
 * [x] Support upload and download of layouts for local editing.
 * [x] Verify target VMG down wind.
 * [x] Support debugging store behavior in debug view to verify polar and calculations.
-* [ ] Load default layouts over http.
+* [x] Load default layouts over http.
 * [ ] Persist history in local storage
 * [ ] Port eink displays
 

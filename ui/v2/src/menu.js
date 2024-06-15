@@ -95,6 +95,7 @@ class Menu extends Component {
         layoutList.push(key.substring('layout-'.length));
       }
     }
+    layoutList.sort();
     let layoutName = layout;
     if (!layoutList.includes(layout)) {
       // eslint-disable-next-line no-console

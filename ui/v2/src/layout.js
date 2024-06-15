@@ -5,7 +5,7 @@ import {
 } from './displayboxes.js';
 import { MenuButton } from './menubutton.js';
 import { Uploader } from './uploader.js';
-
+import { DefaultLayouts } from './defaultLayouts.js';
 
 
 const html = htm.bind(h);
@@ -55,7 +55,7 @@ class NMEALayout extends Component {
       editing: '',
       options: [],
       dataIndicatorOn: false,
-      layout: undefined,
+      layout: DefaultLayouts.defaultLayout,
       packetsRecieved: 0,
       layoutName: 'not loaded',
       viewkey: Date.now(),

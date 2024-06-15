@@ -8,6 +8,7 @@ import { AdminView } from './admin.js';
 import { Menu } from './menu.js';
 import { StoreAPIImpl } from './n2kmodule.js';
 import { EventEmitter } from './eventemitter.js';
+import { DefaultLayouts } from './defaultLayouts.js';
 
 
 const html = htm.bind(h);
@@ -33,6 +34,7 @@ class App extends Component {
     this.updateFileSystem = this.updateFileSystem.bind(this);
     // shared event bus for all components connected to the menu system.
     this.menuEvents = new EventEmitter();
+    DefaultLayouts.load();
   }
 
 
