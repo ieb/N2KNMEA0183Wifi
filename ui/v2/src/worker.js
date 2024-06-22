@@ -21,10 +21,18 @@ self.addEventListener('install', (event) => {
 
 
 self.addEventListener('beforeinstallprompt', (event) => {
-  console.log('Before Event Install ', event);
+  console.debug('Before Event Install ', event);
 });
 
-const cacheEnabled = false;
+let cacheEnabled = true;
+self.addEventListener('message', (event) => {
+  if (event.data.cacheEnabled !== undefined) {
+    cacheEnabled = event.data.cacheEnabled;
+    console.log('Cache Enabled now ', cacheEnabled);
+  }
+});
+
+
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method === 'GET') {

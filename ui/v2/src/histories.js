@@ -1,4 +1,7 @@
 
+
+
+
 class LinearHistory {
   constructor(samplePeriod, storePeriod, maxLength) {
     this.nextSample = 0;

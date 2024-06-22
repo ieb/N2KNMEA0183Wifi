@@ -5,21 +5,17 @@
     <link rel="manifest" href="/lifepo4/manifest.json" crossorigin="use-credentials" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>JBD BMS Monitor</title>
-    <script src="bmsblereader.js" ></script>
-    <script src="history.js" ></script>
     <script src="d3.v7.min.js"></script>
-    <script src="index.js" ></script>
+    <script type="module" src="index.js"></script>
     <link rel="stylesheet" type="text/css" href="main.css">
 </head>
 <body>
 
 
-<button id="connect"  >Connect</button>
-<button id="disconnect" class="hidden">Disconnect</button>
 
 <div class="views">
-    <button id="viewBms"  >Bms</button>
-    <button id="viewHistory"  >Voltages</button>
+    <button id="connect"  >Connect</button>
+    <button id="disconnect" class="hidden">Disconnect</button>
 <div>
 
 <div class="bms">
@@ -29,7 +25,7 @@
     <li>Current: <span id="status.current">?</span> A</li>
     <li>State Of Charge: <span id="status.capacity.stateOfCharge">?</span> %</li>
     <li>Full Capacity: <span id="status.capacity.fullCapacity">?</span> Ah</li>
-    <li><span id="status.charging" class="enabled">Charging</span> <span id="status.discharging" class="disabled">Dischaging</span></li>
+    <li><span id="status.charging" class="enabled">Charging</span> <span id="status.discharging" class="disabled">Discharging</span></li>
  </ul>
 
   <ul class="cells">
@@ -80,6 +76,16 @@
 </div>
 <div id="status.lastUpdate"></div>
 
+
+    <label for="timewindow">Graph Time Period</label>
+    <select id="timewindow">
+        <option value="3600000">1h</option>
+        <option value="10800000">3h</option>
+        <option value="21600000">6h</option>
+        <option value="43200000">12h</option>
+        <option value="86400000">24h</option>
+    </select>
+    <input type="range" id="endOfWindow" min="-86400000" max="0" step="600000" value="0">
 
 <div class="history" >
     <div id="packVoltageGraph" ></div>

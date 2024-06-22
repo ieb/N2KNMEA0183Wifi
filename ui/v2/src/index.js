@@ -5,6 +5,9 @@ const html = htm.bind(h);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/n2k/worker.js', { scope: '/n2k/', type: 'module' });
+  navigator.serviceWorker.ready.then((registration) => {
+    registration.active.postMessage({ cacheEnabled: false });
+  });
 }
 
 const getLocationProperties = () => {

@@ -6,6 +6,8 @@
  * reloading the worker hard.
  *
  * Not using preload as this causes failures when on an isolated network.
+ *
+ * to disable caching create a localStorage key 'disableCache' with any value.
  */
 
 const CACHE_NAME = 'lifepo4';
@@ -21,10 +23,16 @@ self.addEventListener('install', (event) => {
 
 
 self.addEventListener('beforeinstallprompt', (event) => {
-  console.log('Before Event Install ', event);
+  console.debug('Before Event Install ', event);
 });
 
-const cacheEnabled = true;
+let cacheEnabled = true;
+self.addEventListener('message', (event) => {
+  if (event.data.cacheEnabled !== undefined) {
+    cacheEnabled = event.data.cacheEnabled;
+    console.log('Cache Enabled now ', cacheEnabled);
+  }
+});
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method === 'GET') {
