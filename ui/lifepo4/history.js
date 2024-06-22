@@ -317,10 +317,6 @@ class VoltagesGraph {
   // eslint-disable-next-line class-methods-use-this
   update(history, startTs, endTs) {
     // Declare the chart dimensions and margins.
-    if (history.voltageV === undefined) {
-      console.log('No voltageV');
-      return;
-    }
 
     const width = 400;
     const height = 320;
@@ -332,15 +328,27 @@ class VoltagesGraph {
     // Declare the x (horizontal position) scale.
     const data = [];
     let voltageV = 0;
-    for (let i = 0; i < history.ts.length; i++) {
-      if (!Number.isNaN(history.voltageV.mean[i]) && history.voltageV.mean[i] !== 0) {
-        voltageV = history.voltageV.mean[i];
-      }
-      if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
-        data.push({
-          date: new Date(history.ts[i]),
-          voltageV,
-        });
+    if (history.voltageV === undefined
+      || history.voltageV.length === 0) {
+      data.push({
+        date: new Date(startTs),
+        voltageV,
+      });
+      data.push({
+        date: new Date(endTs),
+        voltageV,
+      });
+    } else {
+      for (let i = 0; i < history.ts.length; i++) {
+        if (!Number.isNaN(history.voltageV.mean[i]) && history.voltageV.mean[i] !== 0) {
+          voltageV = history.voltageV.mean[i];
+        }
+        if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
+          data.push({
+            date: new Date(history.ts[i]),
+            voltageV,
+          });
+        }
       }
     }
 
@@ -411,10 +419,6 @@ class VoltagesGraph {
 class CurrentGraph {
   // eslint-disable-next-line class-methods-use-this
   update(history, startTs, endTs) {
-    if (history.currentA === undefined) {
-      console.log('No current A');
-      return;
-    }
     const width = 400;
     const height = 320;
     const marginTop = 20;
@@ -425,15 +429,27 @@ class CurrentGraph {
     // Declare the x (horizontal position) scale.
     const data = [];
     let currentA = 0;
-    for (let i = 0; i < history.ts.length; i++) {
-      if (!Number.isNaN(history.currentA.mean[i]) && history.currentA.mean[i] !== 0) {
-        currentA = history.currentA.mean[i];
-      }
-      if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
-        data.push({
-          date: new Date(history.ts[i]),
-          currentA,
-        });
+    if (history.currentA === undefined
+      || history.currentA.length === 0) {
+      data.push({
+        date: new Date(startTs),
+        currentA,
+      });
+      data.push({
+        date: new Date(endTs),
+        currentA,
+      });
+    } else {
+      for (let i = 0; i < history.ts.length; i++) {
+        if (!Number.isNaN(history.currentA.mean[i]) && history.currentA.mean[i] !== 0) {
+          currentA = history.currentA.mean[i];
+        }
+        if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
+          data.push({
+            date: new Date(history.ts[i]),
+            currentA,
+          });
+        }
       }
     }
 
@@ -507,10 +523,6 @@ class CurrentGraph {
 class StateOfChargeGraph {
   // eslint-disable-next-line class-methods-use-this
   update(history, startTs, endTs) {
-    if (history.soc === undefined) {
-      console.log('No soc');
-      return;
-    }
     // Declare the chart dimensions and margins.
     const width = 400;
     const height = 320;
@@ -522,15 +534,27 @@ class StateOfChargeGraph {
     // Declare the x (horizontal position) scale.
     const data = [];
     let soc = 0;
-    for (let i = 0; i < history.ts.length; i++) {
-      if (!Number.isNaN(history.soc.mean[i]) && history.soc.mean[i] !== 0) {
-        soc = 100 * history.soc.mean[i];
-      }
-      if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
-        data.push({
-          date: new Date(history.ts[i]),
-          soc,
-        });
+    if (history.soc === undefined
+      || history.soc.length === 0) {
+      data.push({
+        date: new Date(startTs),
+        soc,
+      });
+      data.push({
+        date: new Date(endTs),
+        soc,
+      });
+    } else {
+      for (let i = 0; i < history.ts.length; i++) {
+        if (!Number.isNaN(history.soc.mean[i]) && history.soc.mean[i] !== 0) {
+          soc = 100 * history.soc.mean[i];
+        }
+        if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
+          data.push({
+            date: new Date(history.ts[i]),
+            soc,
+          });
+        }
       }
     }
 
@@ -600,10 +624,6 @@ class StateOfChargeGraph {
 class ChargeRemainingGraph {
   // eslint-disable-next-line class-methods-use-this
   update(history, startTs, endTs) {
-    if (history.chargeAh === undefined) {
-      console.log('No chargeAh');
-      return;
-    }
     // Declare the chart dimensions and margins.
     const width = 400;
     const height = 320;
@@ -615,15 +635,27 @@ class ChargeRemainingGraph {
     // Declare the x (horizontal position) scale.
     const data = [];
     let chargeAh = 0;
-    for (let i = 0; i < history.ts.length; i++) {
-      if (!Number.isNaN(history.chargeAh.mean[i]) && history.chargeAh.mean[i] !== 0) {
-        chargeAh = history.chargeAh.mean[i];
-      }
-      if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
-        data.push({
-          date: new Date(history.ts[i]),
-          chargeAh,
-        });
+    if (history.chargeAh === undefined
+      || history.chargeAh.length === 0) {
+      data.push({
+        date: new Date(startTs),
+        chargeAh,
+      });
+      data.push({
+        date: new Date(endTs),
+        chargeAh,
+      });
+    } else {
+      for (let i = 0; i < history.ts.length; i++) {
+        if (!Number.isNaN(history.chargeAh.mean[i]) && history.chargeAh.mean[i] !== 0) {
+          chargeAh = history.chargeAh.mean[i];
+        }
+        if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
+          data.push({
+            date: new Date(history.ts[i]),
+            chargeAh,
+          });
+        }
       }
     }
 
@@ -696,14 +728,6 @@ class ChargeRemainingGraph {
 class CellVoltagesGraph {
   // eslint-disable-next-line class-methods-use-this
   update(history, startTs, endTs) {
-    if (history.cell0V === undefined
-            || history.cell1V === undefined
-            || history.cell2V === undefined
-            || history.cell3V === undefined) {
-      console.log('No cellMV');
-
-      return;
-    }
     // Declare the chart dimensions and margins.
     const width = 400;
     const height = 320;
@@ -720,22 +744,36 @@ class CellVoltagesGraph {
     data.push([]);
 
     const cellV = [0, 0, 0, 0];
-    for (let i = 0; i < history.ts.length; i++) {
-      if (!Number.isNaN(history.cell0V.mean[i]) && history.cell0V.mean[i]) {
-        cellV[0] = history.cell0V.mean[i];
+    if (history.cell0V === undefined
+      || history.cell0V.length === 0
+      || history.cell1V === undefined
+      || history.cell1V.length === 0
+      || history.cell2V === undefined
+      || history.cell2V.length === 0
+      || history.cell3V === undefined
+      || history.cell3V.length === 0) {
+      for (let ci = 0; ci < 4; ci++) {
+        data[ci].push({ date: new Date(startTs), v: 0.001 * cellV[ci] });
+        data[ci].push({ date: new Date(endTs), v: 0.001 * cellV[ci] });
       }
-      if (!Number.isNaN(history.cell1V.mean[i]) && history.cell1V.mean[i]) {
-        cellV[1] = history.cell1V.mean[i];
-      }
-      if (!Number.isNaN(history.cell2V.mean[i]) && history.cell2V.mean[i]) {
-        cellV[2] = history.cell2V.mean[i];
-      }
-      if (!Number.isNaN(history.cell3V.mean[i]) && history.cell3V.mean[i]) {
-        cellV[3] = history.cell3V.mean[i];
-      }
-      if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
-        for (let ci = 0; ci < 4; ci++) {
-          data[ci].push({ date: new Date(history.ts[i]), v: 0.001 * cellV[ci] });
+    } else {
+      for (let i = 0; i < history.ts.length; i++) {
+        if (!Number.isNaN(history.cell0V.mean[i]) && history.cell0V.mean[i]) {
+          cellV[0] = history.cell0V.mean[i];
+        }
+        if (!Number.isNaN(history.cell1V.mean[i]) && history.cell1V.mean[i]) {
+          cellV[1] = history.cell1V.mean[i];
+        }
+        if (!Number.isNaN(history.cell2V.mean[i]) && history.cell2V.mean[i]) {
+          cellV[2] = history.cell2V.mean[i];
+        }
+        if (!Number.isNaN(history.cell3V.mean[i]) && history.cell3V.mean[i]) {
+          cellV[3] = history.cell3V.mean[i];
+        }
+        if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
+          for (let ci = 0; ci < 4; ci++) {
+            data[ci].push({ date: new Date(history.ts[i]), v: 0.001 * cellV[ci] });
+          }
         }
       }
     }
@@ -830,12 +868,6 @@ class CellVoltagesGraph {
 class TemperatureGraph {
   // eslint-disable-next-line class-methods-use-this
   update(history, startTs, endTs) {
-    if (history.boardTempC === undefined
-            || history.cell0C === undefined
-            || history.cell1C === undefined) {
-      console.log('No cellC');
-      return;
-    }
     // Declare the chart dimensions and margins.
     const width = 400;
     const height = 320;
@@ -851,20 +883,32 @@ class TemperatureGraph {
     data.push([]);
     data.push([]);
 
-    const temps = [0, 0, 0, 0];
-    for (let i = 0; i < history.ts.length; i++) {
-      if (!Number.isNaN(history.boardTempC.mean[i]) && history.boardTempC.mean[i]) {
-        temps[0] = history.boardTempC.mean[i];
+    const temps = [0, 0, 0];
+    if (history.boardTempC === undefined
+      || history.boardTempC.length === 0
+      || history.cell0C === undefined
+      || history.cell0C.length === 0
+      || history.cell1C === undefined
+      || history.cell1C.length === 0) {
+      for (let ci = 0; ci < 3; ci++) {
+        data[ci].push({ date: new Date(startTs), t: 0.001 * temps[ci] });
+        data[ci].push({ date: new Date(endTs), t: 0.001 * temps[ci] });
       }
-      if (!Number.isNaN(history.cell0C.mean[i]) && history.cell0C.mean[i]) {
-        temps[1] = history.cell0C.mean[i];
-      }
-      if (!Number.isNaN(history.cell1C.mean[i]) && history.cell1C.mean[i]) {
-        temps[2] = history.cell1C.mean[i];
-      }
-      if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
-        for (let ci = 0; ci < 3; ci++) {
-          data[ci].push({ date: new Date(history.ts[i]), t: temps[ci] });
+    } else {
+      for (let i = 0; i < history.ts.length; i++) {
+        if (!Number.isNaN(history.boardTempC.mean[i]) && history.boardTempC.mean[i]) {
+          temps[0] = history.boardTempC.mean[i];
+        }
+        if (!Number.isNaN(history.cell0C.mean[i]) && history.cell0C.mean[i]) {
+          temps[1] = history.cell0C.mean[i];
+        }
+        if (!Number.isNaN(history.cell1C.mean[i]) && history.cell1C.mean[i]) {
+          temps[2] = history.cell1C.mean[i];
+        }
+        if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
+          for (let ci = 0; ci < 3; ci++) {
+            data[ci].push({ date: new Date(history.ts[i]), t: temps[ci] });
+          }
         }
       }
     }

@@ -14,7 +14,8 @@ import {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/lifepo4/worker.js', { scope: '/lifepo4/', type: 'module' });
   navigator.serviceWorker.ready.then((registration) => {
-    registration.active.postMessage({ cacheEnabled: false });
+    const cacheEnabled = !window.location.hash.includes('disableCache');
+    registration.active.postMessage({ cacheEnabled });
   });
 }
 
@@ -22,7 +23,8 @@ if ('serviceWorker' in navigator) {
 
 window.addEventListener('load', () => {
   const bleReader = new JDBBMSReader();
-  const timeSeriesManager = new TimeSeriesManager(bleReader, true);
+  const fakeData = window.location.hash.includes('fakeData')
+  const timeSeriesManager = new TimeSeriesManager(bleReader, fakeData);
 
   const voltagesGraph = new VoltagesGraph();
   const cellVoltageGraph = new CellVoltagesGraph();

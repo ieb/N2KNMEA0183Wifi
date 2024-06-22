@@ -22,5 +22,5 @@ The Bluetooth adapter for these BMS exposes Modbus RTE from the BMS UART over 2 
 - [-] ~~Make into a Chrome extension to make it easier to load from Chrome.~~  Not worth it given Chrome extensions will die eventually.
 - [x] Convert into a PWA.
 - [x] Extend time window to 24h and allow zooming into the graphs.
-- [ ] Make the BLE work in the background 
+- [-] ~~Make the BLE work in the background ~~  The Web Bluetooth API is not available in any background task.
 
