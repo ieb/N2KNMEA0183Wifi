@@ -50,6 +50,7 @@ window.addEventListener('load', () => {
   document.getElementById('connect').addEventListener('click', bleReader.connectBMS);
   document.getElementById('disconnect').addEventListener('click', bleReader.disconnectBMS);
 
+
   const setInnerHtmlById = (id, value) => {
     const el = document.getElementById(id);
     if (el) {
@@ -69,7 +70,38 @@ window.addEventListener('load', () => {
     setClass('disconnect', connected, '', 'hidden');
   });
 
+  const updateGuage = (statusUpdate) => {
+    setInnerHtmlById('guageVoltageText', `${statusUpdate.voltage.toFixed(2)}V`);
+    setInnerHtmlById('guageCurrentText', `${statusUpdate.current.toFixed(1)}A`);
+    const stateOfChargeAh = (statusUpdate.capacity.stateOfCharge / 100)
+      * statusUpdate.capacity.fullCapacity;
+    setInnerHtmlById('guageStateOfChargeText', `${stateOfChargeAh.toFixed(0)}Ah`);
+    setClass('currentWidget', (statusUpdate.current > 0), 'charging', 'discharging');
+
+
+    const currentGuage = document.getElementById('currentGuage');
+
+    const currentGuageLength = (Math.abs(statusUpdate.current) / 100) * 353;
+    currentGuage.setAttribute('stroke-dasharray', `${currentGuageLength} 471`);
+    if (statusUpdate.current > 0) {
+      currentGuage.setAttribute('stroke', 'url(#currentGradCharge)');
+    } else {
+      currentGuage.setAttribute('stroke', 'url(#currentGradDischarge)');
+    }
+
+    const stateOfChargeGauge = document.getElementById('chargeGuage');
+    const stateOfChargeBase = document.getElementById('stateOfChargeBase');
+
+    const stateOfChageLength = 120 - (statusUpdate.capacity.stateOfCharge / 100) * 120;
+    stateOfChargeGauge.setAttribute('stroke-dasharray', `${stateOfChageLength} 471`);
+
+    const socp = Math.min(100, 10 * Math.floor((statusUpdate.capacity.stateOfCharge + 5) / 10));
+    stateOfChargeBase.setAttribute('class', `guageSubBase_${socp}`);
+  };
+
   bleReader.on('statusUpdate', (statusUpdate) => {
+    updateGuage(statusUpdate);
+
     setInnerHtmlById('status.voltage', statusUpdate.voltage.toFixed(2));
     setInnerHtmlById('status.current', statusUpdate.current.toFixed(1));
     setInnerHtmlById('status.capacity.stateOfCharge', statusUpdate.capacity.stateOfCharge.toFixed(0));

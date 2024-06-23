@@ -23,4 +23,5 @@ The Bluetooth adapter for these BMS exposes Modbus RTE from the BMS UART over 2 
 - [x] Convert into a PWA.
 - [x] Extend time window to 24h and allow zooming into the graphs.
 - [-] ~~Make the BLE work in the background ~~  The Web Bluetooth API is not available in any background task.
+- [x] Add charge discharge gauge in svg
 

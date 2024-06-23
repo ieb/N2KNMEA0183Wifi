@@ -40,3 +40,45 @@ body {
 .hidden {
   display: none;
 }
+
+.guage text {
+  fill: white;
+}
+
+#guageVoltageText {
+  font-size: 2rem;
+}
+
+.guageSubBase_0 {
+  stroke: #ff1f00;
+}
+.guageSubBase_10 {
+  stroke: #ff5b00f7;
+}
+.guageSubBase_20 {
+  stroke: #ff8b00f7;
+}
+.guageSubBase_30 {
+  stroke: #ffba00f7;
+}
+.guageSubBase_40 {
+  stroke: #ffdf00f7;
+}
+.guageSubBase_50 {
+  stroke: #daff00f7;
+}
+.guageSubBase_60 {
+  stroke: #5fd80bf7;
+}
+.guageSubBase_70 {
+  stroke: #24d80bf7;
+}
+.guageSubBase_80 {
+  stroke: #14c20af7;
+}
+.guageSubBase_90 {
+  stroke: #1ba213f7;
+}
+.guageSubBase_100 {
+  stroke: #228c1cf7;
+}

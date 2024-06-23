@@ -18,7 +18,117 @@
     <button id="disconnect" class="hidden">Disconnect</button>
 <div>
 
+<div>
+</div>
+
 <div class="bms">
+    <svg id="currentWidget" height="200" width="200" class="guage" >
+    <defs>
+        <linearGradient id="currentGradCharge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="15%" stop-color="orange" stop-opacity="1"></stop>
+            <stop offset="85%" stop-color="yellow" stop-opacity="1"></stop>
+        </linearGradient>
+        <linearGradient id="currentGradDischarge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="15%" stop-color="red" stop-opacity="1"></stop>
+            <stop offset="85%" stop-color="blue" stop-opacity="1"></stop>
+        </linearGradient>
+       <path
+         id="guageCurrentTextPath"
+         fill="none"
+         stroke="red"
+         d="M64.64,64.64 A 50 50 0 0 1 135.35,64.64" />
+
+       <path
+         id="guageStateOfChargeTextPath"
+         fill="none"
+         stroke="red"
+         d="M64.64,135.35 A 50 50 0 0 0 135.35,135.35" />
+    </defs>
+
+    <!-- the stroke color indicates charg vs discharge
+         the dasharray dash is the %, full scale is pi*d*270/360.
+         dash is percent*full scale is pi*d*270/360
+     -->
+
+      <circle
+       class="guageBase"
+       id="currentBase"
+       cx="100"
+       cy="100"
+       fill="transparent"
+       stroke="gray"
+       r="75"
+       stroke-width="25"
+       stroke-dasharray="353 471"
+       transform="rotate(135, 100, 100)"
+     />
+     <circle
+        class="guagePercent"
+        id="currentGuage"
+        cx="100"
+        cy="100"
+        fill="transparent"
+        r=75
+        stroke="url(#currentGradCharge)"
+        stroke-width="25"
+        stroke-dasharray="87 471"
+        transform="rotate(135, 100, 100)"
+        style="transition: stroke-dasharray 0.3s"
+      />
+
+     <!-- bottom arc charge
+       green filling the whole arc
+       overlayed by dark grey giving the impression that the green 
+       sector is the qauge, easier to do but the dash array for the grey sector has 
+       to be adjusted to 1-% 
+       full scale is 0 dash
+       0 is pi*d*90/360
+       dash is (1-percent)*(p*d*90/360)
+     -->
+    <circle 
+        class="guageSubBase"
+        id="stateOfChargeBase"
+        cx="100" 
+        cy="100" 
+        fill="transparent" 
+        stroke="green" 
+        r="75" 
+        stroke-width="25" 
+        stroke-dasharray="120 471" 
+        transform="rotate(45, 100, 100)" 
+        style="transition: stroke 0.3s"
+        />
+
+    <circle 
+        class="guageSubPercent"
+        id="chargeGuage"
+        cx="100" 
+        cy="100" 
+        fill="transparent" 
+        stroke="darkgrey" 
+        r="75" 
+        stroke-width="25" 
+        stroke-dasharray="90 471" 
+        transform="rotate(45, 100, 100)" 
+        style="transition: stroke-dasharray 0.3s"
+      />
+
+   
+
+    <!-- annotations 
+    current in the center.
+    soc and voltage below that.
+    -->
+    <text id="guageVoltageText" x="100" y="100" alignment-baseline="middle" text-anchor="middle">?v</text>
+    <text text-anchor="middle" >
+       <textPath id="guageCurrentText" startOffset="50%" alignment-baseline="middle" href="#guageCurrentTextPath">?A</textPath>
+    </text>
+    <text text-anchor="middle"  >
+       <textPath id="guageStateOfChargeText" startOffset="50%" alignment-baseline="middle" href="#guageStateOfChargeTextPath">?Ah</textPath>
+    </text>
+
+
+</svg>
 <ul class="state">
     <li>State</li>
     <li>Voltage: <span id="status.voltage">?</span> V</li>
