@@ -1,10 +1,13 @@
 #include "network.h"
+#include <ESPmDNS.h>
 
 
 
 void UdpSender::begin() {
     udp.begin(udpPort);
     started = true;
+    MDNS.addService("_nmea0183-udp","_udp",udpPort);
+
 }
 void UdpSender::sendBufToClients(const char *buf) {
     if ( WiFi.status() == WL_CONNECTED ) {

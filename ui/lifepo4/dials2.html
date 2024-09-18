@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JBD BMS Monitor</title>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<body>
+<svg id="dial" height="400" width="400"  >
+    <defs>
+        <filter id="windDial.blur">
+            <feDropShadow
+                dx="0"
+                dy="0"
+                stdDeviation="5"
+                flood-color="#000"
+                flood-opacity="1" />
+        </filter>
+        <path id="windDial.majorTick" d="M200 0 l0 20" stroke="white" />
+        <path id="windDial.minorTick" d="M200 0 l0 10" stroke="white" />
+        <path id="windDial.miniTick" d="M200 0 l0 4" stroke="white" />
+    </defs>
+
+
+<!-- close hauled zones 
+  dash array = dash nodash
+  360*dash/nodash = angle_swept
+  nodash = pi*d
+  center of sweep = 90+rotate + angle_swept/2  -->
+
+    <circle cx="5" cy="5" r="4" fill="url('#windDial.windZoneGradiant')" />
+
+
+  <circle
+       cx="200"
+       cy="200"
+       fill="transparent"
+       stroke="green"
+       r="194"
+       stroke-width="14"
+       stroke-dasharray="408 1225" 
+       stroke-linecap="round"
+        transform="rotate(-60, 200, 200)"
+     />
+  <circle
+       cx="200"
+       cy="200"
+       fill="transparent"
+       stroke="red"
+       r="194"
+       stroke-width="14"
+       stroke-dasharray="408 1225" 
+       stroke-linecap="round"
+        transform="rotate(120, 200, 200)"
+
+
+     />
+
+
+
+<!-- target pointer 
+  rotated to angle
+-->
+<path id="windDial.stbdBeatPtr" d="M200 4 l7 11 -14 0 7 -11  " stroke="#333"
+fill="orange"
+    filter="url(#windDial.blur)"
+    style="transition: transform 0.3s;" 
+    transform="rotate(28, 200, 200)" />
+<path id="windDial.portBeatPtr"  d="M200 4 l7 11 -14 0 7 -11  " stroke="#333"
+fill="orange"
+    filter="url(#windDial.blur)"
+    style="transition: transform 0.3s;" 
+    transform="rotate(-28, 200, 200)" />
+
+<path id="windDial.stbdRunPtr" d="M200 4 l7 11 -14 0 7 -11  " stroke="#333"
+fill="yellow"
+    filter="url(#windDial.blur)"
+    style="transition: transform 0.3s;" 
+    transform="rotate(152, 200, 200)" />
+<path id="windDial.portRunPtr" d="M200 4 l7 11 -14 0 7 -11  " stroke="#333"
+fill="yellow"
+    filter="url(#windDial.blur)"
+    style="transition: transform 0.3s;" 
+    transform="rotate(-152, 200, 200)" />
+
+
+<!-- true wind pointer -->
+<g id="windDial.twapointer" 
+    transform="rotate(26, 200, 200)"
+    filter="url(#windDial.blur)"
+    style="transition: transform 0.3s;" 
+    >
+ 
+    <path d="M200 30 l14 20 -14 50 -14 -50 14 -20" fill="yellow" />
+    <path d="M200 3 l0 35" stroke="yellow" />
+    <text x="200" y="50" alignment-baseline="middle" text-anchor="middle"
+        fill="black">T</text>
+</g>
+
+<!-- aparent wind pointer -->
+ 
+
+  <circle
+        id="windDial.windZone"
+       cx="200"
+       cy="200"
+       fill="transparent"
+       stroke="orange"
+       r="170"
+       stroke-width="2"
+       stroke-linecap="round"
+       stroke-dasharray="120 1068" 
+        transform="rotate(285, 200, 200)"
+        filter="url(#windDial.blur)"
+        style="transition: transform 0.3s;"
+     />
+
+<g id="windDial.awapointer" 
+    transform="rotate(24, 200, 200)"
+    filter="url(#windDial.blur)"
+    style="transition: transform 0.3s;" >
+ 
+    <circle 
+        cx=200
+        cy=40
+        stroke-width=15
+        r=6
+        stroke="orange"
+        fill="#333"
+        />
+    <path d="M200 45 l12.5 0 -12.5 30 -12.5 -30 12.5 0"  fill="orange" />
+    <path d="M200 3 l0 25" stroke="orange" />
+    <text x="200" y="40" alignment-baseline="middle" text-anchor="middle"
+        fill="black">A</text>
+</g>
+
+
+  <circle
+       cx="200"
+       cy="200"
+       fill="transparent"
+       stroke="grey"
+       r="200"
+       stroke-width="1"
+     />
+
+<!-- boat -->
+
+<path d="M200 110 A 60 120 -5 0 0 180 285 
+         M200 110 A 60 120 5 0 1 220 285 
+         l -40 0 " 
+stroke-width="1"
+stroke="#222" fill="#444" 
+filter="url(#windDial.blur)" />
+
+<!-- detail text -->
+   <text x="200" y="160"  text-anchor="middle"
+    fill="white">AWS</text>
+   <text x="200" y="200"  text-anchor="middle"
+    fill="white"
+    style=" font-size: 3rem;"
+    >12.5</text>
+   <text x="200" y="230"  text-anchor="middle"
+    fill="white">AWA</text>
+   <text x="200" y="270"  text-anchor="middle"
+    fill="white"
+    style=" font-size: 3rem;"
+    >P24</text>
+
+
+
+<!-- rung numbers -->
+   <text x="200" y="25" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(30, 200, 200)"
+    >20</text>
+   <text x="200" y="25" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(60, 200, 200)"
+    >30</text>
+   <text x="200" y="25" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(90, 200, 200)"
+    >40</text>
+
+   <text x="200" y="25" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(-30, 200, 200)"
+    >20</text>
+   <text x="200" y="25" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(-60, 200, 200)"
+    >30</text>
+   <text x="200" y="25" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(-90, 200, 200)"
+    >40</text>
+
+   <text x="200" y="375" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(60, 200, 200)"
+    >50</text>
+   <text x="200" y="375" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(30, 200, 200)"
+    >60</text>
+   <text x="200" y="375" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(-60, 200, 200)"
+    >50</text>
+   <text x="200" y="375" alignment-baseline="middle" text-anchor="middle"
+    fill="white"
+    transform="rotate(-30, 200, 200)"
+    >60</text>
+
+<!-- major markers -->
+
+   <use href="#windDial.majorTick" transform="rotate(0, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(180, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(-30, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(-60, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(-90, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(-120, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(-150, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(30, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(60, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(90, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(120, 200, 200)" />
+   <use href="#windDial.majorTick" transform="rotate(150, 200, 200)" />
+
+<!-- minor markers -->
+
+   <use href="#windDial.minorTick" transform="rotate(-45, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(-75, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(-105, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(-135, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(45, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(75, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(105, 200, 200)" />
+   <use href="#windDial.minorTick" transform="rotate(135, 200, 200)" />
+  
+
+
+<!--- close haulted ticks -->
+   <use href="#windDial.miniTick" transform="rotate(-33, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-36, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-39, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-42, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(-48, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-51, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-54, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-57, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(-63, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-66, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-69, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-72, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(-78, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-81, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-84, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-87, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(-93, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-96, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-99, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(-102, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(33, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(36, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(39, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(42, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(48, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(51, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(54, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(57, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(63, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(66, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(69, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(72, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(78, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(81, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(84, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(87, 200, 200)" />
+
+   <use href="#windDial.miniTick" transform="rotate(93, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(96, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(99, 200, 200)" />
+   <use href="#windDial.miniTick" transform="rotate(102, 200, 200)" />
+
+
+</svg>
+<script type="text/javascript">
+let count = 0;
+xsetInterval(() => {
+    count++;
+    const twa = (count*5)%360;
+    const awa = (count*8)%360;
+    const targetBeatAwa = 20+(count%20);
+    const targetRunTwa = 170-(count%20)*2;
+    document.getElementById('windDial.awapointer')
+        .setAttribute('transform', `rotate(${awa}, 200, 200)`);
+    document.getElementById('windDial.twapointer')
+        .setAttribute('transform', `rotate(${twa}, 200, 200)`);
+
+    document.getElementById('windDial.stbdBeatPtr')
+        .setAttribute('transform', `rotate(${targetBeatAwa}, 200, 200)`);
+    document.getElementById('windDial.portBeatPtr')
+        .setAttribute('transform', `rotate(${-targetBeatAwa}, 200, 200)`);
+    document.getElementById('windDial.stbdRunPtr')
+        .setAttribute('transform', `rotate(${targetRunTwa}, 200, 200)`);
+    document.getElementById('windDial.portRunPtr')
+        .setAttribute('transform', `rotate(${-targetRunTwa}, 200, 200)`);
+
+
+    const maxAwa = awa + ((count%6)-3)*4;
+    const minAwa = awa - ((count%8)-3)*4;
+    const meanAwa = ( minAwa + maxAwa )/2;  // not really mean
+    const angleDevitation = Math.abs(maxAwa-minAwa);
+    const dashWidth = (angleDevitation/360)*1068;
+    const rotate = (meanAwa - angleDevitation/2) - 90;
+    document.getElementById('windDial.windZone')
+        .setAttribute('transform', `rotate(${rotate}, 200, 200)`);
+    document.getElementById('windDial.windZone')
+        .setAttribute('stroke-dasharray', `${dashWidth} 1068`);
+
+
+
+}, 1000); 
+</script>
+
+
+
+<svg id="currentWidget" height="200" width="200" class="guage" >
+    <defs>
+        <linearGradient id="currentGradCharge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="15%" stop-color="orange" stop-opacity="1"></stop>
+            <stop offset="85%" stop-color="yellow" stop-opacity="1"></stop>
+        </linearGradient>
+        <linearGradient id="currentGradDischarge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="15%" stop-color="red" stop-opacity="1"></stop>
+            <stop offset="85%" stop-color="blue" stop-opacity="1"></stop>
+        </linearGradient>
+        <filter id="batteryDial.blur">
+            <feDropShadow
+                dx="0"
+                dy="0"
+                stdDeviation="5"
+                flood-color="#000"
+                flood-opacity="1" />
+        </filter>
+
+       <path
+         id="guageCurrentTextPath"
+         fill="none"
+         stroke="red"
+         d="M64.64,64.64 A 50 50 0 0 1 135.35,64.64" />
+
+       <path
+         id="guageStateOfChargeTextPath"
+         fill="none"
+         stroke="red"
+         d="M64.64,135.35 A 50 50 0 0 0 135.35,135.35" />
+    </defs>
+
+    <!-- the stroke color indicates charg vs discharge
+         the dasharray dash is the %, full scale is pi*d*270/360.
+         dash is percent*full scale is pi*d*270/360
+     -->
+
+      <circle
+       class="guageBase"
+       id="currentBase"
+       cx="100"
+       cy="100"
+       fill="transparent"
+       stroke="gray"
+       r="75"
+       stroke-width="25"
+       stroke-dasharray="353 471"
+       filter="url(#batteryDial.blur)"
+
+       transform="rotate(135, 100, 100)"
+     />
+     <circle
+        class="guagePercent"
+        id="currentGuage"
+        cx="100"
+        cy="100"
+        fill="transparent"
+        r=75
+        stroke="url(#currentGradCharge)"
+        stroke-width="25"
+        stroke-dasharray="87 471"
+        transform="rotate(135, 100, 100)"
+        style="transition: stroke-dasharray 0.3s"
+      />
+
+     <!-- bottom arc charge
+       green filling the whole arc
+       overlayed by dark grey giving the impression that the green 
+       sector is the qauge, easier to do but the dash array for the grey sector has 
+       to be adjusted to 1-% 
+       full scale is 0 dash
+       0 is pi*d*90/360
+       dash is (1-percent)*(p*d*90/360)
+     -->
+    <circle 
+        class="guageSubBase"
+        id="stateOfChargeBase"
+        cx="100" 
+        cy="100" 
+        fill="transparent" 
+        stroke="green" 
+        r="75" 
+        stroke-width="25" 
+        stroke-dasharray="120 471" 
+        transform="rotate(45, 100, 100)" 
+        style="transition: stroke 0.3s"
+        />
+
+    <circle 
+        class="guageSubPercent"
+        id="chargeGuage"
+        cx="100" 
+        cy="100" 
+        fill="transparent" 
+        stroke="darkgrey" 
+        r="75" 
+        stroke-width="25" 
+        stroke-dasharray="90 471" 
+        transform="rotate(45, 100, 100)" 
+        style="transition: stroke-dasharray 0.3s"
+      />
+
+   
+
+    <!-- annotations 
+    current in the center.
+    soc and voltage below that.
+    -->
+    <text id="guageVoltageText" x="100" y="100" alignment-baseline="middle" text-anchor="middle" fill="white">?v</text>
+    <text text-anchor="middle" >
+       <textPath id="guageCurrentText" startOffset="50%" alignment-baseline="middle" href="#guageCurrentTextPath" fill="white">?A</textPath>
+    </text>
+    <text text-anchor="middle"  >
+       <textPath id="guageStateOfChargeText" startOffset="50%" alignment-baseline="middle" href="#guageStateOfChargeTextPath" fill="white">?Ah</textPath>
+    </text>
+
+</svg>
+
+<script type="text/javascript">
+    
+
+const updateGuage = (statusUpdate) => {
+    document.getElementById('guageVoltageText').innerHTML = `${statusUpdate.voltage.toFixed(2)}V`;
+    document.getElementById('guageCurrentText').innerHTML = `${statusUpdate.current.toFixed(1)}A`;
+    const stateOfChargeAh = (statusUpdate.capacity.stateOfCharge / 100)
+      * statusUpdate.capacity.fullCapacity;
+    document.getElementById('guageStateOfChargeText').innerHTML = `${stateOfChargeAh.toFixed(0)}Ah`;
+    document.getElementById('currentWidget').setAttribute('class', (statusUpdate.current > 0)?'charging':'discharging');
+
+
+    const currentGuage = document.getElementById('currentGuage');
+
+    const currentGuageLength = (Math.abs(statusUpdate.current) / 100) * 353;
+    currentGuage.setAttribute('stroke-dasharray', `${currentGuageLength} 471`);
+    if (statusUpdate.current > 0) {
+      currentGuage.setAttribute('stroke', 'url(#currentGradCharge)');
+    } else {
+      currentGuage.setAttribute('stroke', 'url(#currentGradDischarge)');
+    }
+
+    const stateOfChargeGauge = document.getElementById('chargeGuage');
+    const stateOfChargeBase = document.getElementById('stateOfChargeBase');
+
+    const stateOfChageLength = 120 - (statusUpdate.capacity.stateOfCharge / 100) * 120;
+    stateOfChargeGauge.setAttribute('stroke-dasharray', `${stateOfChageLength} 471`);
+
+    const socp = Math.min(100, 10 * Math.floor((statusUpdate.capacity.stateOfCharge + 5) / 10));
+    stateOfChargeBase.setAttribute('class', `guageSubBase_${socp}`);
+};
+
+let count2 = 0;
+setInterval(() => {
+    count2++;
+    const voltage = 11+(count2%10)*0.2;
+    const current = -100+((count2))*2;
+    const stateOfCharge = Math.min(100,10+(count2%20)*5);
+    const fullCapacity = 304;
+    updateGuage({
+        voltage,
+        current,
+        capacity: {
+            stateOfCharge,
+            fullCapacity
+        }
+    })
+}, 1000);
+
+</script>
+</body>

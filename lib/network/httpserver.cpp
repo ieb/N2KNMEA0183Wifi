@@ -18,8 +18,8 @@ void WebServer::begin(const char * configurationFile) {
         return;
     }
 
-    MDNS.begin("boatsystems");
     MDNS.addService("_http","_tcp",80);
+
 
     server.addHandler(&n0183WS);
     server.addHandler(&n2kWS);

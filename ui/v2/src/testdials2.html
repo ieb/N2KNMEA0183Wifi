@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+
+        <style type="text/css">
+          body {
+            font-family: Arial, sans-serif;
+          }
+          .lcd {
+            border-radius: 3px;
+            border-color: grey;
+            border-style: solid;
+            width: 5rem;
+            padding: 2px;
+            text-align: center;
+          }
+          .lcds {
+            display: inline-flex;
+          }
+
+
+        </style>
+
+    </head>
+    <body>
+<div class="lcds" >
+<div class="lcdBox coolantDial">
+  <div id="coolant" class="lcd">-.-</div>
+</div>
+
+<div class="lcdBox rpmDial">
+  <div id="rpm" class="lcd">-.-</div>
+</div>
+
+<div class="lcdBox fuelGuage">
+  <div id="fuel" class="lcd">-.-</div>
+</div>
+</div>
+
+
+
+<script type="text/javascript">
+  alert("testing");
+  rpm = 0;
+  fuelPercent = 0;
+  coolantTemp = 0;
+
+  function update() {
+    coolantTemp = coolantTemp+10;
+    if ( coolantTemp > 110) {
+      coolantTemp = 10;
+    }
+    rpm = rpm + 200;
+    if ( rpm > 4000 ) {
+      rpm = 0;
+    }
+    fuelPercent = fuelPercent + 3;
+    if ( fuelPercent > 100) {
+      fuelPercent = 0;
+    }
+    document.getElementById("coolant").innerHTML = coolantTemp.toFixed(1)+' &deg;C';
+    document.getElementById("rpm").innerHTML = rpm.toFixed(0);
+    document.getElementById("fuel").innerHTML = fuelPercent.toFixed(0)+' %';
+  }
+  setInterval(update, 1000);
+</script>
+
+    </body>
+</html>

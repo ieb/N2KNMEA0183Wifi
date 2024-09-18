@@ -1,0 +1,37 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" >
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1">
+<metadata>
+Created by FontForge 20190801 at Thu Mar 23 20:16:22 2023
+ By root
+Copyright (c) Font Awesome
+</metadata>
+<defs>
+<font id="FontAwesome6Free-Regular" horiz-adv-x="512" >
+  <font-face 
+    font-family="Font Awesome 6 Free Regular"
+    font-weight="400"
+    font-stretch="normal"
+    units-per-em="512"
+    panose-1="2 0 5 3 0 0 0 0 0 0"
+    ascent="448"
+    descent="-64"
+    x-height="410"
+    bbox="-0.4 -64.2667 640.143 448.143"
+    underline-thickness="0"
+    underline-position="0"
+    unicode-range="U+F06E-F070"
+  />
+<missing-glyph horiz-adv-x="384" 
+d="M48 26l115 166l-115 166v-332v0zM77 -16h230l-115 166l-115 -166v0zM221 192l115 -166v332l-115 -166v0zM307 400h-230l115 -166l115 166v0zM0 400q1 20 14 34v0q14 13 34 14h288q20 -1 34 -14q13 -14 14 -34v-416q-1 -20 -14 -34q-14 -13 -34 -14h-288q-20 1 -34 14
+q-13 14 -14 34v416v0z" />
+<glyph glyph-name="uniF070" unicode="&#xf070;" horiz-adv-x="640" 
+d="M39 443q-19 12 -34 -4q-12 -19 4 -34l592 -464q19 -12 34 4q12 19 -4 34l-105 82q29 31 49 63q20 31 31 56q4 12 0 24q-12 28 -35 63t-58 68q-36 34 -84 57t-109 24q-51 -1 -94 -17q-42 -17 -75 -44l-112 88v0zM190 325q54 41 130 43q49 -1 89 -20q40 -18 71 -48
+q29 -27 49 -56q19 -29 30 -52q-10 -21 -28 -48t-43 -53l-54 42q14 27 14 59q-1 54 -37 91q-37 36 -91 37q-49 -1 -84 -31l-46 36v0zM395 164l-82 64q7 13 7 28q0 8 -2 16h2q34 -1 57 -23q22 -23 23 -57q0 -15 -5 -28v0zM404 33q-38 -16 -84 -17q-49 1 -89 20q-40 18 -71 48
+q-29 27 -49 56q-19 29 -30 52q13 29 40 65l-38 29q-34 -46 -48 -82q-5 -12 0 -24q11 -28 34 -63t59 -68q35 -34 83 -57t109 -24q72 2 126 32l-42 33v0zM192 192q1 -54 37 -91v0q37 -36 91 -37q20 0 38 6l-56 44q-37 9 -54 42l-56 44v-8v0z" />
+    <glyph glyph-name="u1F441" unicode="&#xf06e;" horiz-adv-x="576" 
+d="M288 368q-49 -1 -89 -20v0q-40 -18 -71 -48q-29 -27 -49 -56q-19 -29 -30 -52q11 -23 30 -52q20 -29 49 -56q31 -30 71 -48q40 -19 89 -20q49 1 89 20q40 18 71 48q29 27 49 56q19 29 30 52q-11 23 -30 52q-20 29 -49 56q-31 30 -71 48q-40 19 -89 20v0zM95 335
+q36 34 84 57v0q48 23 109 24q61 -1 109 -24t84 -57q35 -33 58 -68t35 -63q5 -12 0 -24q-12 -28 -35 -63t-58 -68q-36 -34 -84 -57t-109 -24q-61 1 -109 24t-84 57q-35 33 -58 68t-34 63q-5 12 0 24q11 28 34 63t58 68v0zM288 112q34 1 57 23v0q22 23 23 57q-1 34 -23 57
+q-23 22 -57 23h-1h-1q2 -8 2 -16q-1 -27 -19 -45t-45 -19q-8 0 -16 2v-1v-1q1 -34 23 -57q23 -22 57 -23v0zM288 320q35 0 64 -17v0q29 -17 47 -47q17 -30 17 -64t-17 -64q-18 -30 -47 -47t-64 -17t-64 17t-47 47q-17 30 -17 64t17 64q18 30 47 47t64 17v0z" />
+  </font>
+</defs></svg>

@@ -57,6 +57,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "network.h"
 #include "logbook.h"
 #include "Seasmart.h"
+#include <ESPmDNS.h>
 
 
 #include "esp32-hal-psram.h"
@@ -76,9 +77,11 @@ LogBook logbook;
 Wifi wifi(OutputStream);
 WebServer webServer(OutputStream);
 EchoServer echoServer(OutputStream);
-TcpServer nmeaServer(OutputStream, 10110, 10);
-UdpSender nmeaSender(OutputStream, 10110);
+TcpServer nmeaServer(OutputStream, 10110);
 
+#ifdef NMEA0183_UDP
+UdpSender nmeaSender(OutputStream, 10110);
+#endif
 
 NMEA0183N2KMessages messageEncoder;
 //N2KMessageEncoder pgnEncoder;
@@ -137,11 +140,17 @@ const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
 
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
     static char wsBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
+    static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
     static unsigned long flushTTL = millis();
     static size_t wsOffset = 0;
     listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
     n2kHander.handle(N2kMsg);
+
+    if ( nmeaServer.acceptN2k(N2kMsg.PGN)) {
+      N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
+      nmeaServer.sendN2k(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
+    }
 
     // flush the ws buffer if required.
     unsigned long now = millis();
@@ -175,8 +184,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
 }
 
 void showHelp() {
-  OutputStream->println("Device analyzer started.");
-  OutputStream->println("  - Analyzer will automatically print new list on list changes.");
+  OutputStream->println("N2KWifi Bridge.");
   OutputStream->println("  - Send 'h' to show this message");
   OutputStream->println("  - Send 's' to show status");
   OutputStream->println("  - Send 'u' to print latest list of devices");
@@ -190,7 +198,9 @@ void showHelp() {
 
 void SendNMEA0183Message(const char * buf) {
   nmeaServer.sendBufToClients(buf); // TCP
-  nmeaSender.sendBufToClients(buf);
+#ifdef NMEA0183_UDP
+nmeaSender.sendBufToClients(buf); // UDP
+#endif
   webServer.sendN0183(buf); // websocket
 }
 
@@ -206,10 +216,16 @@ void setup() {
   }
   // Start the wifi
   wifi.begin();
+
+  // start MDNS  so others can register.
+  MDNS.begin("boatsystems");
+
   echoServer.begin();
   nmeaServer.begin();
+#ifdef NMEA0183_UDP
   nmeaSender.begin();
   nmeaSender.setDestination(wifi.getBroadcastIP());
+#endif
 
   webServer.setStoreCallback([](Print *stream) {
     n2kHander.output(stream); // H,...
@@ -227,7 +243,7 @@ void setup() {
   // Set Product information
   NMEA2000.SetProductInformation("00000003", // Manufacturer's Model SerialIO code
                                  100, // Manufacturer's product code
-                                 "N2k bus device analyzer",  // Manufacturer's Model ID
+                                 "N2k Wifi bridge",  // Manufacturer's Model ID
                                  "1.0.0.10 (2017-07-29)",  // Manufacturer's Software version code
                                  "1.0.0.0 (2017-07-12)" // Manufacturer's Model version
                                 );
@@ -277,6 +293,7 @@ void showStatus() {
   Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
 
   wifi.printStatus();
+  nmeaServer.status();
 }
 
 //*****************************************************************************
@@ -324,7 +341,9 @@ void CheckCommand() {
         } else {
           wifi.startAP();
         }
+#ifdef NMEA0183_UDP
         nmeaSender.setDestination(wifi.getBroadcastIP());
+#endif
         break;
     }
   }
@@ -379,7 +398,7 @@ void endTimer(int i) {
 void loop() { 
 
   NMEA2000.ParseMessages();
+  nmeaServer.handle();
   CheckCommand();
   echoServer.handle();
-  nmeaServer.checkConnections();
 }

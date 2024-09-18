@@ -22,7 +22,7 @@ void N2KFrameFilter::begin(const char * configurationFile) {
     // no filters defined.
     endFilters = 0;
   }
-  Serial.print("N2K Filtering Config n:");
+  Serial.print("N2K pgn drop list n:");
   Serial.print(endFilters);
   Serial.print(" filters:");
   for(int i = 0; i < endFilters; i++) {
