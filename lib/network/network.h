@@ -9,8 +9,9 @@
 #include "tcpserver.h"
 #include "udpsender.h"
 #include "httpstream.h"
+#ifdef ENABLE_WEBSOCKETS
 #include "pgnwebsocket.h"
-
+#endif
 
 #ifndef WIFI_SSID
 #error "WIFI_SSID not defined, add in local_secrets.h file"

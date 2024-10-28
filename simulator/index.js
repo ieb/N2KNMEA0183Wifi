@@ -18,8 +18,18 @@ const sim = new Simulator();
 
 
 server.on('request', (req, res) => {
+  if ( req.headers.origin ) {
+    res.setHeader("Access-Control-Max-Age", "600");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization");
+    // Origin from a browser is protected.
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");              
+  }
+
   const { pathname } = new URL(req.url, 'http://base.url');
   if (pathname === '/api/seasmart') {
+    console.log(`${req.method} ${req.url} 200`);
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     seaSmartResponses.push(res);
     req.on('close', () => {
@@ -27,12 +37,14 @@ server.on('request', (req, res) => {
       seaSmartResponses = seaSmartResponses.filter((r) => (r !== res));
     });
   } else if ( pathname === '/api/nmea0183') {
+    console.log(`${req.method} ${req.url} 200`);
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     nmea0183Responses.push(res);
     req.on('close', () => {
       nmea0183Responses = nmea0183Responses.filter((r) => (r !== res));
     });    
   } else {
+    console.log(`${req.method} ${req.url} 404`);
     console.log("Pathname ", pathname);
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end("NotFound");
@@ -112,15 +124,14 @@ const parseCanData = (line) => {
       + canFrame.pgn.toString(16).toUpperCase().padStart(6,'0') + ','
       + canFrame.timestamp.toString(16).toUpperCase().padStart(8,'0') + ','
       + canFrame.src.toString(16).toUpperCase().padStart(2,'0')+ ','
-      + canFrame.msg;
+      + canFrame.msg.toUpperCase();
 
     let checkSum = 0;
     for (let i = 1; i < canFrame.pcdin.length; i++) {
       checkSum^=canFrame.pcdin.charCodeAt(i);
     }
-    canFrame.pcdin = canFrame.pcdin + "*"+checkSum.toString(16).padStart(2,'0');
+    canFrame.pcdin = canFrame.pcdin + "*"+checkSum.toString(16).padStart(2,'0').toUpperCase();
   }
-  console.log(canFrame.pcdin);
   return canFrame;
 };
 
@@ -143,7 +154,6 @@ let lastFrame = Date.now();
 const emitFrame = () => {
   const f = canData[line];
   if (f.pcdin) {
-    console.log("Send ",line, f.pgn, f.pcdin);
     sendSeaSmartChunked(f.pgn, f.pcdin);
   }
   line = (line+1)%canData.length;

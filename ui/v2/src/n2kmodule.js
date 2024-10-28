@@ -124,14 +124,14 @@ class ChunkedSeaSmartStream {
   async keepRunning() {
     const response = await fetch(this.url);
     let buffer = '';
-    for await (const chunk of response.body) {
+    for await (const chunk of response.body.pipeThrough(new TextDecoderStream())) {
       // Do something with each "chunk"
       // the chunk may be incomplete, so we need the parser to return what it didnt parse.
       buffer += chunk;
       this.lastMessage = Date.now();
       const lastNL = buffer.lastIndexOf('\n');
       if (lastNL !== -1) {
-        this.seasmartParser.parseSeaSmartMessages(buffer.substring(0, lastNL + 1));
+        this.seasmartParser.parseSeaSmartMessages({ data: buffer.substring(0, lastNL + 1) });
         buffer = buffer.substring(lastNL + 1);
       }
       if (this.stopRuning) {
@@ -142,6 +142,7 @@ class ChunkedSeaSmartStream {
   }
 }
 
+/*
 class SeaSmartStream {
   constructor(seasmartParser) {
     this.startsWith = undefined;
@@ -194,6 +195,7 @@ class SeaSmartStream {
     }
   }
 }
+*/
 
 class Store extends EventEmitter {
   constructor() {
@@ -626,12 +628,12 @@ class StoreAPIImpl {
     registerNavMessages(this.decoder.messages);
 
     this.seasmartParser = new SeaSmartParser(this.decoder);
-    this.seasmart = new SeaSmartStream(this.seasmartParser);
+    this.seasmart = new ChunkedSeaSmartStream(this.seasmartParser);
     this.messageCount = 0;
     if (window.location.protocol === 'https') {
-      this.url = `wss://${window.location.hostname}/ws/seasmart`;
+      this.url = `https://${window.location.hostname}/api/seasmart`;
     } else {
-      this.url = `ws://${window.location.hostname}/ws/seasmart`;
+      this.url = `http://${window.location.hostname}/api/seasmart`;
     }
     this.seasmartParser.addListener('n2kdecoded', (decoded) => {
       this.messageCount++;
@@ -649,14 +651,10 @@ class StoreAPIImpl {
     // otherwise try and get from local storage.
     // if nothing in local storage do nothing.
     if (url) {
-      if (url.port !== '') {
-        this.url = `ws://${url.host}:${url.port}/ws/seasmart`;
-      } else {
-        this.url = `ws://${url.host}/ws/seasmart`;
-      }
+      this.url = `http://${url.host}/api/seasmart`;
     }
     // eslint-disable-next-line no-console
-    console.log('Starting websocket on ', this.url);
+    console.log('Starting chunked on ', this.url);
     this.seasmart.start(this.url);
   }
 
