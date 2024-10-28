@@ -85,6 +85,63 @@ class SeaSmartParser extends EventEmitter {
   }
 }
 
+class ChunkedSeaSmartStream {
+  constructor(seasmartParser) {
+    this.seasmartParser = seasmartParser;
+    this.keepUp = false;
+    this.url = undefined;
+    setInterval(() => {
+      if (this.keepUp) {
+        if ((Date.now() - this.lastMessage) > 10000) {
+          // eslint-disable-next-line no-console
+          this.stopRunning = () => {
+            this.stopRunning = undefined;
+            console.log('Chunked reconnect');
+            this.keepRunning().then(() => {
+              console.log('Chunked disconnect');
+            });
+          };
+        }
+      }
+    }, 10000);
+  }
+
+  start(url) {
+    this.keepUp = true;
+    this.url = url;
+    this.keepRunning().then(() => {
+      console.log('Chunked disconnect');
+    });
+  }
+
+  stop() {
+    this.keepUp = false;
+    this.stopRunning = () => {
+      this.stopRunning = undefined;
+    };
+  }
+
+  async keepRunning() {
+    const response = await fetch(this.url);
+    let buffer = '';
+    for await (const chunk of response.body) {
+      // Do something with each "chunk"
+      // the chunk may be incomplete, so we need the parser to return what it didnt parse.
+      buffer += chunk;
+      this.lastMessage = Date.now();
+      const lastNL = buffer.lastIndexOf('\n');
+      if (lastNL !== -1) {
+        this.seasmartParser.parseSeaSmartMessages(buffer.substring(0, lastNL + 1));
+        buffer = buffer.substring(lastNL + 1);
+      }
+      if (this.stopRuning) {
+        this.stopRunning();
+        break;
+      }
+    }
+  }
+}
+
 class SeaSmartStream {
   constructor(seasmartParser) {
     this.startsWith = undefined;

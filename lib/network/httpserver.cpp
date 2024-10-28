@@ -11,6 +11,7 @@
 
 
 
+
 void WebServer::begin(const char * configurationFile) {
       // Initialize SPIFFS
     if(!SPIFFS.begin(false)){
@@ -20,12 +21,39 @@ void WebServer::begin(const char * configurationFile) {
 
     MDNS.addService("_http","_tcp",80);
 
+#ifdef ENABLE_WEBSOCKETS
+    //server.addHandler(&n0183WS);
+    //server.addHandler(&n2kWS);
+    //server.addHandler(&n2kWSraw);
+    //n2kWS.begin();
+    //n2kWSraw.begin();
+#endif
 
-    server.addHandler(&n0183WS);
-    server.addHandler(&n2kWS);
-    server.addHandler(&n2kWSraw);
-    n2kWS.begin();
-    n2kWSraw.begin();
+    server.on("/api/seasmart", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        // these will keep sending chunks as long as the client is connected.
+        String pgns = "all";
+        if ( request->hasParam("pgns") ) {
+            AsyncWebParameter * op = request->getParam("pgns");
+            pgns = op->value();
+        }
+        SeasmartResponseStream * response = new SeasmartResponseStream(outputStream, "text/plain", request);
+        Serial.print("Registering stream "); Serial.println((int) response);
+        this->addSeasmartResponse(response);
+        request->onDisconnect([this, response](void){
+            Serial.print("Remove stream "); Serial.println((int) response);
+            this->removeSeasmartResponse(response);
+        });
+        this->addCORS(request, response);
+        Serial.print("Send stream "); Serial.println((int) response);
+        request->send(response);
+        Serial.print("Done response setup "); Serial.println((int) response);
+    });
+    server.on("/api/nmea0183", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        // this will keep sending chunks as long as the client is connected.
+        ChunkedResponseStream * response = new ChunkedResponseStream("text/plain", &nmea0183OutputBuffer);
+        addCORS(request, response);
+        request->send(response);
+    });
 
 
     // store contents in NMEA2000 raw units as csv lines.
@@ -143,6 +171,7 @@ void WebServer::begin(const char * configurationFile) {
             request->send(response);
         } else {
             String layoutFile = "/layout-";
+            // checked
             layoutFile = layoutFile + layout->value() + ".json";
             outputStream->println(layoutFile);
             AsyncWebServerResponse * fileResponse = request->beginResponse(SPIFFS, layoutFile, "application/json");
@@ -402,6 +431,7 @@ void WebServer::addCORS(AsyncWebServerRequest *request, AsyncWebServerResponse *
             response->addHeader("Access-Control-Max-Age", "600");
             response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
             response->addHeader("Access-Control-Allow-Headers", "Authorization");
+            // Origin from a browser is protected.
             response->addHeader("Access-Control-Allow-Origin", originValue);
             response->addHeader("Access-Control-Allow-Credentials", "true");            
         }
@@ -411,12 +441,102 @@ void WebServer::addCORS(AsyncWebServerRequest *request, AsyncWebServerResponse *
 
 
 void WebServer::sendN0183(const char *buffer) {
+#ifdef ENABLE_WEBSOCKETS
     n0183WS.textAll(buffer);
+#endif
+    nmea0183OutputBuffer.writeLine(buffer);
+
 }
+
+#ifdef ENABLE_WEBSOCKETS
 void WebServer::sendN2K(const char *buffer) {
     n2kWS.send(buffer);
 }
+#endif
 
+
+void WebServer::printStatus() {
+    SeasmartResponseStream *headStream = seasmartStreamsHead;
+    while(headStream != NULL ) {
+        headStream->printStatus();
+        headStream = headStream->nextStream;
+    }
+}
+
+
+// Handling for a linked list of active seasmart response streams.
+
+bool WebServer::acceptSeaSmart(unsigned long pgn) {
+    SeasmartResponseStream *headStream = seasmartStreamsHead;
+    while(headStream != NULL ) {
+        if ( headStream->acceptPgn(pgn) ) {
+            return true;
+        }
+        headStream = headStream->nextStream;
+    }
+    return false;    
+}
+
+void WebServer::sendSeaSmart(unsigned long pgn, const char *buffer) {
+    SeasmartResponseStream *headStream = seasmartStreamsHead;
+    while(headStream != NULL ) {
+        if ( headStream->acceptPgn(pgn) ) {
+            headStream->writeLine(buffer);
+        }
+        headStream = headStream->nextStream;
+    }
+}
+
+
+
+
+void WebServer::addSeasmartResponse(SeasmartResponseStream * response) {
+    // no list, start a new one.
+    /*Serial.print("Cheking pointer "); Serial.println((int) response);
+    if ( response->acceptPgn(12343) ) {
+        Serial.println("Checked true, ok");
+    } else {
+        Serial.println("Checked false, ok");
+    } */
+    if ( seasmartStreamsHead == NULL ) {
+        Serial.print("Core:");
+        Serial.print(xPortGetCoreID());
+        Serial.print("Add "); Serial.println((int) response);
+        seasmartStreamsHead = response;
+        return;
+    }
+    // add the response to the end of the linked list of responses.
+    SeasmartResponseStream *headStream = seasmartStreamsHead;
+    while(headStream->nextStream != NULL ) {
+        headStream = headStream->nextStream;
+    }
+        Serial.print("Core:");
+        Serial.print(xPortGetCoreID());
+    Serial.print("Add "); Serial.println((int) response);
+    headStream->nextStream = response;
+}
+
+/** 
+ * remove the response from the linked list of seasmartStreams.
+ */ 
+void WebServer::removeSeasmartResponse(SeasmartResponseStream * response) {
+    if ( seasmartStreamsHead != NULL ) {
+        // first entry in the list, remove it and make the next 
+        // entry the first, which could be NULL.
+        if (seasmartStreamsHead == response) {
+            seasmartStreamsHead = seasmartStreamsHead->nextStream;
+            return;
+        }
+        SeasmartResponseStream *headStream = seasmartStreamsHead;
+        while(headStream->nextStream != NULL) {
+            if ( headStream->nextStream == response) {
+                headStream->nextStream = response->nextStream;
+                return;
+            }
+            headStream = headStream->nextStream;
+        }
+    }
+}
 
 
 

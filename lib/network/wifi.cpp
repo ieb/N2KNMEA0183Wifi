@@ -98,7 +98,7 @@ void Wifi::loadWifiPower(String key) {
             maxWifiPower = WIFI_POWER_2dBm;
         }
     } else {
-        maxWifiPower = WIFI_POWER_5dBm;
+        maxWifiPower = WIFI_POWER_11dBm;
     }
 }
 

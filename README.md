@@ -504,3 +504,44 @@ Wires
 Due to the additional touch pins a fresh PCB is probably needed.
 
 
+
+# Firmware crash
+
+PgnFilter ,5,128259,130306,127250,127257,127258,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+ws[/ws/seasmart][6] error(1002): WebSocket Protocol Error
+ws[/ws/seasmart][6] disconnect
+ws[/ws/seasmart][7] connect
+ws[/ws/seasmart][7] pong[0]: 
+Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+Core 1 register dump:
+PC      : 0x400da7fb  PS      : 0x00060630  A0      : 0x800db1d1  A1      : 0x3ffb1cd0  
+A2      : 0x3ffc31ec  A3      : 0x3ffd26b4  A4      : 0x00000001  A5      : 0x3ffc325c  
+A6      : 0x00000000  A7      : 0x3ffc7fd8  A8      : 0x800da830  A9      : 0x3ffb1cb0  
+A10     : 0x3ffd26b4  A11     : 0x3ffd26b4  A12     : 0x3ffb5110  A13     : 0x00000000  
+A14     : 0x00000000  A15     : 0x00000034  SAR     : 0x00000010  EXCCAUSE: 0x0000001c  
+EXCVADDR: 0x00000001  LBEG    : 0x4000c349  LEND    : 0x4000c36b  LCOUNT  : 0x00000000  
+
+ELF file SHA256: 0000000000000000
+
+Backtrace: 0x400da7fb:0x3ffb1cd0 0x400db1ce:0x3ffb1d00 0x400db1e7:0x3ffb1d20 0x400db1fd:0x3ffb1d40 0x400db20d:0x3ffb1d60 0x400ea220:0x3ffb1d80 0x400d1b4e:0x3ffb1da0 0x400eef46:0x3ffb1dc0 0x400eef9d:0x3ffb1de0 0x400ee570:0x3ffb1e10 0x400eed32:0x3ffb1e70 0x400d1a41:0x3ffb1f10 0x4019a42e:0x3ffb1f30 0x400d6859:0x3ffb1f50 0x400d1e78:0x3ffb1f90 0x400f3370:0x3ffb1fb0 0x400899d2:0x3ffb1fd0
+  #0  0x400da7fb:0x3ffb1cd0 in AsyncWebSocket::_cleanBuffers() at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
+  #1  0x400db1ce:0x3ffb1d00 in AsyncWebSocket::textAll(AsyncWebSocketMessageBuffer*) at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
+  #2  0x400db1e7:0x3ffb1d20 in AsyncWebSocket::textAll(char const*, unsigned int) at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
+  #3  0x400db1fd:0x3ffb1d40 in AsyncWebSocket::textAll(char*) at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
+  #4  0x400db20d:0x3ffb1d60 in AsyncWebSocket::textAll(char const*) at ??:?
+  #5  0x400ea220:0x3ffb1d80 in WebServer::sendN0183(char const*) at lib/network/httpserver.cpp:382
+  #6  0x400d1b4e:0x3ffb1da0 in SendNMEA0183Message(char const*) at src/main.cpp:393
+  #7  0x400eef46:0x3ffb1dc0 in NMEA0183N2KMessages::send() at lib/N2KHandler/NMEA0183N2KMessages.cpp:443
+  #8  0x400eef9d:0x3ffb1de0 in NMEA0183N2KMessages::sendHDG(double, double, double) at lib/N2KHandler/NMEA0183N2KMessages.cpp:45
+  #9  0x400ee570:0x3ffb1e10 in N2KHandler::handle127250(tN2kMsg const&) at lib/N2KHandler/N2KHandler.cpp:229
+  #10 0x400eed32:0x3ffb1e70 in N2KHandler::handle(tN2kMsg const&) at lib/N2KHandler/N2KHandler.cpp:82
+  #11 0x400d1a41:0x3ffb1f10 in HandleNMEA2000Msg(tN2kMsg const&) at src/main.cpp:393
+  #12 0x4019a42e:0x3ffb1f30 in tNMEA2000::RunMessageHandlers(tN2kMsg const&) at .pio/libdeps/nodemcu-32s/NMEA2000-library/src/NMEA2000.cpp:2314
+  #13 0x400d6859:0x3ffb1f50 in tNMEA2000::ParseMessages() at .pio/libdeps/nodemcu-32s/NMEA2000-library/src/NMEA2000.cpp:2314
+  #14 0x400d1e78:0x3ffb1f90 in loop() at src/main.cpp:400
+  #15 0x400f3370:0x3ffb1fb0 in loopTask(void*) at /Users/ieb/.platformio/packages/framework-arduinoespressif32/cores/esp32/main.cpp:23
+  #16 0x400899d2:0x3ffb1fd0 in vPortTaskWrapper at /home/runner/work/esp32-arduino-lib-builder/esp32-arduino-lib-builder/esp-idf/components/freertos/port.c:355 (discriminator 1)
+
+Rebooting...
+
+

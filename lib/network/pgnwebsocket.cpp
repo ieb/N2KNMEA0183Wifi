@@ -1,5 +1,4 @@
-#include "network.h"
-#include <ESPAsyncWebServer.h>
+#include "pgnwebsocket.h"
 
 
 
@@ -103,7 +102,7 @@ void PgnWebSocket::handleWSEvent(AsyncWebSocket * server,
  * If none are available dont add
  */ 
 bool PgnWebSocket::addClient(AsyncWebSocketClient * client) {
-    for (int i = 0; i < MAX_CLIENTS; ++i) {
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if ( !clients[i].used ) {
             clients[i].used = true;
             clients[i].all = true;
@@ -118,7 +117,7 @@ bool PgnWebSocket::addClient(AsyncWebSocketClient * client) {
  * Remove the client and free the slot.
  */ 
 bool PgnWebSocket::removeClient(AsyncWebSocketClient * client) {
-    for (int i = 0; i < MAX_CLIENTS; ++i) {
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if ( clients[i].client->id() == client->id() ) {
             clients[i].client = NULL;
             clients[i].used = false;
@@ -133,7 +132,7 @@ bool PgnWebSocket::removeClient(AsyncWebSocketClient * client) {
  */ 
 bool PgnWebSocket::processCommandMessage(AsyncWebSocketClient * client, 
             uint8_t *data, size_t len, AwsFrameInfo *info) {
-    for (int i = 0; i < MAX_CLIENTS; ++i) {
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if ( clients[i].used && clients[i].client->id() == client->id() ) {
             if(info->message_opcode == WS_TEXT){
                 unsigned long pgn;
@@ -247,7 +246,7 @@ void PgnWebSocket::record(unsigned long pgn) {
  * return true if one or more clients have requested the pgn.
  */ 
 bool PgnWebSocket::shouldSend(unsigned long pgn) {
-    for (int i = 0; i < MAX_CLIENTS; ++i) {
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if ( clients[i].used ) {
             if ( clients[i].all ) {
                 return sendDebounced(pgn);
@@ -266,7 +265,7 @@ bool PgnWebSocket::shouldSend(unsigned long pgn) {
  * send the pgn to all clients that have requested it.
  */
 void PgnWebSocket::send(const char * msg) {
-    for (int i = 0; i < MAX_CLIENTS; ++i) {
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if ( clients[i].used ) {
             clients[i].client->text(msg);
         }

@@ -1,98 +1,169 @@
 "use strict;"
+const fs = require('node:fs');
 
 const { createServer } = require('http');
-const { WebSocketServer, WebSocket } = require('ws');
 const { N2KEncoder, NMEA0183Encoder } = require('./n2kencoder.js');
 const { Simulator } = require('./sim.js');
 
 const server = createServer();
-const ws183 = new WebSocketServer({ noServer: true });
-const n2kraw = new WebSocketServer({ noServer: true });
-const n2kparsed = new WebSocketServer({ noServer: true });
+
+let seaSmartResponses = [];
+let nmea0183Responses = [];
 
 console.log("N2KEncoder ", N2KEncoder);
 const n2kEncoder = new N2KEncoder();
 const n183Encoder = new NMEA0183Encoder();
 const sim = new Simulator();
 
-const processConnection = (ws) => {
-  ws.pgnconfig = ws.pgnconfig || {};
-  ws.on('error', console.error);
-  ws.on('message',  (data) => { processCommand(ws, data); });  
-}
-const processCommand = (ws, data) => {
-    if ( data == "allpgns:1") {
-      ws.pgnconfig.all = true;
-    } else if ( data == "allpgns:0") {
-      ws.pgnconfig.all = false;
-    } else if ( data.startsWith("addpgn:")) {
-      const pgn = +data.substring(7)
-      if ( !ws.pgnconfig.pgns.includes(pgn)) {
-        ws.pgnconfig.pgns.push(pgn);
-      }
-    } else if ( data.startsWith("rmpgn:")) {
-      ws.pgnconfig.pgns = ws.pgnconfig.pgns.filter((p) => p !== pgn);
-    }
-    console.log('received: %s', data);
-};
-ws183.on('connection', processConnection);
-n2kraw.on('connection', processConnection);
-n2kparsed.on('connection', processConnection);
-
-server.on('upgrade', function upgrade(request, socket, head) {
-  const { pathname } = new URL(request.url, 'wss://base.url');
 
 
-  if (pathname === '/ws/183') {
-    ws183.handleUpgrade(request, socket, head, function done(ws) {
-      ws183.emit('connection', ws, request);
+server.on('request', (req, res) => {
+  const { pathname } = new URL(req.url, 'http://base.url');
+  if (pathname === '/api/seasmart') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    seaSmartResponses.push(res);
+    req.on('close', () => {
+      console.log("Close seaSmartResponses");
+      seaSmartResponses = seaSmartResponses.filter((r) => (r !== res));
     });
-  } else if (pathname === '/ws/2kraw') {
-    n2kraw.handleUpgrade(request, socket, head, function done(ws) {
-      n2kraw.emit('connection', ws, request);
-    });
-  } else if (pathname === '/ws/2kparsed') {
-    n2kparsed.handleUpgrade(request, socket, head, function done(ws) {
-      n2kparsed.emit('connection', ws, request);
-    });
+  } else if ( pathname === '/api/nmea0183') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    nmea0183Responses.push(res);
+    req.on('close', () => {
+      nmea0183Responses = nmea0183Responses.filter((r) => (r !== res));
+    });    
   } else {
-    socket.destroy();
+    console.log("Pathname ", pathname);
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end("NotFound");
+
   }
 });
 
-const sendMessage = (wss,msgId, msg, isBinary) => {
-    wss.clients.forEach(function each(client) {
-      if (client.readyState === WebSocket.OPEN) {
-        if ( msgId == 0 || client.pgnconfig.all || client.pgnconfig.pgns.includes(pgn)) {
-          client.send(msg, { binary: isBinary });
-        }
+
+const sendSeaSmartChunked = (msgId, msg) => {
+    seaSmartResponses.forEach( (res) => {
+      const pgns = new URL(res.req.url, "http://base.url").searchParams.get("pgn");
+      if (pgns === null ||
+        pgns.includes(msgId.toString()) ) {
+        res.write(msg+'\n');
+        //res.uncork();
       }
     });
 };
+
+const sendmnea0183Chunked = (msg) => {
+    nmea0183Responses.forEach( (res) => {
+      res.write(msg+'\n');
+    });
+};
+
+
 
 
 
 // need to simulate values correctly.
 setInterval(() => {
-  sendMessage(ws183,0, n183Encoder.encodeHDM(sim.hdm));
-  sendMessage(ws183,0, n183Encoder.encodeDBT(sim.dbt));
-  sendMessage(ws183,0, n183Encoder.encodeGLL(sim.secondsSinceMidnight, 
+  sendmnea0183Chunked(n183Encoder.encodeHDM(sim.hdm));
+  sendmnea0183Chunked(n183Encoder.encodeDBT(sim.dbt));
+  sendmnea0183Chunked(n183Encoder.encodeGLL(sim.secondsSinceMidnight, 
         sim.latitude, sim.longitude, 'A'));
-  sendMessage(ws183,0, n183Encoder.encodeZDA(sim.secondsSinceMidnight, sim.daysSince1970));
+  sendmnea0183Chunked(n183Encoder.encodeZDA(sim.secondsSinceMidnight, sim.daysSince1970));
 }, 1000);
 
-setInterval(() => {
-  sendMessage(n2kparsed, 127258, n2kEncoder.encode127258(23, sim.daysSince1970, sim.variation));
-  sendMessage(n2kparsed, 127250, n2kEncoder.encode127250(22, 23, 0.01, sim.variation, 3));
-  sendMessage(n2kparsed, 127257, n2kEncoder.encode127257(25, 1.2, 0.03, sim.roll));
-  sendMessage(n2kparsed, 128259, n2kEncoder.encode128259(36, sim.stw, sim.sog, 4));
-  sendMessage(n2kparsed, 129029, n2kEncoder.encode129029(43, sim.daysSince1970, sim.secondsSinceMidnight, 
-                      sim.latitude, sim.longitude, 8.1,
-                         2, 3,
-                        12, 2.01, 2.3, 10.8,
-                     1, 2, 2024,
-                     33, 1));
-}, 1000);
+
+const parseCanData = (line) => {
+  let canFrame = {};
+  line = line.trim();
+  // 228849 : Pri:2 PGN:127257 Source:204 Dest:255 Len:8 Data:FF,9C,8,C7,0,21,0,FF
+  // format 2 {n: 22, pgn: 127245, src: 205, msg: '00ffff7febfaffff'}
+  if ( line.startsWith('{')) {
+    line.substring(1, line.length-1).split(',').forEach((p) => {
+      p = p.trim();
+      if (p.startsWith('pgn:')) {
+        canFrame.pgn = parseInt(p.substring(4));
+      } else if (p.startsWith('src:')) {
+        canFrame.src = parseInt(p.substring(4));
+      } else if (p.startsWith('msg:')) {
+        canFrame.msg = p.substring(4).replaceAll("'","").trim();
+      }
+    });
+  } else {
+    line.split(' ').forEach((p) => {
+      if ( p.startsWith('PGN:')) {
+        canFrame.pgn = parseInt(p.substring(4));
+      } else if (p.startsWith("Source:")) {
+        canFrame.src = parseInt(p.substring(7));
+      } else if (p.startsWith("Data:")) {
+        const parts = p.substring(5).split(",");
+        for (var i = 0; i < parts.length; i++) {
+          if (parts[i].length == 1) {
+            parts[i] = '0'+parts[i];
+          }
+        }
+        canFrame.msg = parts.join('');
+      }
+    });
+    canFrame.sourceTimestamp = parseInt(line);
+  }
+  canFrame.timestamp = Date.now() & 0x7fffffff;
+  if (canFrame.pgn && canFrame.src && canFrame.msg ) {
+    canFrame.pcdin = '$PCDIN,'
+      + canFrame.pgn.toString(16).toUpperCase().padStart(6,'0') + ','
+      + canFrame.timestamp.toString(16).toUpperCase().padStart(8,'0') + ','
+      + canFrame.src.toString(16).toUpperCase().padStart(2,'0')+ ','
+      + canFrame.msg;
+
+    let checkSum = 0;
+    for (let i = 1; i < canFrame.pcdin.length; i++) {
+      checkSum^=canFrame.pcdin.charCodeAt(i);
+    }
+    canFrame.pcdin = canFrame.pcdin + "*"+checkSum.toString(16).padStart(2,'0');
+  }
+  console.log(canFrame.pcdin);
+  return canFrame;
+};
+
+
+// load the sample data
+const canData1 = fs.readFileSync('samplecandata.txt', 'utf8').split('\n');
+for (var i = 0; i < canData1.length; i++) {
+  canData1[i] = parseCanData(canData1[i]);
+}
+const canData2 = fs.readFileSync('samplecandata2.txt', 'utf8').split('\n');
+for (var i = 0; i < canData2.length; i++) {
+  canData2[i] = parseCanData(canData2[i]);
+}
+const canData = canData1.concat(canData2);
+
+
+// send frames in a loop.
+let line = 0;
+let lastFrame = Date.now();
+const emitFrame = () => {
+  const f = canData[line];
+  if (f.pcdin) {
+    console.log("Send ",line, f.pgn, f.pcdin);
+    sendSeaSmartChunked(f.pgn, f.pcdin);
+  }
+  line = (line+1)%canData.length;
+  while(!canData[line].pcdin ) {
+    line = (line+1)%canData.length;
+  }  
+  let delay = 200;
+  if (f.timestamp && canData[line].timestamp) {
+    if ( (canData[line].timestamp - f.timestamp) > 0 ) {
+      delay = canData[line].timestamp - f.timestamp;
+    }
+  }
+  setTimeout(emitFrame, delay);
+};
+setTimeout(emitFrame, 200);
+
+
+
+
+/*
 setInterval(() => {
   const data = new DataView(new ArrayBuffer(12));
   for(let i = 0; i < 12; i++) {
@@ -100,7 +171,7 @@ setInterval(() => {
   }
   sendMessage(n2kraw, 127258, n2kEncoder.encodeBinarPGN({ PGN: 127258, Source:23, DataLen:12, Data: data.buffer }));
 }, 1000);
-
+*/
 
 
 

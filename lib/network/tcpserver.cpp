@@ -1,4 +1,4 @@
-#include "network.h"
+#include "tcpserver.h"
 #include <ESPmDNS.h>
 
 
@@ -18,7 +18,7 @@ void TcpServer::begin() {
  * Check all client connections to see if there are any connections pending.
  */
 void TcpServer::handle() {
-  for(int i = 0; i < MAX_CLIENTS; i++) {
+  for(int i = 0; i < MAX_TCP_CLIENTS; i++) {
     if ( tcpClients[i].checkIsFree() ) {
       tcpClients[i].accept(&server);
     } else {
@@ -28,15 +28,17 @@ void TcpServer::handle() {
 }
 
 
-void TcpServer::status() {
+
+
+void TcpServer::printStatus() {
   outputStream->println("TCPClients");
-  for(int i = 0; i < MAX_CLIENTS; i++) {
+  for(int i = 0; i < MAX_TCP_CLIENTS; i++) {
     tcpClients[i].status();
   }
 }
 
 bool TcpServer::acceptN2k(long pgn) {
-  for(int i = 0; i < MAX_CLIENTS; i++) {
+  for(int i = 0; i < MAX_TCP_CLIENTS; i++) {
     if ( tcpClients[i].acceptN2k(pgn) ) {
       return true;
     }
@@ -44,7 +46,7 @@ bool TcpServer::acceptN2k(long pgn) {
   return false;
 }
 void TcpServer::sendN2k(long pgn, const char * buf) {
-  for(int i = 0; i < MAX_CLIENTS; i++) {
+  for(int i = 0; i < MAX_TCP_CLIENTS; i++) {
     tcpClients[i].sendN2k(pgn, buf);
   }
 }
@@ -54,7 +56,7 @@ void TcpServer::sendN2k(long pgn, const char * buf) {
  * Send the buffer to all clients subject to filtering applied to the connection.
  */ 
 void TcpServer::sendBufToClients(const char *buf) {
-  for (int i = 0; i < MAX_CLIENTS; i++) {
+  for (int i = 0; i < MAX_TCP_CLIENTS; i++) {
     tcpClients[i].sendBuffer(buf);
   }
 }
@@ -65,14 +67,14 @@ void TcpClient::status() {
     outputStream->println("Free Slot");
   } else if ( mode == WIFICLIENT_MODE_NMEA0183 ) {
     outputStream->print("NMEA0183 -> ");
-    outputStream->print(wifiClient.remoteIP());
+    outputStream->print(remoteIP);
     outputStream->print(" send:");
     outputStream->print(bandwidthSent);
     outputStream->print("kb/s sentences:");
     outputStream->println(sent);
   } else {
     outputStream->print("SeaSmart -> ");
-    outputStream->print(wifiClient.remoteIP());
+    outputStream->print(remoteIP);
     outputStream->print(" send:");
     outputStream->print(bandwidthSent);
     outputStream->print("kb/s sentences:");
@@ -100,13 +102,17 @@ void TcpClient::accept(WiFiServer *server) {
   WiFiClient client  = server->accept();   // listen for incoming clients
   if (client) {
     wifiClient = client;
+    remoteIP = wifiClient.remoteIP();
     outputStream->print("Client Connected on tcp from:");
-    outputStream->println(wifiClient.remoteIP());
+    outputStream->println(remoteIP);
     mode = WIFICLIENT_MODE_NMEA0183; 
     sent = 0;
     recieved = 0;
     badCommands = 0;
     errors = 0;
+    // reset the buffer.
+    bpos = 0;
+    inputBuffer[bpos] = '\0';
 
   }
 }
@@ -163,7 +169,7 @@ bool TcpClient::checkIsFree() {
   }
   if ( !wifiClient.connected()) {
     outputStream->print("Client Disconnected: ");
-    outputStream->println(wifiClient.remoteIP());
+    outputStream->println(remoteIP);
     wifiClient.stop();
     wifiClient = WiFiClient();
     mode = WIFICLIENT_MODE_DISCONNECTED;
@@ -215,7 +221,7 @@ void TcpClient::parseSentence(const char * input ) {
        if (mode != WIFICLIENT_MODE_SEASMART) {
           mode = WIFICLIENT_MODE_SEASMART;
           outputStream->print("Enabled SeaSmart client at ");
-          outputStream->println(wifiClient.remoteIP());
+          outputStream->println(remoteIP);
        }
         unsigned long command[10];
         int nFields = extractFields(input, &command[0], 10);
@@ -227,7 +233,7 @@ void TcpClient::parseSentence(const char * input ) {
           default:
             badCommands++;
             outputStream->print("Command from ");
-            outputStream->print(wifiClient.remoteIP());
+            outputStream->print(remoteIP);
             outputStream->print(" not recognized :");
             outputStream->println(input);
           }
@@ -235,14 +241,14 @@ void TcpClient::parseSentence(const char * input ) {
     } else {
       badCommands++;
         outputStream->print("Sentence from ");
-        outputStream->print(wifiClient.remoteIP());
+        outputStream->print(remoteIP);
         outputStream->print(" not recognized :");
         outputStream->println(input);
     }        
   } else {
     errors++;
     outputStream->print("Checksum from ");
-    outputStream->print(wifiClient.remoteIP());
+    outputStream->print(remoteIP);
     outputStream->print(" Bad :");
     outputStream->println(input);
   }
@@ -253,7 +259,10 @@ void TcpClient::parseSentence(const char * input ) {
  */
 int TcpClient::extractFields(const char *input, unsigned long *fields, int maxFields) {
   int nFields = 0;
-  for(int i = 0; i < WIFICLIENT_MAX_INPUTBUFFER && input[i] != '\0' && nFields < maxFields; i++) {
+  for(int i = 1; i < WIFICLIENT_MAX_INPUTBUFFER 
+    && nFields < maxFields
+    && input[i] != '\0' 
+    && input[i] != '$'; i++) {
     if ( input[i] == ',' ) {
       fields[nFields++] = atol(&input[i+1]);
     }
@@ -268,7 +277,12 @@ int TcpClient::extractFields(const char *input, unsigned long *fields, int maxFi
 bool TcpClient::checkChecksum(const char *input) {
   uint8_t checkSum = 0;
   int i = 1;
-  for (; i < WIFICLIENT_MAX_INPUTBUFFER && input[i] != '*' && input[i] != '\0'; ++i) {
+  for (; 
+    i < WIFICLIENT_MAX_INPUTBUFFER 
+      && input[i] != '*' 
+      && input[i] != '\0' 
+      && input[i] != '$'; 
+      ++i) {
     checkSum^=input[i];
   }
   const char * asHex = "0123456789ABCDEF";

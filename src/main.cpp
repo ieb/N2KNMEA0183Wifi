@@ -138,19 +138,16 @@ const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
 
 
 
-void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
+
+#ifdef ENABLE_WEBSOCKETS
+// The ESPAsyncWebServer websocket implementation tends to corrupt the heap
+// so not using any more.
+void sendViaWebSockets(const tN2kMsg &N2kMsg) {
     static char wsBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
-    static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
     static unsigned long flushTTL = millis();
     static size_t wsOffset = 0;
-    listDevices.HandleMsg(N2kMsg);
-    n2kPrinter.HandleMsg(N2kMsg);
-    n2kHander.handle(N2kMsg);
 
-    if ( nmeaServer.acceptN2k(N2kMsg.PGN)) {
-      N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
-      nmeaServer.sendN2k(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
-    }
+
 
     // flush the ws buffer if required.
     unsigned long now = millis();
@@ -162,7 +159,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
       }
     }
 
-    // check if any client has requested this PGN
+    // check if any websocket client has requested this PGN
     if ( !frameFilter.isFiltered(N2kMsg.PGN, N2kMsg.Source ) && webServer.shouldSend(N2kMsg.PGN) ) {
       // todo, use real time based on GPS time.
       // buffer the messages up to reduce websocket overhead.
@@ -181,6 +178,34 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
       size_t len = N2kToSeasmart(N2kMsg,millis(),&wsBuffer[wsOffset],maxLen);
       wsOffset += len;
     }
+}
+#else
+void sendViaWebSockets(const tN2kMsg &N2kMsg) {
+}
+#endif
+
+
+
+void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
+    static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
+    listDevices.HandleMsg(N2kMsg);
+    n2kPrinter.HandleMsg(N2kMsg);
+    n2kHander.handle(N2kMsg);
+
+    bool seaSmartLoaded = false;
+    if ( nmeaServer.acceptN2k(N2kMsg.PGN) ) {
+      N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
+      seaSmartLoaded = true;
+      nmeaServer.sendN2k(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
+    }
+    if ( webServer.acceptSeaSmart(N2kMsg.PGN) ) {
+      if ( !seaSmartLoaded ) {
+        N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
+      }
+      webServer.sendSeaSmart(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
+    }
+
+    sendViaWebSockets(N2kMsg);
 }
 
 void showHelp() {
@@ -293,7 +318,8 @@ void showStatus() {
   Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
 
   wifi.printStatus();
-  nmeaServer.status();
+  nmeaServer.printStatus();
+  webServer.printStatus();
 }
 
 //*****************************************************************************
