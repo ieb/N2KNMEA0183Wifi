@@ -94,7 +94,7 @@ class JDBBMSReader {
 
       this.emtEvent('connected', 1);
     } catch (error) {
-      console.log(`Error connecting to BMS ${error}`);
+      console.log('Error connecting to BMS', error);
     }
   }
 
@@ -214,7 +214,7 @@ class JDBBMSReader {
   getDate(dateU16) {
     const year = ((dateU16 & 0xfe00) >> 9) + 2000;
     const month = ((dateU16 & 0x01e0)) >> 5;
-    const day = ((dateU16 & 0x0f));
+    const day = ((dateU16 & 0x1f));
     return new Date(year, month - 1, day);
   }
 

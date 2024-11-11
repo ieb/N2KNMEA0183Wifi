@@ -94,13 +94,7 @@ class ChunkedSeaSmartStream {
       if (this.keepUp) {
         if ((Date.now() - this.lastMessage) > 10000) {
           // eslint-disable-next-line no-console
-          this.stopRunning = () => {
-            this.stopRunning = undefined;
-            console.log('Chunked reconnect');
-            this.keepRunning().then(() => {
-              console.log('Chunked disconnect');
-            });
-          };
+          this.stopRunning = true;
         }
       }
     }, 10000);
@@ -108,17 +102,28 @@ class ChunkedSeaSmartStream {
 
   start(url) {
     this.keepUp = true;
+    this.stopRunning = false;
     this.url = url;
     this.keepRunning().then(() => {
       console.log('Chunked disconnect');
+      if (this.keepUp) {
+        setTimeout(() => {
+          this.start(this.url);
+        }, 5000);
+      }
+    }).catch(() => {
+      console.log('Chunked disconnect');
+      if (this.keepUp) {
+        setTimeout(() => {
+          this.start(this.url);
+        },5000);
+      }
     });
   }
 
   stop() {
     this.keepUp = false;
-    this.stopRunning = () => {
-      this.stopRunning = undefined;
-    };
+    this.stopRunning = true;
   }
 
   async keepRunning() {
@@ -135,7 +140,6 @@ class ChunkedSeaSmartStream {
         buffer = buffer.substring(lastNL + 1);
       }
       if (this.stopRuning) {
-        this.stopRunning();
         break;
       }
     }

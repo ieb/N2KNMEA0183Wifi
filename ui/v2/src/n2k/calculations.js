@@ -299,7 +299,7 @@ class Calculations {
     };
   }
 
-  static (v) {
+  static fixBearing(v) {
     let ret = v;
     if (ret > 2 * Math.PI) {
       ret -= 2 * Math.PI;

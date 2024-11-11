@@ -58,6 +58,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "logbook.h"
 #include "Seasmart.h"
 #include <ESPmDNS.h>
+#include "jdb_bms.h"
 
 
 #include "esp32-hal-psram.h"
@@ -84,11 +85,13 @@ UdpSender nmeaSender(OutputStream, 10110);
 #endif
 
 NMEA0183N2KMessages messageEncoder;
-//N2KMessageEncoder pgnEncoder;
 Performance performance(&messageEncoder);
-//N2KHandler n2kHander(messageEncoder, pgnEncoder, performance, logbook);
 N2KHandler n2kHander(messageEncoder, performance, logbook);
 N2KFrameFilter frameFilter;
+
+
+JBDBmsSimulator simulator;
+JdbBMS bms(&simulator);
 
 
 unsigned long lastButtonPress = 0;
@@ -98,7 +101,11 @@ unsigned long lastButtonRelease = 0;
 
 
 
-const unsigned long TransmitMessages[] PROGMEM={0};
+const unsigned long TransmitMessages[] PROGMEM={
+        127506L, //DCStatus(N2kMsg)
+        127508L, //DCBatteryStatus(N2kMsg)
+        127513L, //BatteryConfigurationStatus(N2kMsg)
+0};
 const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
         126992L, //SystemTime(N2kMsg)
         127245L, //Rudder(N2kMsg)
@@ -215,6 +222,7 @@ void showHelp() {
   OutputStream->println("  - Send 'u' to print latest list of devices");
   OutputStream->println("  - Send 'o' to toggle output, can be high volume");
   OutputStream->println("  - Send 'd' to toggle packet dump, can be high volume");
+  OutputStream->println("  - Send 'b' to toggle bms debug, can be high volume");
   OutputStream->println("  - Send 'S' to put to sleep");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
    
@@ -300,6 +308,10 @@ void setup() {
 //  NMEA2000.SetMode(tNMEA2000::N2km_ListenOnly, 50);
   NMEA2000.Open();
 
+
+  bms.begin();
+
+
   OutputStream->print("Running...");
   showHelp();
 
@@ -349,6 +361,9 @@ void CheckCommand() {
           Serial.println("Data Output Disabled");   
         }
         break;
+      case 'b':
+        bms.toggleDebug();
+        break; 
       case 'd': 
         enableForward = !enableForward;
         if (  enableForward ) {
@@ -375,6 +390,19 @@ void CheckCommand() {
   }
 }
 
+/**
+ * Emit messages from sensors connected to the ESP. 
+ * Don't send proprietary messages to the bus.
+ */ 
+void EmitMessages() {
+    tN2kMsg N2kMsg;
+    if ( bms.setN2KMsg(N2kMsg) )  {
+        HandleNMEA2000Msg(N2kMsg);
+    }
+    if (!NMEA2000.IsProprietaryMessage(N2kMsg.PGN) ) {
+      NMEA2000.SendMsg(N2kMsg);
+    }
+}
 
 
 
@@ -427,4 +455,6 @@ void loop() {
   nmeaServer.handle();
   CheckCommand();
   echoServer.handle();
+  bms.update();
+  EmitMessages();
 }

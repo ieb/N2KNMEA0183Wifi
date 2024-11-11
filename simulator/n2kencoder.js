@@ -172,6 +172,8 @@ class N2KEncoder extends BaseEncoder {
 		return data;
 	}
 
+	
+
 
 	encode127258(  _source, _daysSince1970, _variation) {
 		let data = '$IIPGN,127258';
