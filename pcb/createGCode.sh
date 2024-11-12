@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Kicat files needed, front back, edge boardname
+# Kicad files needed, front back, edge boardname
 # Put all the drils into 1 file
 # turn of X2 as it creates codes that are not understood.
 # decide where the mirror line will be default is X=60
@@ -21,6 +21,9 @@ mirror=${2:-60}
 alignoffset=${3:-10}
 bottomalign=${4:-10}
 topalign=${5:-80}
+
+rm -rf ${boardname}-cnc
+mkdir -p ${boardname}-cnc
 
 pcb2gcode \
   --back ${boardname}-B_Cu.gbr \

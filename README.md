@@ -1,20 +1,18 @@
 # N2K and NMEA0183 Wifi server exposing http, tcp and udp services.
 
-* Runs on a ESP32. 
+* Runs on a ESP32.   (Currently targetting ESP32-C2 Mini)
 * Connects to a NMEA2000 bus using the ESP CAN device and a CAN Driver as a CAN Node. 
 * Parses NMEA2000 messages and stores them with history. 
 * Emits NMEA0183 messages on tcp and udp.
+* Emits SeaSmart messages on tcp with PGN filtering.
+* Exposes NMEA0183 and SeaSmart streams over http (chunked encoding)
 * Exposes a http admin interface for configuration.
-* Exposes the store over http.
-* Exposes updates to the store over websockets.
-* Hosts UI applications delivered over http.
 * Runs either as an WiFi station or as an Access Point.
 
 # UI
 
 There is a web browser UI written as a single page application, delivered from the http server running on the 
-ESP. It receives CAN messages over websockets which it decodes and displays. The main screen is an 
-instruments screen which can contain 1..n mages and can be configured. Other screens include a store viewer 
+ESP. It receives CAN messages in SeaSmart format over a http stream which it decodes and displays. The main screen is an instruments screen which can contain 1..n mages and can be configured. Other screens include a store viewer 
 showing the data that has been received, and frame views showing decoding.  There is an admin view which 
 provides access to the flash drive to update the UI files, download log files and monitor disk and ram usage 
 on the device.  There is 2MB of flash available. The App is 26KB of javascript compressed which can be 
@@ -70,8 +68,14 @@ ToDo
 * [x] Verify target VMG down wind.
 * [x] Support debugging store behavior in debug view to verify polar and calculations.
 * [x] Load default layouts over http.
-* [ ] Persist history in local storage
-* [ ] Port eink displays
+* [x] Persist history in local storage
+* [x] Port eink displays
+* [x] Deprecate WebSockets as they are unsabled and cause segv in the hardware.
+* [x] Implement http streams with SeaSmart format on and same on tcp, with filtering.
+* [x] Implement bridge to JBD BMS over TTL/Uart with isolation and expose BMS registeres in custom PGNs.
+* [ ] Port BMS UI fro BLE to Http streams
+* [ ] Design ESP32-C3 board
+* [ ] Build and test new boards. 
 
 
 ## HTTP APIs
@@ -117,15 +121,55 @@ gets the file from the filesystem, query params are ignored.
 
 ## TCP/UDP
 
-Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a list of messages.
+Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a list of messages, will switch to SeaSmart if the client sends a PGN filter request message, eg as below which filters the stream to only those PGNs in the message. Once in SeaSmart mode, the TCP stream will not revert to standard NMEA0183 for that client. Some PGNs are filtered by default to avoid over load (eg high volume proprietary Raymarine pilot updates)
+
+     $PCDCM,1,7,127489,127505,127488,128259,129026,130312,128267*77
+
 
 ## WebSocket
 
-Only /ws/candump3, /ws/seasmart and /ws/183 have been implemented. Other formats have been tried but these make the most sense for applications.
+This was deprecated since there are bugs in the ESP32AsyncWebServer code that cause the ESP to crash when more than 1 client connects.
 
-NMEA0183 output makes sense for standard messages, but it cant cover N2K. There are some options for how N2K could be output. All of the formats below can be processed by readers in canboatJS.
+## HTTP Stream
 
-Websocket on a ESP32 has limited space for pending messages so all of these websocket endpoints work with that. Where the traffic is high the frames are debounced and buffered into larger websocket messages to reduce the impact of the websocket protocol. If this is not done, the ESP32 runs out of send buffer pointers and drops messages. Receivers need to split each message by \n 
+/api/seasmart streams SeaSmart sentences chunked encoded. Clients should read this as a ReadableStream since the http stream will continue forever.  Filtering of pgns is available via by setting the pgns query parameter to a list of pgns to be filtered on.
+
+/api/nmea0183 streams NMEA0183 sentences chunked encoded.
+
+
+
+# NMEA183 PCDIN aka Seasmart /ws/seasmart - implemented
+
+http://www.seasmart.net/pdf/SeaSmart_HTTP_Protocol_RevG_043012.pdf
+
+    $PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59
+                                               ^^ checksum
+                              ^^^^^^^^^^^^^^^^ data (whole message)
+                           ^^ source
+                  ^^^^^^^^ Hex time
+           ^^^^^^ PGN
+    ^^^^^^ NMEA0183 id
+
+Decoding hex time is done as 
+
+    ((parseInt(value,32)/1024)+1262304000)*1000 
+
+result in ms since 1/1/1970.  No idea what base 32 looks like, but tests don't make sense.
+Should probably avoid, however it does have the advantage of being able to mix with NMEA0183 traffic provided
+the bandwidth is enough.  Looks like it was designed to send over http.
+
+There is also a command protocol, PCDIC
+
+It is unlikely that I want to use applications supporting this protocol, but it is used by a few. D
+
+Seasmart compact, can be expanded by the client into seasmart by adding the missing fields.
+
+    01F119,0F,2AAF00D1067414FF
+              ^^^^^^^^^^^^^^^^ base64 data
+          ^^ source
+    ^^^^^^ PGN
+
+# Other formats that were tried and dropped while using WebSockets
 
 ### Candump version 3 modified, /ws/candump3m  - not implemented yet
 
@@ -158,37 +202,6 @@ Very low cost to output, but high volume and the frame has to be processed for f
 Senders need to slice up the data, PGN 126720 (proprietary fast packet) gets special treatment why tbd.
 
 This is close or the same as the log files produced by Raymarine e7 MFDs and other devices.
-
-### NMEA183 PCDIN aka Seasmart /ws/seasmart - implemented
-
-http://www.seasmart.net/pdf/SeaSmart_HTTP_Protocol_RevG_043012.pdf
-
-    $PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59
-                                               ^^ checksum
-                              ^^^^^^^^^^^^^^^^ data (whole message)
-                           ^^ source
-                  ^^^^^^^^ Hex time
-           ^^^^^^ PGN
-    ^^^^^^ NMEA0183 id
-
-Decoding hex time is done as 
-
-    ((parseInt(value,32)/1024)+1262304000)*1000 
-
-result in ms since 1/1/1970.  No idea what base 32 looks like, but tests don't make sense.
-Should probably avoid, however it does have the advantage of being able to mix with NMEA0183 traffic provided
-the bandwidth is enough.  Looks like it was designed to send over http.
-
-There is also a command protocol, PCDIC
-
-It is inlikely that I want to use applications supporting this protocol, but it is used by a few. Disadvantages, messages can be huge and have to be constructed to send over websockets and its (c) Seasmart.
-
-Seasmart compact, can be expanded by the client into seasmart by adding the missing fields.
-
-    01F119,0F,2AAF00D1067414FF
-              ^^^^^^^^^^^^^^^^ base64 data
-          ^^ source
-    ^^^^^^ PGN
 
 
 ### NMEA183 MXPGN  /ws/nmea0183 - not implemented
@@ -321,33 +334,6 @@ Probably too much of a pain to implement.
 
 
 
-### /ws/183  - implemented
-
-Emits NMEA0183 same as on UDP and TCP.
-
-
-
-### /ws/2kraw - deprecated
-
-Emits Raw PGR messages containing pdg,destination,length,<hex encoded data>
-
-Accpets the following messages
-
-* addpgn:<pgn to be emitted>
-* rmpgn:<pgn to be removed from filter>
-* allpgn: 1 == emit all pgns, 0 filter pgns.
-
-### /ws/2kparsed - deprecated
-
-Emits PGN messages containg parsed fields.
-
-Same commands.
-
-
-
-
-
-
 
 ## Archived functionality
 
@@ -387,60 +373,16 @@ Project uses PlatformIO.  WebUI is in  ui/v2. This can be developed locally usin
 
 ## PIO commands
 
-because I alwaysforget.
+because I always forget.
 
 * pio run -t upload
 * pio device monitor
 
-See buildui.sh for SPIFFS image commands. Dont use this to update the flashdrive, its easier to use the admin ui or curl.
+See buildui.sh for SPIFFS image commands. Don't use this to update the flashdrive, its easier to use the admin ui or curl.
 
-# Connectors
+# PCB
 
-
-    ---------------------------------------------
-    |           a b c d e f g h                 |
-    |  A                                        |
-    |  B                                        |
-    |  C                                        |
-    |  D                                     H  |
-    |  E                                     I  |
-    |  F                                     J  |
-    |  G           i j k l m                 K  |
-    ---------------------------------------------
-
-    a  SPI BL   GPIO13  not in use
-    b  SPI RST  GPIO12  not in use
-    c  SPI DC   GPIO26  not in use
-    d  SPI CS   GPIO25  not in use
-    e  SPI SCK  GPIO33  not in use
-    f  SPI MOSI GPIO32  not in use
-    g  SPI GND          not in use
-    h  SPI 3V           not in use
-    i  i2c GND      Display black/blue not in use
-    j  i2c SCL  D5    Display green not in use
-    k  i2c SDA  D18    Display white not in use
-    l  i2c BTN  D19    Display yellow not in use
-    m  i2c 3V       Display red not in use
-
-    A  1wire 1w  D21  not in use
-    B  1wire GND  not in use
-    C  1wire 3V not in use
-    D  RS-485 5.8V not in use
-    E  RS-485 GND not in use
-    F  RS-485 A  not in use
-    G  RS-485 B not in use
-    H  CAN 12V
-    I  CAN 0V
-    J  CAN CANH
-    K  CAN CANL
-
-
-    Other Pins Not mentioned above
-    RS485-TX TX2/GPIO17
-    RS485-RX RX2/GPIO16
-    RS485-EN D4
-    CAN-RX  D22
-    CAN-TX  D23
+There have been a few version including ones with TFT screens which were too power hungry and not very good to use. look at pcb for details.
 
 # Archived Functionality
 
@@ -506,6 +448,8 @@ Due to the additional touch pins a fresh PCB is probably needed.
 
 
 # Firmware crash
+
+Most of the code is single threaded with no malloc or new operations, and hence it is stable. The only crash I have seen in 4 years has been websockets as below. AFAICT, not fixed upstream with no prospects. Hence removed websockets code. This also makes it easier to implement http clients.
 
 PgnFilter ,5,128259,130306,127250,127257,127258,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 ws[/ws/seasmart][6] error(1002): WebSocket Protocol Error
