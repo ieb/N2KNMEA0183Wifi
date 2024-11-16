@@ -11,13 +11,23 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#include "esp_log.h"
+
+#define TAG "main"
 
 
 // Pins   
+#ifdef GPIO_NUM_22
+// ESP32
 #define ESP32_CAN_RX_PIN GPIO_NUM_22
 #define ESP32_CAN_TX_PIN GPIO_NUM_23
-
-
+#else
+// ESP32-C3
+#define ESP32_CAN_RX_PIN GPIO_NUM_8
+#define ESP32_CAN_TX_PIN GPIO_NUM_10
+#define BMS_RX_PIN GPIO_NUM_4
+#define BMS_TX_PIN GPIO_NUM_2
+#endif
 #define MAX_NMEA2000_MESSAGE_SEASMART_SIZE 1024
 
 //#define ONEWIRE_GPIO_PIN GPIO_NUM_21
@@ -91,11 +101,10 @@ N2KFrameFilter frameFilter;
 
 
 JBDBmsSimulator simulator;
-JdbBMS bms(&simulator);
+JdbBMS bms;
+bool bmsSimulatorOn = false;
 
 
-unsigned long lastButtonPress = 0;
-unsigned long lastButtonRelease = 0;
 
 
 
@@ -223,8 +232,9 @@ void showHelp() {
   OutputStream->println("  - Send 'o' to toggle output, can be high volume");
   OutputStream->println("  - Send 'd' to toggle packet dump, can be high volume");
   OutputStream->println("  - Send 'b' to toggle bms debug, can be high volume");
-  OutputStream->println("  - Send 'S' to put to sleep");
+  OutputStream->println("  - Send 'S' to toggle BMS simulator");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
+  OutputStream->println("  - Send 'R' to restart");
    
 }
 
@@ -242,17 +252,21 @@ nmeaSender.sendBufToClients(buf); // UDP
 void setup() {
   Serial.begin(115200); 
   if ( !psramInit() ) {
-    Serial.println("PSRAM not available.");
+
+    ESP_LOGE(TAG, "PSRAM not available.");
   } else {
-    Serial.print("Total PSRAM: ");Serial.println(ESP.getPsramSize());
-    Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
+    ESP_LOGI(TAG, "Total PSRAM: %d", ESP.getPsramSize());
+    ESP_LOGI(TAG, "Free PSRAM:  %d", ESP.getFreePsram());
   }
+  ESP_LOGI(TAG, "Starting Wifi");
   // Start the wifi
   wifi.begin();
 
   // start MDNS  so others can register.
+  ESP_LOGI(TAG, "Starting MDNS");
   MDNS.begin("boatsystems");
 
+  ESP_LOGE(TAG, "Starting TCP Servers");
   echoServer.begin();
   nmeaServer.begin();
 #ifdef NMEA0183_UDP
@@ -260,6 +274,7 @@ void setup() {
   nmeaSender.setDestination(wifi.getBroadcastIP());
 #endif
 
+  ESP_LOGI(TAG, "Starting Http Server");
   webServer.setStoreCallback([](Print *stream) {
     n2kHander.output(stream); // H,...
     performance.output(stream); // P,...
@@ -273,6 +288,7 @@ void setup() {
 
   frameFilter.begin();
 
+  ESP_LOGI(TAG, "Starting Nmea20000 Stack");
   // Set Product information
   NMEA2000.SetProductInformation("00000003", // Manufacturer's Model SerialIO code
                                  100, // Manufacturer's product code
@@ -309,10 +325,13 @@ void setup() {
   NMEA2000.Open();
 
 
+  ESP_LOGI(TAG, "Starting BMS Stack");
+  Serial1.begin(9600,SERIAL_8N1, BMS_RX_PIN, BMS_TX_PIN);
+  bms.setSerial(&Serial1);
   bms.begin();
 
 
-  OutputStream->print("Running...");
+  ESP_LOGI(TAG, "Running.....");
   showHelp();
 
   
@@ -356,10 +375,13 @@ void CheckCommand() {
       case 'o': 
         n2kPrinter.showData = !n2kPrinter.showData;
         if (  n2kPrinter.showData ) {
-          Serial.println("Data Output Enabled");   
+          ESP_LOGI(TAG, "Data Output Enabled");   
         } else {
-          Serial.println("Data Output Disabled");   
+          ESP_LOGI(TAG, "Data Output Disabled");   
         }
+        break;
+      case 'R':
+        esp_restart();
         break;
       case 'b':
         bms.toggleDebug();
@@ -367,14 +389,22 @@ void CheckCommand() {
       case 'd': 
         enableForward = !enableForward;
         if (  enableForward ) {
-          Serial.println("NMEA2000 Packet Output Enabled");   
+          ESP_LOGI(TAG, "NMEA2000 Packet Output Enabled");   
         } else {
-          Serial.println("NMEA2000 Packet Output Disabled");   
+          ESP_LOGI(TAG, "NMEA2000 Packet Output Disabled");   
         }
         NMEA2000.EnableForward(enableForward); 
         break;
       case 'S':
-        lastButtonPress = lastButtonRelease =  millis()-60000;
+        if ( bmsSimulatorOn) {
+          ESP_LOGI(TAG, "Disable BMS Simulator");   
+          bmsSimulatorOn = false;
+          bms.setSerial(&Serial1);
+        } else {
+          ESP_LOGI(TAG, "Enable BMS Simulator");   
+          bmsSimulatorOn = true;
+          bms.setSerial(&simulator);
+        }
         break;
       case 'A':
         if ( wifi.isSoftAP() ) {
@@ -450,11 +480,19 @@ void endTimer(int i) {
 
 //*****************************************************************************
 void loop() { 
-
+  static unsigned long lastHB = millis();
   NMEA2000.ParseMessages();
   nmeaServer.handle();
   CheckCommand();
   echoServer.handle();
   bms.update();
   EmitMessages();
+
+
+  unsigned long now = millis();
+  if ( (now - lastHB) > 5000) {
+        lastHB = now;
+        ESP_LOGD(TAG, "Loop");
+    }
+
 }

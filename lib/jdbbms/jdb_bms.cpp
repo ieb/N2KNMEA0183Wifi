@@ -4,6 +4,10 @@
 #include <TimeLib.h>
 #include <N2kTypes.h>
 #include <N2kMessages.h>
+#include "esp_log.h"
+
+
+#define TAG "jdb_bms"
 
 
 #define REQ_REGSTART 3
@@ -87,7 +91,7 @@ void JdbBMS::update() {
     }
     // send out the next register request.
     unsigned long now = millis();
-    if ( (now - lastSend) > 5000) {
+    if ( (now - lastSend) > 1000) {
         lastSend = now;
         if ( reg > maxReqRegs) {
             reg = REQ_REGSTART;
@@ -101,8 +105,10 @@ void JdbBMS::requestRegister(uint8_t regNo) {
     uint16_t checkSum = 0x10000 - regNo;
     // NB bytes here are bigendian before sending to the BMS.
     byte cmd[] = {0xdd, 0xa5, regNo, 0x0, (byte)((checkSum&0xff00)>>8), (byte)(checkSum&0xff), 0x77};
-    Serial.print("Requesting ");
-    Serial.println(regNo,HEX);
+    if ( debug ) {
+        Serial.print("BMS Request 0x");
+        Serial.println(regNo,HEX);
+    }
     io->write(cmd, 7);
 }
 
@@ -387,12 +393,12 @@ Marine           4 == 100
 }
 
 void JdbBMS::dumpBuffer(const char *msg, uint8_t *b, uint8_t s, uint8_t e) {
+
     if ( debug ) {
         Serial.print(msg);
         for(int i = s; i < e; i++) {
             Serial.print(" ");
             Serial.print(b[i],HEX);
-            
         }
         Serial.println("");        
     }

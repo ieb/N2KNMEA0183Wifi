@@ -26,7 +26,7 @@ cd ../../
 
 cp lib/TFTDisplay/images/*.jpg data/
 
-pio run --target buildfs --environment nodemcu-32s
+pio run --target buildfs --environment esp32-c3
 ls -l data
 ls -l .pio/build/nodemcu-32s/spiffs.bin
-pio run --target uploadfs --environment nodemcu-32s
+pio run --target uploadfs --environment esp32-c3

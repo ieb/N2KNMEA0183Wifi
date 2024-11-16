@@ -34,7 +34,7 @@ public:
 
 
 
-    JdbBMS(Stream * io, uint8_t batteryInstance=1): io{io} {
+    JdbBMS(uint8_t batteryInstance=1) {
         this->batteryInstance = batteryInstance;
         lastSend = millis();
         last127508 = lastSend+100;
@@ -43,6 +43,9 @@ public:
         lastRegO3 = lastSend+130;
         lastRegO4 = lastSend+140;
         lastRegO5 = lastSend+150;
+    };
+    void setSerial(Stream *stream) {
+        this->io = stream;
     };
     void begin();
     void update();

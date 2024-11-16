@@ -1,4 +1,9 @@
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "jdb_bms.h"
+#include "esp_log.h"
+
+
+#define TAG "BMSSim"
 
 // Implementation of the siumlator, will respond to requests for 0x03, 0x04, and 0x05 registers.
 
@@ -26,6 +31,7 @@
 #define REQ_OPERATION_WRITE 0x5A          
 #define RESPONSE_OK    0x00
 #define RESPONSE_ERROR 0x80
+
 
 
 void JBDBmsSimulator::setUDouble(uint8_t *reg, uint8_t regOff, double v, double f) {
@@ -194,12 +200,8 @@ size_t JBDBmsSimulator::write(uint8_t val) {
     return 1;
 }
 size_t JBDBmsSimulator::write(const uint8_t *buf, size_t size) {
-    Serial.print("BMSSim: Got");
-    for (int i = 0; i < size; i++) {
-        Serial.print(" ");
-        Serial.print(buf[i], HEX);
-    }
-    Serial.println("");
+    ESP_LOGE(TAG, "Recieved");
+    ESP_LOG_BUFFER_HEXDUMP(TAG, buf, size, ESP_LOG_ERROR);
     for (int i = 0; i < size; i++) {
         write(buf[i]);
     }
@@ -207,13 +209,8 @@ size_t JBDBmsSimulator::write(const uint8_t *buf, size_t size) {
 }
 
 void JBDBmsSimulator::dumpBuffer(const char * msg) {
-    Serial.print("BMSSim: ");
-    Serial.print(msg);
-    for(int i = 0; i < bend;i++) {
-        Serial.print(" ");
-        Serial.print(buffer[i], HEX);
-    }
-    Serial.println("");
+    ESP_LOGE(TAG, "%s", msg);
+    ESP_LOG_BUFFER_HEXDUMP(TAG, buffer, bend, ESP_LOG_ERROR);
 }
 void JBDBmsSimulator::flush() {
 
