@@ -23,7 +23,20 @@ function updateBattery() {
   }
 };
 
-
+/** 
+ * the JBD BLE to Uart coverter sends these messages 4 times on startup 
+ * to enter factory mode.
+ * 
+Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
+                ^^ write
+                   ^^ register 0  factory mode
+                      ^^ length 2
+                         ^^^^^ Enter factory mode 
+                               ^^^^ checksum
+Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
+Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
+Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
+*/
 
 let rstate = 0;
 serialPort.on('data', function (data) {
@@ -34,6 +47,10 @@ serialPort.on('data', function (data) {
     } else if ( rstate === 1 ) {
         if ( val === 0xa5 ) {
             rstate = 2;
+            writeMode = true;
+        if ( val === 0x5a ) {
+            rstate = 2;
+            writeMode = false;
         } else {
             rstate = 0;
         }
@@ -43,9 +60,18 @@ serialPort.on('data', function (data) {
     } else if ( rstate === 3 ) {
       if( val === 0x00  ) {
         rstate = 4;
+        inBuffer = undefined;
       } else {
-        rstate = 0;
+        inBuffer = [];
+        inBufferLen = val;
+        rstate = 41;
       }
+    } else if ( rstate == 41 ) {
+      inBuffer.push(val);
+      if ( inBufferLen == inBuffer.length ) {
+        rstate = 4;
+      }
+    }
     } else if ( rstate === 4 ) {
         csum = val<<8;
         rstate = 5;
@@ -54,15 +80,45 @@ serialPort.on('data', function (data) {
         rstate = 6;
     } else if ( rstate === 6 ) {
         if ( val == 0x77 ) {
-            if ( reg === 0x03 && csum === 0xfffd ) {
-              updateBattery();
-              send(0x03, 0x00, createReg03(voltage,current,capacity));
-            } else if ( reg == 0x04 && csum == 0xfffc ) {
-              send(0x04, 0x00, createReg04());
-            } else if ( reg == 0x05 && csum == 0xfffb ) {
-              send(0x05, 0x00, createReg05());
+            if ( !writeMode) {
+              if ( reg === 0x03 && csum === 0xfffd ) {
+                updateBattery();
+                send(0x03, 0x00, createReg03(voltage,current,capacity));
+              } else if ( reg == 0x04 && csum == 0xfffc ) {
+                send(0x04, 0x00, createReg04());
+              } else if ( reg == 0x05 && csum == 0xfffb ) {
+                send(0x05, 0x00, createReg05());
+              } else {
+                sendError(reg);
+              }
             } else {
-              sendError(reg);
+              // write mode
+              if ( reg == 0x00 ) {
+
+                if ( inBufferLen == 2 
+                  && inBuffer[0] == 0x56 
+                  && inBuffer[1] == 0x78 
+                  && csum == 0xff30 ) {
+                  // enter factor mode
+                  factoryMode = true;
+                  sendOk(reg);
+                }
+              }  
+              if ( reg == 0x01 ) {
+                if ( inBufferLen == 2 
+                  && inBuffer[0] == 0x0 
+                  && inBuffer[1] == 0x0 ) {
+                  // edit factory mode
+                  factoryMode = false;
+                  sendOk(reg);
+                } else if (inBufferLen == 2 
+                  && inBuffer[0] == 0x28 
+                  && inBuffer[1] == 0x28) {
+                  // edit factory mode and reset counters
+                  factoryMode = false;
+                  sendOk(reg);
+                }
+              }
             }
         }
         rstate = 0;
