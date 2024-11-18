@@ -27,6 +27,7 @@ function updateBattery() {
 
 let rstate = 0;
 serialPort.on('data', function (data) {
+  console.log("Got ",data);
   data.forEach((val) => {
     if ( rstate === 0 && val === 0xdd) {
         rstate = 1;
@@ -107,10 +108,10 @@ function createReg03(voltage, current, capacity) {
 function createReg04() {
   const buffer = new ArrayBuffer(8);
   const view = new DataView(buffer);
-  view.setUint16(0, 3.123/0.01); //REG_VOLTAGE_U16
-  view.setUint16(2, 3.14/0.01); //REG_VOLTAGE_U16
-  view.setUint16(4, 3.15/0.01); //REG_VOLTAGE_U16
-  view.setUint16(6, 3.15/0.01); //REG_VOLTAGE_U16
+  view.setUint16(0, 3.123/0.001); //REG_VOLTAGE_U16
+  view.setUint16(2, 3.14/0.001); //REG_VOLTAGE_U16
+  view.setUint16(4, 3.15/0.001); //REG_VOLTAGE_U16
+  view.setUint16(6, 3.15/0.001); //REG_VOLTAGE_U16
   return new Uint8Array(buffer);
 }
 function createReg05() {
