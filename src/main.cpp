@@ -235,7 +235,6 @@ void showHelp() {
   OutputStream->println("  - Send 'S' to toggle BMS simulator");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
   OutputStream->println("  - Send 'R' to restart");
-   
 }
 
 

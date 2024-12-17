@@ -39,6 +39,7 @@ Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
 */
 
 let rstate = 0;
+let factoryMode = false;
 serialPort.on('data', function (data) {
   console.log("Got ",data);
   data.forEach((val) => {
@@ -48,7 +49,7 @@ serialPort.on('data', function (data) {
         if ( val === 0xa5 ) {
             rstate = 2;
             writeMode = true;
-        if ( val === 0x5a ) {
+        } else if ( val === 0x5a ) {
             rstate = 2;
             writeMode = false;
         } else {
@@ -71,7 +72,6 @@ serialPort.on('data', function (data) {
       if ( inBufferLen == inBuffer.length ) {
         rstate = 4;
       }
-    }
     } else if ( rstate === 4 ) {
         csum = val<<8;
         rstate = 5;
@@ -80,47 +80,59 @@ serialPort.on('data', function (data) {
         rstate = 6;
     } else if ( rstate === 6 ) {
         if ( val == 0x77 ) {
-            if ( !writeMode) {
-              if ( reg === 0x03 && csum === 0xfffd ) {
-                updateBattery();
-                send(0x03, 0x00, createReg03(voltage,current,capacity));
-              } else if ( reg == 0x04 && csum == 0xfffc ) {
-                send(0x04, 0x00, createReg04());
-              } else if ( reg == 0x05 && csum == 0xfffb ) {
-                send(0x05, 0x00, createReg05());
-              } else {
-                sendError(reg);
-              }
+             console.log(`End of package writeMode:${writeMode} factoryMode:${factoryMode} reg:${reg} csum:${csum} inbufferLen:${inBufferLen}`);
+            const calcCsum = checksum(reg, inBuffer);
+            if ( calcCsum != csum ) {
+              console.log("Checsum failed");
             } else {
-              // write mode
               if ( reg == 0x00 ) {
-
                 if ( inBufferLen == 2 
                   && inBuffer[0] == 0x56 
-                  && inBuffer[1] == 0x78 
-                  && csum == 0xff30 ) {
+                  && inBuffer[1] == 0x78  ) {
                   // enter factor mode
+                  console.log("Switch on factoryMode ");
                   factoryMode = true;
                   sendOk(reg);
                 }
-              }  
-              if ( reg == 0x01 ) {
+              } else if ( reg == 0x01 ) {
                 if ( inBufferLen == 2 
                   && inBuffer[0] == 0x0 
                   && inBuffer[1] == 0x0 ) {
                   // edit factory mode
                   factoryMode = false;
+                  console.log("Switch off factoryMode ");
                   sendOk(reg);
                 } else if (inBufferLen == 2 
                   && inBuffer[0] == 0x28 
                   && inBuffer[1] == 0x28) {
                   // edit factory mode and reset counters
+                  console.log("Switch off factoryMode and reset");
                   factoryMode = false;
                   sendOk(reg);
                 }
+              } else if ( reg === 0x03 ) {
+                updateBattery();
+                send(0x03, 0x00, createReg03(voltage,current,capacity));
+              } else if ( reg == 0x04  ) {
+                send(0x04, 0x00, createReg04());
+              } else if ( reg == 0x05 ) {
+                send(0x05, 0x00, createReg05());
+              } else if ( reg == 0xAA ) {
+                send(0xAA, 0x00, createRegAA());
+              } else if ( reg == 0xFA ) {
+                send(0xFA, 0x00, 
+                  createParameterReponse((inBuffer[0]<<8 | inBuffer[1]&0xff),
+                  inBuffer[2]));                                          
+              } else if ( reg == 0xA2 ) {
+                console.log("Reg 0xA2");
+                sendError(reg);
+              } else {
+                console.log("Error Unhandled reg, not factory mode ", reg, reg.toString(16));
+                sendError(reg);
               }
             }
         }
+        console.log("Back to state 0");
         rstate = 0;
     }
     return 1;
@@ -180,13 +192,49 @@ function createReg05() {
   b[5] = 'S';
   return b;
 }
+
+function createRegAA() {
+  const buffer = new ArrayBuffer(24);
+  const view = new DataView(buffer);
+  view.setUint16(0, 0); //Short circuit protection times
+  view.setUint16(2, 0); //Number of charging overcurrents
+  view.setUint16(4, 0); //Discharge overcurrent times
+  view.setUint16(6, 0); // Number of monomer overvoltages
+  view.setUint16(8, 0); //Number of times of single unit undervoltage
+  view.setUint16(10, 0); //High temperature charging times
+  view.setUint16(12, 0); // Number of low temperature charges
+  view.setUint16(14, 0); //Discharge high temperature times
+  view.setUint16(16, 0); //Discharge low temperature times
+  view.setUint16(18, 10); //Overall number of overvoltages
+  view.setUint16(20, 0); //Overall undervoltage times
+  view.setUint16(22, 121);//Number of system restarts
+  return b
+}
+function createParameterReponse(start, len) {
+  const buffer = new ArrayBuffer(24);
+  const view = new DataView(buffer);
+  view.setUint16(0,(305/0.01)); // nominal capacity
+  view.setUint16(0,(286/0.01)); // nominal capacity
+  view.setUint16(0,(3412/0.001)); // full voltage
+  view.setUint16(0,(2600/0.001)); // vent voltage
+  view.setUint16(0,25); // power consumption
+
+}
 function encodeDate(y,m,d) {
   return (d&0x1f) | (((m&0xff)<<5)&0x1e0) | ((((y-2000)&0xff)<<9)&0xfe00); 
 }
 
 function sendError(regNo) {
+  console.log("Sending Error ", regNo);
   const csum = 0x10000 - 0x80;
   serialPort.write(Uint8Array.from([ 0xdd, regNo, 0x80, 0, (csum&0xff00)>>8, (csum&0xff), 0x77 ]));
+
+}
+
+function sendOk(regNo) {
+  console.log("Sending Ok ", regNo);
+  const csum = 0x10000;
+  serialPort.write(Uint8Array.from([ 0xdd, regNo, 0x00, 0, (csum&0xff00)>>8, (csum&0xff), 0x77 ]));
 
 }
 
@@ -198,12 +246,14 @@ function send(regNo, response, buffer) {
   serialPort.write(Uint8Array.from([ (csum&0xff00)>>8, (csum&0xff), 0x77]));
 }
 
-function checksum(response,buffer) {
+function checksum(response, buffer) {
      let sum = response;
-     sum = (sum+buffer.length)& 0xffff;
-     for (var i = 0; i < buffer.length; i++) {
-       sum = (sum+buffer[i])& 0xffff;
-     }
+     if ( buffer ) {
+       sum = (sum+buffer.length)& 0xffff;
+       for (var i = 0; i < buffer.length; i++) {
+         sum = (sum+buffer[i])& 0xffff;
+       }      
+     } 
     return 0x10000-sum;
 }
 

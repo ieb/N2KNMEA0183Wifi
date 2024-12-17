@@ -25,8 +25,16 @@ updated from build or via the admin ui over http.
 ![Streaming log of messages](screenshots/streaminglog.png)
 ![Message view](screenshots/messageview.png)
 
+# Hardware
 
-ToDo
+<div>
+<img alt="ESP32-C3 board" src="screenshots/Screenshot 2024-12-17 at 16.58.34.png" />
+</div>
+
+
+
+
+# ToDo
 
 * [x] Setup Wifi
 * [x] Setup MDNS registration
@@ -73,9 +81,10 @@ ToDo
 * [x] Deprecate WebSockets as they are unsabled and cause segv in the hardware.
 * [x] Implement http streams with SeaSmart format on and same on tcp, with filtering.
 * [x] Implement bridge to JBD BMS over TTL/Uart with isolation and expose BMS registeres in custom PGNs.
-* [ ] Port BMS UI fro BLE to Http streams
-* [ ] Design ESP32-C3 board
-* [ ] Build and test new boards. 
+* [x] Port BMS UI fro BLE to Http streams
+* [x] Design ESP32-C3 board
+* [x] Build and test new boards. 
+* [ ] Log BMS data to flash
 
 
 ## HTTP APIs
@@ -117,7 +126,7 @@ Gets the congiuration file
 
 gets the file from the filesystem, query params are ignored.
 
-
+Various simulators for both the http api and the TCP service can be found in simulators/
 
 ## TCP/UDP
 
