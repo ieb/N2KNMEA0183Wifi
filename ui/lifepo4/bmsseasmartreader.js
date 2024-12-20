@@ -372,12 +372,12 @@ class SeaSmartParser extends EventEmitter {
  * Cannot be started again once started.
  * public methods are start and stop.
  * emits events:
- *   connected, true or false 
+ *   connected, true or false
  *   statusCode with the status code of the current fetch after a response is received.
  *   metrics, are metrics.
  *   statusUpdate the BLE status updates.
- *   
- * 
+ *
+ *
  */ 
 class ChunkedSeaSmartStream extends EventEmitter {
   constructor(url, seasmartParser) {

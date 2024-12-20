@@ -84,6 +84,10 @@ updated from build or via the admin ui over http.
 * [x] Port BMS UI fro BLE to Http streams
 * [x] Design ESP32-C3 board
 * [x] Build and test new boards. 
+* [x] Update BMS app to use streaming http api
+* [x] Add gitsha1 to firmware, press h to see on serial
+* [ ] Test BLE UI on ChromeOS.
+* [ ] Backport BMS seasmart stream handlder to main ui
 * [ ] Log BMS data to flash
 
 

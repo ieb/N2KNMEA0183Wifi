@@ -369,7 +369,6 @@ Marine           4 == 100
     }
 
 
-
     // 0x1F403: PGN 128003 - Electric Energy Storage Status, Rapid Update
     /*
     at the moment covered by 127508 so wont be sending.

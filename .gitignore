@@ -6,4 +6,5 @@
 pcb/*.bak
 *secret*
 data/*
+src/version.h
 node_modules
