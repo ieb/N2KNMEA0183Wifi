@@ -236,107 +236,21 @@ mdns.on('query', function(query) {
   //console.log('Questions:', JSON.stringify(query.questions,null,2));
     query.questions.forEach((q)=> {
       if ( q.type == 'A' && (q.class == 'UNKNOWN_32769') || (q.class === 'IN') ) {
-        if ( q.name === 'boatsystems.local' ) {
+        if ( q.name === 'boatsimulator.local' ) {
           mdns.respond({
             answers: [{
-              name: 'boatsystems.local',
+              name: 'boatsimulator.local',
               type: 'A',
               class: 'IN',
               ttl: 300,
               data: `${ipAddress}`
-            },
-            {
-              name: '_can-tcp._tcp.local',
-              type: 'SRV',
-              class: 'IN',
-              ttl: 300,
-              data: {
-                port: 10112,
-                target: 'seasmart.local',
-              }
-            },
-            {
-              name: '_nmea0183-tcp._tcp.local',
-              type: 'SRV',
-              class: 'IN',
-              ttl: 300,
-              data: {
-                port: 10112,
-                target: 'seasmart.local',
-              }
-            },
-            {
-              name: 'http._tcp.local',
-              type: 'SRV',
-              class: 'IN',
-              ttl: 300,
-              data: {
-                port: 80,
-                target: 'seasmart.local',
-              }
-            },
+            }            
             ]
           }); 
-        }
-      } else if ( q.type == 'SRV' && (q.class == 'UNKNOWN_32769') || (q.class === 'IN') ) {
-        if ( q.name === '_can-tcp._tcp.local' ) {
-          mdns.respond({
-            answers: [
-            {
-              name: '_can-tcp._tcp.local',
-              type: 'SRV',
-              class: 'IN',
-              ttl: 300,
-              data: {
-                port: 10112,
-                target: 'seasmart.local',
-              }
-            }
-            ]
-          });
-        } else if (q.name === '_nmea0183-tcp._tcp.local' ) {
-          mdns.respond({
-            answers: [
-            {
-              name: '_nmea0183-tcp._tcp.local',
-              type: 'SRV',
-              class: 'IN',
-              ttl: 300,
-              data: {
-                port: 10112,
-                target: 'seasmart.local',
-              }
-            }
-            ]
-          });
-        } else if (q.name === 'http._tcp.local' ) {
-          mdns.respond({
-            answers: [
-            {
-              name: 'http._tcp.local',
-              type: 'SRV',
-              class: 'IN',
-              ttl: 300,
-              data: {
-                port: 80,
-                target: 'seasmart.local',
-              }
-            }
-            ]
-          });
-
         }
       }
   });
 
-})
-
-// lets query for an A record for 'brunhilde.local'
-mdns.query({
-  questions:[{
-    name: 'brunhilde.local',
-    type: 'A'
-  }]
 })
 
 

@@ -15,7 +15,7 @@ class Metric {
 
 
   update(value) {
-    if (!Number.isNaN(value)) {
+    if (value && !Number.isNaN(value)) {
       this.currentValues.push(value);
     }
   }

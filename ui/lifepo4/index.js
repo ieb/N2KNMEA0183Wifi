@@ -116,19 +116,35 @@ window.addEventListener('load', () => {
     }
   });
 
-  const updateGuage = (statusUpdate) => {
-    setInnerHtmlById('guageVoltageText', `${statusUpdate.voltage.toFixed(2)}V`);
-    setInnerHtmlById('guageCurrentText', `${statusUpdate.current.toFixed(1)}A`);
-    const currentGuage = document.getElementById('currentGuage');
-
-    const currentGuageLength = (Math.abs(statusUpdate.current) / 100) * 353;
-    currentGuage.setAttribute('stroke-dasharray', `${currentGuageLength} 471`);
-    if (statusUpdate.current > 0) {
-      currentGuage.setAttribute('stroke', 'url(#currentGradCharge)');
-    } else {
-      currentGuage.setAttribute('stroke', 'url(#currentGradDischarge)');
+  const formatDouble = (v, p) => {
+    if (v === undefined || v === 1e9) {
+      return '--';
     }
-    setClass('currentWidget', (statusUpdate.current > 0), 'charging', 'discharging');
+    return v.toFixed(p);
+  };
+  const formatInt = (v) => {
+    if (v === undefined || v === 0xffff) {
+      return '--';
+    }
+    return v;
+  };
+
+
+  const updateGuage = (statusUpdate) => {
+    setInnerHtmlById('guageVoltageText', `${formatDouble(statusUpdate.voltage, 2)}V`);
+    setInnerHtmlById('guageCurrentText', `${formatDouble(statusUpdate.current, 1)}A`);
+    if (statusUpdate.current) {
+      const currentGuage = document.getElementById('currentGuage');
+
+      const currentGuageLength = (Math.abs(statusUpdate.current) / 100) * 353;
+      currentGuage.setAttribute('stroke-dasharray', `${currentGuageLength} 471`);
+      if (statusUpdate.current > 0) {
+        currentGuage.setAttribute('stroke', 'url(#currentGradCharge)');
+      } else {
+        currentGuage.setAttribute('stroke', 'url(#currentGradDischarge)');
+      }
+      setClass('currentWidget', (statusUpdate.current > 0), 'charging', 'discharging');
+    }
 
 
     if (statusUpdate.capacity) {
@@ -146,27 +162,28 @@ window.addEventListener('load', () => {
     }
   };
 
+
   const handleStatusUpdate = (statusUpdate) => {
     updateGuage(statusUpdate);
 
-    setInnerHtmlById('status.voltage', statusUpdate.voltage.toFixed(2));
-    setInnerHtmlById('status.current', statusUpdate.current.toFixed(1));
-    setInnerHtmlById('status.capacity.stateOfCharge', statusUpdate.capacity.stateOfCharge.toFixed(0));
-    setInnerHtmlById('status.packBalCap', statusUpdate.packBalCap.toFixed(0));
-    setInnerHtmlById('status.capacity.fullCapacity', statusUpdate.capacity.fullCapacity.toFixed(0));
+    setInnerHtmlById('status.voltage', formatDouble(statusUpdate.voltage, 2));
+    setInnerHtmlById('status.current', formatDouble(statusUpdate.current, 1));
+    setInnerHtmlById('status.capacity.stateOfCharge', formatDouble(statusUpdate.capacity.stateOfCharge, 0));
+    setInnerHtmlById('status.packBalCap', formatDouble(statusUpdate.packBalCap, 0));
+    setInnerHtmlById('status.capacity.fullCapacity', formatDouble(statusUpdate.capacity.fullCapacity, 0));
     setClass('status.charging', statusUpdate.FETStatus.charging === 1, 'enabled', 'disabled');
     setClass('status.discharging', statusUpdate.FETStatus.discharging === 1, 'enabled', 'disabled');
-    setInnerHtmlById('status.chargeCycles', statusUpdate.chargeCycles);
-    setInnerHtmlById('status.productionDate', statusUpdate.productionDate.toDateString());
-    setInnerHtmlById('status.bmsSWVersion', statusUpdate.bmsSWVersion);
-    setInnerHtmlById('status.numberOfCells', statusUpdate.numberOfCells.toFixed(0));
-    setInnerHtmlById('status.tempSensorCount', statusUpdate.tempSensorCount.toFixed(0));
+    setInnerHtmlById('status.chargeCycles', formatInt(statusUpdate.chargeCycles));
+    setInnerHtmlById('status.productionDate', statusUpdate.productionDate ? statusUpdate.productionDate.toDateString() : '--');
+    setInnerHtmlById('status.bmsSWVersion', formatInt(statusUpdate.bmsSWVersion));
+    setInnerHtmlById('status.numberOfCells', formatDouble(statusUpdate.numberOfCells, 0));
+    setInnerHtmlById('status.tempSensorCount', formatDouble(statusUpdate.tempSensorCount, 0));
     setInnerHtmlById('status.chemistry', statusUpdate.chemistry);
     for (let i = 0; i < statusUpdate.balanceActive.length; i++) {
       setClass(`status.balanceActive${i}`, statusUpdate.balanceActive[i] === 1, 'enabled', 'disabled');
     }
     for (let i = 0; i < statusUpdate.tempSensorValues.length; i++) {
-      setInnerHtmlById(`status.tempSensorValues${i}`, statusUpdate.tempSensorValues[i].toFixed(1));
+      setInnerHtmlById(`status.tempSensorValues${i}`, formatDouble(statusUpdate.tempSensorValues[i], 1));
     }
     for (const k of Object.keys(statusUpdate.currentErrors)) {
       setClass(`status.errors.${k}`, statusUpdate.currentErrors[k] === 1, 'enabled', 'disabled');
@@ -174,16 +191,33 @@ window.addEventListener('load', () => {
     setInnerHtmlById('status.lastUpdate', (new Date()).toString());
   };
   const handleCellUpdate = (cellUpdate) => {
-    let cellMax = cellUpdate.cellMv[0];
-    let cellMin = cellUpdate.cellMv[0];
+    let cellMax;
+    let cellMin;
     for (let i = 0; i < cellUpdate.cellMv.length; i++) {
-      setInnerHtmlById(`cell.voltage${i}`, (0.001 * cellUpdate.cellMv[i]).toFixed(3));
-      cellMax = Math.max(cellMax, cellUpdate.cellMv[i]);
-      cellMin = Math.min(cellMin, cellUpdate.cellMv[i]);
+      if (cellUpdate.cellMv[i] && cellUpdate.cellMv[i] !== 1e9) {
+        setInnerHtmlById(`cell.voltage${i}`, (0.001 * cellUpdate.cellMv[i]).toFixed(3));
+        if (cellMax !== undefined) {
+          cellMax = Math.max(cellMax, cellUpdate.cellMv[i]);
+        } else {
+          cellMax = cellUpdate.cellMv[i];
+        }
+        if (cellMin !== undefined) {
+          cellMin = Math.min(cellMin, cellUpdate.cellMv[i]);
+        } else {
+          cellMin = cellUpdate.cellMv[i];
+        }
+      } else {
+        setInnerHtmlById(`cell.voltage${i}`, '--');
+      }
     }
-    const range = cellMax - cellMin;
-    setInnerHtmlById('cell.range', `${(0.001 * cellMin).toFixed(3)} - ${(0.001 * cellMax).toFixed(3)}`);
-    setInnerHtmlById('cell.diff', (0.001 * range).toFixed(3));
+    if (cellMax !== undefined && cellMin !== undefined) {
+      const range = cellMax - cellMin;
+      setInnerHtmlById('cell.range', `${(0.001 * cellMin).toFixed(3)} - ${(0.001 * cellMax).toFixed(3)}`);
+      setInnerHtmlById('cell.diff', (0.001 * range).toFixed(3));
+    } else {
+      setInnerHtmlById('cell.range', '--');
+      setInnerHtmlById('cell.diff', '--');
+    }
     setInnerHtmlById('status.lastUpdate', (new Date()).toString());
   };
   const handleRapidUpdate = (rapidUpdate) => {
@@ -191,8 +225,8 @@ window.addEventListener('load', () => {
       voltage: rapidUpdate.batteryVoltage,
       current: rapidUpdate.batteryCurrent,
     });
-    setInnerHtmlById('status.voltage', rapidUpdate.batteryVoltage.toFixed(2));
-    setInnerHtmlById('status.current', rapidUpdate.batteryCurrent.toFixed(1));
+    setInnerHtmlById('status.voltage', formatDouble(rapidUpdate.batteryVoltage, 2));
+    setInnerHtmlById('status.current', formatDouble(rapidUpdate.batteryCurrent, 2));
     setInnerHtmlById('status.lastUpdate', (new Date()).toString());
   };
 

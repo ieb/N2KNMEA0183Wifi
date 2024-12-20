@@ -31,7 +31,7 @@ class NMEA2000JBDMessageDecoder {
         pgn: 127508,
         message: 'DCBatteryStatus',
         instance: canMessage.data.getUint8(0),
-        batteryVoltage: this.get2ByteUDouble(canMessage.data, 1, 0.01),
+        batteryVoltage: this.get2ByteDouble(canMessage.data, 1, 0.01),
         batteryCurrent: this.get2ByteDouble(canMessage.data, 3, 0.1),
         batteryTemperature: this.get2ByteUDouble(canMessage.data, 5, 0.01),
         sid: canMessage.data.getUint8(7),
@@ -42,10 +42,13 @@ class NMEA2000JBDMessageDecoder {
         const instance = canMessage.data.getUint8(2);
         const register = canMessage.data.getUint8(3);
         switch (register) {
-          case 0x03:
-            // eslint-disable-next-line no-case-declarations
+          case 0x03: {
+            const registerLength = canMessage.data.getUint8(4);
+            if (registerLength === 0) {
+              return {};
+            }
+            console.log("Register length == ", registerLength);
             const nNTC = canMessage.data.getUint8(27);
-            // eslint-disable-next-line no-case-declarations
             const endNTC = REG_NTC_READINGS_U8 + 2 * nNTC;
             /*
              const register03Format = {
@@ -74,36 +77,40 @@ class NMEA2000JBDMessageDecoder {
               register,
               instance,
               chemistry: 'LifePO4',
-              registerLength: canMessage.data.getUint8(4),
+              registerLength,
               voltage: this.get2ByteUDouble(canMessage.data, REG_VOLTAGE_U16, 0.01),
               current: this.get2ByteDouble(canMessage.data, REG_CURRENT_S16, 0.01),
               packBalCap: this.get2ByteUDouble(canMessage.data, REG_PACK_CAPACITY_U16, 0.01),
               capacity: {
                 fullCapacity: this.get2ByteUDouble(canMessage.data, REG_FULL_CAPACITY_U16, 0.01),
-                stateOfCharge: canMessage.data.getUint8(REG_SOC_U8),
+                stateOfCharge: this.get1ByteUInt(canMessage.data, REG_SOC_U8),
               },
-              chargeCycles: canMessage.data.getUint16(REG_CHARGE_CYCLES_U16, true),
+              chargeCycles: this.get2ByteUInt(canMessage.data, REG_CHARGE_CYCLES_U16),
               productionDate: this.decodeDate(
                 canMessage.data.getUint16(REG_PRODUCTION_DATE_U16, true),
               ),
-              balanceStatus0: canMessage.data.getUint16(REG_BAT0_15_STATUS_U16, true),
-              balanceStatus1: canMessage.data.getUint16(REG_BAT16_31_STATUS_U16, true),
-              protectionStatus: canMessage.data.getUint16(REG_ERRORS_U16, true),
+              balanceStatus0: this.get2ByteUInt(canMessage.data, REG_BAT0_15_STATUS_U16),
+              balanceStatus1: this.get2ByteUInt(canMessage.data, REG_BAT16_31_STATUS_U16),
+              protectionStatus: this.get2ByteUInt(canMessage.data, REG_ERRORS_U16),
               balanceActive: this.getBalanceStatus(canMessage.data),
               currentErrors: this.getCurrentErrors(canMessage.data),
-              bmsSWVersion: (0.1 * canMessage.data.getUint8(REG_SOFTWARE_VERSION_U8)).toFixed(1),
+              bmsSWVersion: this.get1ByteUDouble(canMessage, REG_SOFTWARE_VERSION_U8, 0.1),
               FETStatus: this.getFETStatus(canMessage.data),
-              numberOfCells: canMessage.data.getUint8(REG_NUMBER_OF_CELLS_U8),
+              numberOfCells: this.get1ByteUInt(canMessage, REG_NUMBER_OF_CELLS_U8),
               tempSensorCount: nNTC,
-              humidity: canMessage.data.getUint8(endNTC),
-              alarmStatus: canMessage.data.getUint16(endNTC + 1),
+              humidity: this.get1ByteUInt(canMessage, endNTC),
+              alarmStatus: this.get2ByteUInt(canMessage.data, endNTC + 1),
               fullChargeCapacity: this.get2ByteUDouble(canMessage.data, endNTC + 3, 0.01),
               remainingChargeCapacity: this.get2ByteUDouble(canMessage.data, endNTC + 5, 0.01),
               ballanceCurrent: this.get2ByteUDouble(canMessage.data, endNTC + 7, 0.001),
               tempSensorValues: this.getNTCValues(canMessage.data),
             };
-
-          case 0x04:
+          }
+          case 0x04: {
+            const registerLength = canMessage.data.getUint8(4);
+            if (registerLength === 0) {
+              return {};
+            }
             /*
             register04Format
                 const dataView = new DataView(msg.buffer);
@@ -119,9 +126,10 @@ class NMEA2000JBDMessageDecoder {
               pgn: canMessage.pgn,
               register,
               instance,
-              registerLength: canMessage.data.getUint8(4),
+              registerLength,
               cellMv: this.getCellMv(canMessage.data),
             };
+          }
           default:
             return undefined;
         }
@@ -137,12 +145,18 @@ class NMEA2000JBDMessageDecoder {
     const cellMv = [];
     for (let i = 0; i < nCells / 2; i++) {
       cellMv[i] = dataView.getUint16(5 + i * 2, true);
+      if ( cellMv[i] === 0xffff) {
+        return undefined;
+      }
     }
     return cellMv;
   }
 
   // eslint-disable-next-line class-methods-use-this
   decodeDate(dateU16) {
+    if ( dateU16 == 0xffff) {
+      return undefined;
+    }
     // eslint-disable-next-line no-bitwise
     const year = ((dateU16 & 0xfe00) >> 9) + 2000;
     // eslint-disable-next-line no-bitwise
@@ -153,8 +167,11 @@ class NMEA2000JBDMessageDecoder {
   }
 
   getBalanceStatus(dataView) {
-    const ncells = dataView.getUint8(REG_NUMBER_OF_CELLS_U8);
     let status = dataView.getUint16(REG_BAT0_15_STATUS_U16, true);
+    if (status == 0xffff) {
+      return undefined;
+    }
+    const ncells = dataView.getUint8(REG_NUMBER_OF_CELLS_U8);
     const balanceActive = [];
     let mask = 0x01;
     for (let i = 0; i < ncells; i++) {
@@ -180,6 +197,9 @@ class NMEA2000JBDMessageDecoder {
 
   getCurrentErrors(dataView) {
     const status = dataView.getUint16(REG_ERRORS_U16, true);
+    if ( status === 0xffff) {
+      return undefined;
+    }
     const currentErrors = {
       // bit0 - Single Cell overvolt
       singleCellOvervolt: this.getBit(status, 0x01),
@@ -236,13 +256,60 @@ class NMEA2000JBDMessageDecoder {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  get2ByteUDouble(dataView, byteOffset, factor) {
+  get2ByteUInt(dataView, byteOffset) {
     if (dataView.byteLength < byteOffset + 2) {
-      return NMEA2000JBDMessageDecoder.n2kDoubleNA;
+      return undefined;
     }
     if (dataView.getUint8(byteOffset) === 0xff
           && dataView.getUint8(byteOffset + 1) === 0xff) {
-      return NMEA2000JBDMessageDecoder.n2kDoubleNA;
+      return undefined;
+    }
+    return dataView.getUint16(byteOffset, true);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  get1ByteUInt(dataView, byteOffset) {
+    if (dataView.byteLength < byteOffset + 1) {
+      return undefined;
+    }
+    if (dataView.getUint8(byteOffset) === 0xff) {
+      return undefined;
+    }
+    return dataView.getUint8(byteOffset);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  get1ByteUDouble(dataView, byteOffset, factor) {
+    if (dataView.byteLength < byteOffset + 1) {
+      return undefined;
+    }
+    if (dataView.getUint8(byteOffset) === 0xff) {
+      return undefined;
+    }
+    return factor * dataView.getUint8(byteOffset);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  get2ByteUDouble(dataView, byteOffset, factor) {
+    if (dataView.byteLength < byteOffset + 2) {
+      return undefined;
+    }
+    if (dataView.getUint8(byteOffset) === 0xff
+          && dataView.getUint8(byteOffset + 1) === 0xff) {
+      return undefined;
+    }
+    return factor * dataView.getUint16(byteOffset, true);
+  }
+
+
+  // eslint-disable-next-line class-methods-use-this
+  get2ByteUDouble(dataView, byteOffset, factor) {
+    if (dataView.byteLength < byteOffset + 2) {
+      return undefined;
+    }
+    if (dataView.getUint8(byteOffset) === 0xff
+          && dataView.getUint8(byteOffset + 1) === 0xff) {
+      return undefined;
     }
     return factor * dataView.getUint16(byteOffset, true);
   }
@@ -250,11 +317,11 @@ class NMEA2000JBDMessageDecoder {
   // eslint-disable-next-line class-methods-use-this
   get2ByteDouble(dataView, byteOffset, factor) {
     if (dataView.byteLength < byteOffset + 2) {
-      return NMEA2000JBDMessageDecoder.n2kDoubleNA;
+      return undefined;
     }
     if (dataView.getUint8(byteOffset) === 0xff
           && dataView.getUint8(byteOffset + 1) === 0x7f) {
-      return NMEA2000JBDMessageDecoder.n2kDoubleNA;
+      return undefined;
     }
     return factor * dataView.getInt16(byteOffset, true);
   }
@@ -507,7 +574,11 @@ class ChunkedSeaSmartStream extends EventEmitter {
       that.lastMessage = Date.now();
       const lastNL = buffer.lastIndexOf('\n');
       if (lastNL !== -1) {
-        that.seasmartParser.parseSeaSmartMessages({ data: buffer.substring(0, lastNL + 1) });
+        try {
+          that.seasmartParser.parseSeaSmartMessages({ data: buffer.substring(0, lastNL + 1) });
+        } catch(e) {
+          console.error('Failed tp parse message ', e, buffer.substring(0, lastNL + 1));
+        }
         buffer = buffer.substring(lastNL + 1);
       }
     }
@@ -539,8 +610,12 @@ class JDBBMSReaderSeasmart extends EventEmitter {
       this.messagesRecieved++;
     });
     this.parser.on('n2kdecoded', (decodedMessage) => {
-      this.messagedDecoded++;
-      that.emitEvent('n2kdecoded', decodedMessage);      
+      try {
+        this.messagedDecoded++;
+        that.emitEvent('n2kdecoded', decodedMessage);
+      } catch (e) {
+        log.error('Failed to process decoded message', e);
+      }
     });
     setInterval(() => {
       that.emitEvent('metrics', {
