@@ -1,4 +1,5 @@
-import { JDBBMSReader } from './bmsblereader.js';
+//import { JDBBMSReader } from './bmsblereader.js';
+import { JDBBMSReaderSeasmart } from './bmsseasmartreader.js';
 import {
   TemperatureGraph,
   CellVoltagesGraph,
@@ -22,9 +23,9 @@ if ('serviceWorker' in navigator) {
 
 
 window.addEventListener('load', () => {
-  const bleReader = new JDBBMSReader();
-  const fakeData = window.location.hash.includes('fakeData')
-  const timeSeriesManager = new TimeSeriesManager(bleReader, fakeData);
+  const bmsReader = new JDBBMSReaderSeasmart();
+  const fakeData = window.location.hash.includes('fakeData');
+  const timeSeriesManager = new TimeSeriesManager(bmsReader, fakeData);
 
   const voltagesGraph = new VoltagesGraph();
   const cellVoltageGraph = new CellVoltagesGraph();
@@ -46,9 +47,17 @@ window.addEventListener('load', () => {
     }
   };
 
+  const connectWithUrl = async () => {
+    const apiHost = document.getElementById('url').value;
+    const url = `http://${apiHost}/api/seasmart?pgn=130829,127508`;
+    await bmsReader.connectBMS(url);
+  };
 
-  document.getElementById('connect').addEventListener('click', bleReader.connectBMS);
-  document.getElementById('disconnect').addEventListener('click', bleReader.disconnectBMS);
+  document.getElementById('connect').addEventListener('click', connectWithUrl);
+
+  document.getElementById('disconnect').addEventListener('click', async () => {
+    await bmsReader.disconnectBMS();
+  });
 
 
   const setInnerHtmlById = (id, value) => {
@@ -60,25 +69,56 @@ window.addEventListener('load', () => {
     }
   };
 
-  bleReader.on('connected', (connected) => {
+  bmsReader.on('metrics', (metrics) => {
+    setInnerHtmlById('streamCount', `streams:${metrics.streams}`);
+    setInnerHtmlById('connectionCount', `connections:${metrics.connections}`);
+    setInnerHtmlById('timeoutCount', `timeouts:${metrics.timeouts}`);
+    setInnerHtmlById('receivedCount', `received:${metrics.messagesRecieved}`);
+    setInnerHtmlById('decodedCount', `used:${metrics.messagedDecoded}`);
+  });
+
+
+  bmsReader.on('connected', (connected) => {
     if (connected) {
       timeSeriesManager.start();
     } else {
+      document.getElementById('connectionError').setAttribute('class', 'greyDot');
       timeSeriesManager.stop();
     }
     setClass('connect', connected, 'hidden', '');
     setClass('disconnect', connected, '', 'hidden');
   });
+  bmsReader.on('statusCode', (code) => {
+    if (code === 200) {
+      setInnerHtmlById('connectionError', 'OK');
+      document.getElementById('connectionError').setAttribute('class', 'greenDot');
+    } else if (code === 504) {
+      setTimeout(async () => {
+        // service worker or fetch is reporting offline so try other ports.
+        await bmsReader.disconnectBMS();
+        const apiHost = document.getElementById('url').value;
+        const parts = apiHost.split(':');
+        if (parts.length === 1) {
+          parts.push('8080');
+        } else if (parts[1] === '8080') {
+          parts[1] = '8081';
+        } else if (parts[1] === '8081') {
+          parts.pop();
+        }
+        document.getElementById('url').value = parts.join(':');
+        setInnerHtmlById('connectionError', 'Searching');
+        document.getElementById('connectionError').setAttribute('class', 'greyDot');
+        await connectWithUrl();
+      }, 1);
+    } else {
+      setInnerHtmlById('connectionError', 'Error');
+      document.getElementById('connectionError').setAttribute('class', 'redDot');
+    }
+  });
 
   const updateGuage = (statusUpdate) => {
     setInnerHtmlById('guageVoltageText', `${statusUpdate.voltage.toFixed(2)}V`);
     setInnerHtmlById('guageCurrentText', `${statusUpdate.current.toFixed(1)}A`);
-    const stateOfChargeAh = (statusUpdate.capacity.stateOfCharge / 100)
-      * statusUpdate.capacity.fullCapacity;
-    setInnerHtmlById('guageStateOfChargeText', `${stateOfChargeAh.toFixed(0)}Ah`);
-    setClass('currentWidget', (statusUpdate.current > 0), 'charging', 'discharging');
-
-
     const currentGuage = document.getElementById('currentGuage');
 
     const currentGuageLength = (Math.abs(statusUpdate.current) / 100) * 353;
@@ -88,18 +128,25 @@ window.addEventListener('load', () => {
     } else {
       currentGuage.setAttribute('stroke', 'url(#currentGradDischarge)');
     }
+    setClass('currentWidget', (statusUpdate.current > 0), 'charging', 'discharging');
 
-    const stateOfChargeGauge = document.getElementById('chargeGuage');
-    const stateOfChargeBase = document.getElementById('stateOfChargeBase');
 
-    const stateOfChageLength = 120 - (statusUpdate.capacity.stateOfCharge / 100) * 120;
-    stateOfChargeGauge.setAttribute('stroke-dasharray', `${stateOfChageLength} 471`);
+    if (statusUpdate.capacity) {
+      const stateOfChargeAh = (statusUpdate.capacity.stateOfCharge / 100)
+        * statusUpdate.capacity.fullCapacity;
+      setInnerHtmlById('guageStateOfChargeText', `${stateOfChargeAh.toFixed(0)}Ah`);
+      const stateOfChargeGauge = document.getElementById('chargeGuage');
+      const stateOfChargeBase = document.getElementById('stateOfChargeBase');
 
-    const socp = Math.min(100, 10 * Math.floor((statusUpdate.capacity.stateOfCharge + 5) / 10));
-    stateOfChargeBase.setAttribute('class', `guageSubBase_${socp}`);
+      const stateOfChageLength = 120 - (statusUpdate.capacity.stateOfCharge / 100) * 120;
+      stateOfChargeGauge.setAttribute('stroke-dasharray', `${stateOfChageLength} 471`);
+
+      const socp = Math.min(100, 10 * Math.floor((statusUpdate.capacity.stateOfCharge + 5) / 10));
+      stateOfChargeBase.setAttribute('class', `guageSubBase_${socp}`);
+    }
   };
 
-  bleReader.on('statusUpdate', (statusUpdate) => {
+  const handleStatusUpdate = (statusUpdate) => {
     updateGuage(statusUpdate);
 
     setInnerHtmlById('status.voltage', statusUpdate.voltage.toFixed(2));
@@ -125,8 +172,8 @@ window.addEventListener('load', () => {
       setClass(`status.errors.${k}`, statusUpdate.currentErrors[k] === 1, 'enabled', 'disabled');
     }
     setInnerHtmlById('status.lastUpdate', (new Date()).toString());
-  });
-  bleReader.on('cellUpdate', (cellUpdate) => {
+  };
+  const handleCellUpdate = (cellUpdate) => {
     let cellMax = cellUpdate.cellMv[0];
     let cellMin = cellUpdate.cellMv[0];
     for (let i = 0; i < cellUpdate.cellMv.length; i++) {
@@ -138,7 +185,30 @@ window.addEventListener('load', () => {
     setInnerHtmlById('cell.range', `${(0.001 * cellMin).toFixed(3)} - ${(0.001 * cellMax).toFixed(3)}`);
     setInnerHtmlById('cell.diff', (0.001 * range).toFixed(3));
     setInnerHtmlById('status.lastUpdate', (new Date()).toString());
+  };
+  const handleRapidUpdate = (rapidUpdate) => {
+    updateGuage({
+      voltage: rapidUpdate.batteryVoltage,
+      current: rapidUpdate.batteryCurrent,
+    });
+    setInnerHtmlById('status.voltage', rapidUpdate.batteryVoltage.toFixed(2));
+    setInnerHtmlById('status.current', rapidUpdate.batteryCurrent.toFixed(1));
+    setInnerHtmlById('status.lastUpdate', (new Date()).toString());
+  };
+
+  bmsReader.on('n2kdecoded', (decodedMessage) => {
+    console.debug('Decoded Message', decodedMessage);
+    if (decodedMessage.register === 0x03) {
+      handleStatusUpdate(decodedMessage);
+    } else if (decodedMessage.register === 0x04) {
+      handleCellUpdate(decodedMessage);
+    } else if (decodedMessage.pgn === 127508 && decodedMessage.instance === 1) {
+      handleRapidUpdate(decodedMessage);
+    }
   });
+
+
+
   let timeWindow = 3600000;
   let endOfWindow = 1.0;
   const updateGraphs = (history) => {
@@ -171,6 +241,10 @@ window.addEventListener('load', () => {
   });
 
   updateGraphs(timeSeriesManager.timeSeries.history);
+
+  setTimeout(() => {
+    connectWithUrl();
+  }, 100);
 });
 
 

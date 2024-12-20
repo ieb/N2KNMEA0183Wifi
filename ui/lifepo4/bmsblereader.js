@@ -1,5 +1,11 @@
 /* eslint-disable no-bitwise */
 
+/**
+ * This code is no longer used since the BLE module can only cope with a single
+ * subscriber concurrently and requires manually plugging in. This code has been
+ * moved to firmware and replaced by a seasmart http stream emitted from that firmware.
+ */
+
 const START_BYTE = 0xDD;
 const STOP_BYTE = 0x77;
 // eslint-disable-next-line no-unused-vars
@@ -48,6 +54,7 @@ class JDBBMSReader {
 
 
   async connectBMS() {
+
     const options = {
       filters: [
         { namePrefix: 'JBD' },
@@ -298,6 +305,8 @@ class JDBBMSReader {
     return result;
   }
 }
+
+
 
 
 export {

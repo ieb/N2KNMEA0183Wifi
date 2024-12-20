@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "multicast-dns": "^7.2.5",
     "serialport": "^12.0.0",
     "ws": "^8.16.0"
   }

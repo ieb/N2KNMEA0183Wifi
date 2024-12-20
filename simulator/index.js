@@ -30,7 +30,7 @@ server.on('request', (req, res) => {
   const { pathname } = new URL(req.url, 'http://base.url');
   if (pathname === '/api/seasmart') {
     console.log(`${req.method} ${req.url} 200`);
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'keep-alive': 'timeout=30' });
     seaSmartResponses.push(res);
     req.on('close', () => {
       console.log("Close seaSmartResponses");
@@ -38,7 +38,7 @@ server.on('request', (req, res) => {
     });
   } else if ( pathname === '/api/nmea0183') {
     console.log(`${req.method} ${req.url} 200`);
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'keep-alive': 'timeout=30'  });
     nmea0183Responses.push(res);
     req.on('close', () => {
       nmea0183Responses = nmea0183Responses.filter((r) => (r !== res));
@@ -58,6 +58,7 @@ const sendSeaSmartChunked = (msgId, msg) => {
       const pgns = new URL(res.req.url, "http://base.url").searchParams.get("pgn");
       if (pgns === null ||
         pgns.includes(msgId.toString()) ) {
+        console.log(msg);
         res.write(msg+'\n');
         //res.uncork();
       }
@@ -87,6 +88,15 @@ setInterval(() => {
 const parseCanData = (line) => {
   let canFrame = {};
   line = line.trim();
+  if ( line.startsWith('$PCDIN') ) {
+    const parts = line.split(',');
+    canFrame.pgn = parseInt(parts[1], 16);
+    canFrame.timestamp = parseInt(parts[2], 16); 
+    canFrame.src = parseInt(parts[3], 16); 
+    canFrame.msg = parts[4];
+    canFrame.pcdin = line;
+    return canFrame;
+  }
   // 228849 : Pri:2 PGN:127257 Source:204 Dest:255 Len:8 Data:FF,9C,8,C7,0,21,0,FF
   // format 2 {n: 22, pgn: 127245, src: 205, msg: '00ffff7febfaffff'}
   if ( line.startsWith('{')) {
@@ -137,6 +147,7 @@ const parseCanData = (line) => {
 
 
 // load the sample data
+/*
 const canData1 = fs.readFileSync('samplecandata.txt', 'utf8').split('\n');
 for (var i = 0; i < canData1.length; i++) {
   canData1[i] = parseCanData(canData1[i]);
@@ -146,6 +157,13 @@ for (var i = 0; i < canData2.length; i++) {
   canData2[i] = parseCanData(canData2[i]);
 }
 const canData = canData1.concat(canData2);
+*/
+const canData = fs.readFileSync('seasmartsample.txt', 'utf8').split('\n');
+for (var i = 0; i < canData.length; i++) {
+  canData[i] = parseCanData(canData[i]);
+}
+//console.log("CanData", canData);
+
 
 
 // send frames in a loop.
@@ -166,6 +184,10 @@ const emitFrame = () => {
       delay = canData[line].timestamp - f.timestamp;
     }
   }
+  if (delay > 1000) {
+    console.log("Stalled");
+    delay = 1000;
+  }
   setTimeout(emitFrame, delay);
 };
 setTimeout(emitFrame, 200);
@@ -182,6 +204,140 @@ setInterval(() => {
   sendMessage(n2kraw, 127258, n2kEncoder.encodeBinarPGN({ PGN: 127258, Source:23, DataLen:12, Data: data.buffer }));
 }, 1000);
 */
+const { networkInterfaces } = require('os');
+const candidates = [];
+const nets = networkInterfaces();
+Object.keys(nets).forEach((interfaceName) => {
+  nets[interfaceName].forEach((ip) => {
+    if ( !ip.internal && ip.family == 'IPv4' ) {
+      candidates.push(ip);
+      console.log("Candidate ", interfaceName, ip);
+    }
+  });
+});
+const ipAddress = candidates[0].address;
+// MDNS support
+var mdns = require('multicast-dns')()
+
+mdns.on('response', function(response) {
+  //console.log('got a response packet:', response)
+  console.log('Answers:',JSON.stringify(response.answers, (key, value) => {
+    if ( value.data && value.type == 'Buffer' ) {
+      const byteA = new Uint8Array(value.data);
+      const s = new TextDecoder().decode(byteA);
+      return s;
+    }
+    return value;
+  }, 2));
+})
+
+mdns.on('query', function(query) {
+//  console.log('got a query packet:', query);
+  //console.log('Questions:', JSON.stringify(query.questions,null,2));
+    query.questions.forEach((q)=> {
+      if ( q.type == 'A' && (q.class == 'UNKNOWN_32769') || (q.class === 'IN') ) {
+        if ( q.name === 'boatsystems.local' ) {
+          mdns.respond({
+            answers: [{
+              name: 'boatsystems.local',
+              type: 'A',
+              class: 'IN',
+              ttl: 300,
+              data: `${ipAddress}`
+            },
+            {
+              name: '_can-tcp._tcp.local',
+              type: 'SRV',
+              class: 'IN',
+              ttl: 300,
+              data: {
+                port: 10112,
+                target: 'seasmart.local',
+              }
+            },
+            {
+              name: '_nmea0183-tcp._tcp.local',
+              type: 'SRV',
+              class: 'IN',
+              ttl: 300,
+              data: {
+                port: 10112,
+                target: 'seasmart.local',
+              }
+            },
+            {
+              name: 'http._tcp.local',
+              type: 'SRV',
+              class: 'IN',
+              ttl: 300,
+              data: {
+                port: 80,
+                target: 'seasmart.local',
+              }
+            },
+            ]
+          }); 
+        }
+      } else if ( q.type == 'SRV' && (q.class == 'UNKNOWN_32769') || (q.class === 'IN') ) {
+        if ( q.name === '_can-tcp._tcp.local' ) {
+          mdns.respond({
+            answers: [
+            {
+              name: '_can-tcp._tcp.local',
+              type: 'SRV',
+              class: 'IN',
+              ttl: 300,
+              data: {
+                port: 10112,
+                target: 'seasmart.local',
+              }
+            }
+            ]
+          });
+        } else if (q.name === '_nmea0183-tcp._tcp.local' ) {
+          mdns.respond({
+            answers: [
+            {
+              name: '_nmea0183-tcp._tcp.local',
+              type: 'SRV',
+              class: 'IN',
+              ttl: 300,
+              data: {
+                port: 10112,
+                target: 'seasmart.local',
+              }
+            }
+            ]
+          });
+        } else if (q.name === 'http._tcp.local' ) {
+          mdns.respond({
+            answers: [
+            {
+              name: 'http._tcp.local',
+              type: 'SRV',
+              class: 'IN',
+              ttl: 300,
+              data: {
+                port: 80,
+                target: 'seasmart.local',
+              }
+            }
+            ]
+          });
+
+        }
+      }
+  });
+
+})
+
+// lets query for an A record for 'brunhilde.local'
+mdns.query({
+  questions:[{
+    name: 'brunhilde.local',
+    type: 'A'
+  }]
+})
 
 
 

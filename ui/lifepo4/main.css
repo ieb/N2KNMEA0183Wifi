@@ -32,6 +32,18 @@ body {
 
 }
 
+.redDot {
+  color: red;
+
+}
+.greenDot {
+  color: green;
+
+}
+.greyDot {
+  color: grey;
+}
+
 
 .cells .disabled {
   background-color: #333;
