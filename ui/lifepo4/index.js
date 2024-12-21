@@ -25,7 +25,7 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('load', () => {
   const bmsReader = new JDBBMSReaderSeasmart();
   const fakeData = window.location.hash.includes('fakeData');
-  const timeSeriesManager = new TimeSeriesManager(bmsReader, fakeData);
+  const timeSeriesManager = new TimeSeriesManager(fakeData);
 
   const voltagesGraph = new VoltagesGraph();
   const cellVoltageGraph = new CellVoltagesGraph();
@@ -164,6 +164,7 @@ window.addEventListener('load', () => {
 
 
   const handleStatusUpdate = (statusUpdate) => {
+    timeSeriesManager.handleStatusUpdate(statusUpdate);
     updateGuage(statusUpdate);
 
     setInnerHtmlById('status.voltage', formatDouble(statusUpdate.voltage, 2));
@@ -191,6 +192,7 @@ window.addEventListener('load', () => {
     setInnerHtmlById('status.lastUpdate', (new Date()).toString());
   };
   const handleCellUpdate = (cellUpdate) => {
+    timeSeriesManager.handleCellUpdate(cellUpdate);
     let cellMax;
     let cellMin;
     for (let i = 0; i < cellUpdate.cellMv.length; i++) {

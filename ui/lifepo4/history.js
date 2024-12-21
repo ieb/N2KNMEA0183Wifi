@@ -176,52 +176,65 @@ class TimeSeries {
 }
 
 class TimeSeriesManager {
-  constructor(dataSource, mock) {
+  constructor(mock) {
     this.mock = mock;
-    const voltage = new Metric('voltageV', 2);
-    const current = new Metric('currentA', 1);
-    const cell0Voltage = new Metric('cell0V', 3);
-    const cell1Voltage = new Metric('cell1V', 3);
-    const cell2Voltage = new Metric('cell2V', 3);
-    const cell3Voltage = new Metric('cell3V', 3);
-    const boardTemp = new Metric('boardTempC', 1);
-    const cells0Temp = new Metric('cell0C', 1);
-    const cells1Temp = new Metric('cell1C', 1);
-    const stateOfCharge = new Metric('soc', 0);
-    const chargeRemaining = new Metric('chargeAh', 0);
+    this.voltage = new Metric('voltageV', 2);
+    this.current = new Metric('currentA', 1);
+    this.cell0Voltage = new Metric('cell0V', 3);
+    this.cell1Voltage = new Metric('cell1V', 3);
+    this.cell2Voltage = new Metric('cell2V', 3);
+    this.cell3Voltage = new Metric('cell3V', 3);
+    this.boardTemp = new Metric('boardTempC', 1);
+    this.cells0Temp = new Metric('cell0C', 1);
+    this.cells1Temp = new Metric('cell1C', 1);
+    this.stateOfCharge = new Metric('soc', 0);
+    this.chargeRemaining = new Metric('chargeAh', 0);
     this.timeSeries = new TimeSeries({
       savePeriod: 30000,
       retentionPeriod: 24 * 3600000,
     });
-    this.timeSeries.addMetric(voltage);
-    this.timeSeries.addMetric(current);
-    this.timeSeries.addMetric(cell0Voltage);
-    this.timeSeries.addMetric(cell1Voltage);
-    this.timeSeries.addMetric(cell2Voltage);
-    this.timeSeries.addMetric(cell3Voltage);
-    this.timeSeries.addMetric(boardTemp);
-    this.timeSeries.addMetric(cells0Temp);
-    this.timeSeries.addMetric(cells1Temp);
-    this.timeSeries.addMetric(stateOfCharge);
-    this.timeSeries.addMetric(chargeRemaining);
+    this.timeSeries.addMetric(this.voltage);
+    this.timeSeries.addMetric(this.current);
+    this.timeSeries.addMetric(this.cell0Voltage);
+    this.timeSeries.addMetric(this.cell1Voltage);
+    this.timeSeries.addMetric(this.cell2Voltage);
+    this.timeSeries.addMetric(this.cell3Voltage);
+    this.timeSeries.addMetric(this.boardTemp);
+    this.timeSeries.addMetric(this.cells0Temp);
+    this.timeSeries.addMetric(this.cells1Temp);
+    this.timeSeries.addMetric(this.stateOfCharge);
+    this.timeSeries.addMetric(this.chargeRemaining);
     if (this.mock) {
       this.fakeDataSet();
-    } else {
-      dataSource.on('statusUpdate', (statusUpdate) => {
-        voltage.update(statusUpdate.voltage);
-        current.update(statusUpdate.current);
-        boardTemp.update(statusUpdate.tempSensorValues[0]);
-        cells0Temp.update(statusUpdate.tempSensorValues[1]);
-        cells1Temp.update(statusUpdate.tempSensorValues[2]);
-        stateOfCharge.update(statusUpdate.capacity.stateOfCharge);
-        chargeRemaining.update(statusUpdate.capacity.fullCapacity);
-      });
-      dataSource.on('cellUpdate', (cellUpdate) => {
-        cell0Voltage.update(cellUpdate.cellMv[0]);
-        cell1Voltage.update(cellUpdate.cellMv[1]);
-        cell2Voltage.update(cellUpdate.cellMv[2]);
-        cell3Voltage.update(cellUpdate.cellMv[3]);
-      });
+    }
+  }
+
+  handleStatusUpdate(statusUpdate) {
+    if (statusUpdate.voltage) {
+      this.voltage.update(statusUpdate.voltage);
+    }
+    if (statusUpdate.current) {
+      this.current.update(statusUpdate.current);
+    }
+    if (statusUpdate.tempSensorValues) {
+      this.boardTemp.update(statusUpdate.tempSensorValues[0]);
+      this.cells0Temp.update(statusUpdate.tempSensorValues[1]);
+      this.cells1Temp.update(statusUpdate.tempSensorValues[2]);
+    }
+    if (statusUpdate.stateOfCharge) {
+      this.stateOfCharge.update(statusUpdate.capacity.stateOfCharge);
+    }
+    if (statusUpdate.fullCapacity) {
+      this.chargeRemaining.update(statusUpdate.capacity.fullCapacity);
+    }
+  }
+
+  handleCellUpdate(cellUpdate) {
+    if (cellUpdate.cellMv) {
+      this.cell0Voltage.update(cellUpdate.cellMv[0]);
+      this.cell1Voltage.update(cellUpdate.cellMv[1]);
+      this.cell2Voltage.update(cellUpdate.cellMv[2]);
+      this.cell3Voltage.update(cellUpdate.cellMv[3]);
     }
   }
 
