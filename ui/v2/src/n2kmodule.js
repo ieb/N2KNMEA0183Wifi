@@ -85,121 +85,219 @@ class SeaSmartParser extends EventEmitter {
   }
 }
 
-class ChunkedSeaSmartStream {
-  constructor(seasmartParser) {
+
+/**
+ * Internal class that manages a chunked stream handling restarts and timeouts.
+ * Once started it will run until stopped.
+ * Cannot be restarted once stopped.
+ * Cannot be started again once started.
+ * public methods are start and stop.
+ * emits events:
+ *   connected, true or false
+ *   statusCode with the status code of the current fetch after a response is received.
+ *   metrics, are metrics.
+ *   statusUpdate the BLE status updates.
+ *
+ *
+ */
+class ChunkedSeaSmartStream extends EventEmitter {
+  constructor(url, seasmartParser) {
+    super();
     this.seasmartParser = seasmartParser;
-    this.keepUp = false;
-    this.url = undefined;
-    setInterval(() => {
-      if (this.keepUp) {
-        if ((Date.now() - this.lastMessage) > 10000) {
-          // eslint-disable-next-line no-console
-          this.stopRunning = true;
-        }
-      }
-    }, 10000);
+    this.running = false;
+    this.timeouts = 0;
+    this.connections = 0;
+    this.url = url;
   }
 
-  start(url) {
-    this.keepUp = true;
-    this.stopRunning = false;
-    this.url = url;
-    this.keepRunning().then(() => {
-      console.log('Chunked disconnect');
-      if (this.keepUp) {
-        setTimeout(() => {
-          this.start(this.url);
-        }, 5000);
-      }
-    }).catch(() => {
-      console.log('Chunked disconnect');
-      if (this.keepUp) {
-        setTimeout(() => {
-          this.start(this.url);
-        },5000);
+
+  /*
+   * started goes from false to true, but is never reset.
+   * once started, running is set to true, and then false, never reset.
+   * end state is started == true and running == false.
+   *
+   */
+  start() {
+    if (!this.started) {
+      this.started = true;
+      this.running = true;
+      this.restartDelay = 5000;
+      this.streamId = Date.now();
+      this.restart();
+      const that = this;
+
+      const timeoutCheck = setInterval(() => {
+        if (that.running) {
+          console.debug(`${Date.now()} ${this.streamId} Timeout `, (Date.now() - that.lastMessage));
+          if ((Date.now() - that.lastMessage) > 10000) {
+            // eslint-disable-next-line no-console
+            that.restartDelay = 100;
+            that.controller.abort('timeout');
+            that.timeouts++;
+            console.log(`${Date.now()} ${this.streamId} Timeout on receive, trigger restart`);
+          }
+        } else {
+          clearInterval(timeoutCheck);
+        }
+      }, 1000);
+    }
+  }
+
+  stop() {
+    console.log(`${Date.now()} ${this.streamId} Stopping`);
+    const that = this;
+    return new Promise((resolve) => {
+      if (that.running) {
+        that.addListener('connected', (connected) => {
+          if (!connected) {
+            console.log(`${Date.now()} ${that.streamId} Stopped, even connected == false`);
+            resolve();
+          }
+        });
+        that.running = false;
+        console.log(`${Date.now()} ${that.streamId} Signalling stop `, that.running);
+        that.controller.abort('stopped');
+        console.log(`${Date.now()} ${that.streamId} Signaled stop `, that.running);
+      } else {
+        console.log(`${Date.now()} ${that.streamId} Already stopped `, that.running);
+        resolve();
       }
     });
   }
 
-  stop() {
-    this.keepUp = false;
-    this.stopRunning = true;
+
+  // restarts the connection.
+  restart() {
+    if (!this.running) {
+      this.emit('connected', false);
+      return;
+    }
+    const that = this;
+    this.keepRunning().then(() => {
+      if (that.running) {
+        console.log(`${Date.now()} ${that.streamId} Schedule Normal Restart in ${that.restartDelay}`);
+        setTimeout(() => {
+          that.restartDelay = 5000;
+          that.restart();
+        }, that.restartDelay);
+      } else {
+        console.log(`${Date.now()} ${that.streamId} No Restart`);
+      }
+    }).catch((e) => {
+      console.log(`${Date.now()} ${that.streamId} Fetch Error `, e);
+      if (e.message === 'Failed to fetch') {
+        // net::ERR_CONNECTION_REFUSED
+        that.running = false;
+        that.emit('statusCode', 504);
+        console.log(`${Date.now()} ${that.streamId} No Restart`);
+      } else if (that.running) {
+        console.log(`${Date.now()} ${that.streamId} Schedule Error Restart in ${that.restartDelay}`);
+        setTimeout(() => {
+          that.restartDelay = 5000;
+          that.restart();
+        }, that.restartDelay);
+      } else {
+        that.running = false;
+        that.emit('connected', false);
+        console.log(`${Date.now()} ${that.streamId} No Restart`);
+      }
+    });
   }
 
+  // the running stream to be kept running at all costs.
   async keepRunning() {
-    const response = await fetch(this.url);
+    console.log(`${Date.now()} ${this.streamId} Start keepRunning`);
+    this.lastMessage = Date.now();
+    this.controller = new AbortController();
+    this.connections++;
+    const response = await fetch(this.url, { signal: this.controller.signal });
+    console.log(`${Date.now()} ${this.streamId} Connected keepRunning`);
+    this.emit('statusCode', response.status);
+    this.emit('connected', true);
     let buffer = '';
+    const that = this;
+    // this loop will pause when there is nothing on the http stream,
+    // which blocks any
     for await (const chunk of response.body.pipeThrough(new TextDecoderStream())) {
+      if (!that.running) {
+        break;
+      }
       // Do something with each "chunk"
       // the chunk may be incomplete, so we need the parser to return what it didnt parse.
       buffer += chunk;
-      this.lastMessage = Date.now();
+      that.lastMessage = Date.now();
       const lastNL = buffer.lastIndexOf('\n');
       if (lastNL !== -1) {
-        this.seasmartParser.parseSeaSmartMessages({ data: buffer.substring(0, lastNL + 1) });
+        try {
+          that.seasmartParser.parseSeaSmartMessages({ data: buffer.substring(0, lastNL + 1) });
+        } catch (e) {
+          console.error('Failed tp parse message ', e, buffer.substring(0, lastNL + 1));
+        }
         buffer = buffer.substring(lastNL + 1);
       }
-      if (this.stopRuning) {
-        break;
-      }
     }
+    that.emit('connected', false);
+    console.log(`${Date.now()} ${this.streamId} End keepRunning`);
   }
 }
 
-/*
-class SeaSmartStream {
-  constructor(seasmartParser) {
-    this.startsWith = undefined;
-    this.seasmartParser = seasmartParser;
-    this.keepUp = false;
-    this.url = undefined;
+
+/**
+ * Read registers from a http seasmart stream of DCIM sentences.
+ * This requires no special permissions once the http service has been found.
+ *
+ */
+class SeaSmartReader extends EventEmitter {
+  constructor(parser) {
+    super();
+    this.streamCount = 0;
+    this.messagesRecieved = 0;
+    this.messagedDecoded = 0;
+    this.parser = parser;
+    const that = this;
+    // eslint-disable-next-line no-unused-vars
+    this.parser.addListener('n2kraw', (rawMessage) => {
+      this.messagesRecieved++;
+    });
+    // eslint-disable-next-line no-unused-vars
+    this.parser.addListener('n2kdecoded', (decodedMessage) => {
+      this.messagedDecoded++;
+    });
     setInterval(() => {
-      if (this.keepUp) {
-        if ((Date.now() - this.lastMessage) > 10000) {
-          // eslint-disable-next-line no-console
-          console.log('Web Socket reconnect');
-          this.keepRunning();
-        }
-      }
-    }, 10000);
+      that.emit('metrics', {
+        messagesRecieved: that.messagesRecieved,
+        messagedDecoded: that.messagedDecoded,
+        streams: that.streamCount,
+        connections: (that.stream) ? that.stream.connections : undefined,
+        timeouts: (that.stream) ? that.stream.timeouts : undefined,
+      });
+    }, 1000);
   }
 
-  start(url) {
-    this.keepUp = true;
-    this.url = url;
-    this.keepRunning();
-  }
-
-  stop() {
-    this.keepUp = false;
-    this.stopRunning();
-  }
-
-  keepRunning() {
-    this.stopRunning();
-    this.ws = new WebSocket(this.url);
-    this.ws.onopen = () => {
-      console.log('ws opened on browser');
-      this.ws.send('hello world');
-    };
-    this.ws.onerror = (error) => {
-      console.log('seasmart ws error', error);
-    };
-
-    this.ws.onmessage = (message) => {
-      this.lastMessage = Date.now();
-      this.seasmartParser.parseSeaSmartMessages(message);
-    };
-  }
-
-  stopRunning() {
-    if (this.ws !== undefined) {
-      this.ws.close();
-      this.ws = undefined;
+  async start(url) {
+    if (!this.stream) {
+      console.log('Starting connection to ', url);
+      this.streamCount++;
+      this.stream = new ChunkedSeaSmartStream(url, this.parser);
+      const that = this;
+      this.stream.addListener('*', (event, v) => {
+        that.emit(event, v);
+      });
+      this.stream.start();
+    } else {
+      console.log('Already connected');
     }
   }
+
+  async stop() {
+    this.url = undefined;
+    if (this.stream) {
+      await this.stream.stop();
+      console.log('Stopped');
+    }
+    this.stream = undefined;
+  }
 }
-*/
 
 class Store extends EventEmitter {
   constructor() {
@@ -439,7 +537,7 @@ class Store extends EventEmitter {
         }
         break;
 
-/* {"pgn":130577,"count":1,"message":"Direction Data",
+        /* {"pgn":130577,"count":1,"message":"Direction Data",
         "residualMode":{"id":0,"name":"Autonomous"},
         "cogReference":{"id":0,"name":"True"},
         "sid":223,"cog":-1000000000,"sog":-1000000000,
@@ -621,6 +719,8 @@ class Store extends EventEmitter {
   }
 }
 
+
+
 class StoreAPIImpl {
   constructor() {
     this.store = new Store();
@@ -632,13 +732,7 @@ class StoreAPIImpl {
     registerNavMessages(this.decoder.messages);
 
     this.seasmartParser = new SeaSmartParser(this.decoder);
-    this.seasmart = new ChunkedSeaSmartStream(this.seasmartParser);
     this.messageCount = 0;
-    if (window.location.protocol === 'https') {
-      this.url = `https://${window.location.hostname}/api/seasmart`;
-    } else {
-      this.url = `http://${window.location.hostname}/api/seasmart`;
-    }
     this.seasmartParser.addListener('n2kdecoded', (decoded) => {
       this.messageCount++;
       this.store.updateFromNMEA2000Stream(decoded);
@@ -648,22 +742,8 @@ class StoreAPIImpl {
     }, 1000);
   }
 
-
-
-  start(url) {
-    // if host is set, save the host config in local storage
-    // otherwise try and get from local storage.
-    // if nothing in local storage do nothing.
-    if (url) {
-      this.url = `http://${url.host}/api/seasmart`;
-    }
-    // eslint-disable-next-line no-console
-    console.log('Starting chunked on ', this.url);
-    this.seasmart.start(this.url);
-  }
-
-  stop() {
-    this.seasmart.stop();
+  getParser() {
+    return this.seasmartParser;
   }
 
   getPacketsRecieved() {
@@ -723,4 +803,4 @@ class StoreAPIImpl {
 
 
 
-export { StoreAPIImpl };
+export { StoreAPIImpl, SeaSmartReader };

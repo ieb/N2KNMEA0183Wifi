@@ -33,13 +33,16 @@ class AdminRequest {
 
   // eslint-disable-next-line class-methods-use-this
   async fetchWithCredentials(url, username, password) {
+    console.log('Fetching ', username, password);
     const opts = {};
     opts.credentials = 'include';
     opts.headers = {};
     const auth = btoa(`${username}:${password}`);
     opts.headers.Authorization = `Basic ${auth}`;
     opts.headers.Origin = window.location;
+    console.log('At Fetch ', username, password);
     const ret = await fetch(new URL(url, this.base), opts);
+    console.log('Done fetch ', ret);
     return ret;
   }
 
@@ -96,6 +99,7 @@ class AdminCredentals extends Component {
     this.updatePassword = this.updatePassword.bind(this);
     this.showPassword = this.showPassword.bind(this);
     this.clickLogin = this.clickLogin.bind(this);
+
   }
 
   updateUsername(event) {
@@ -123,6 +127,8 @@ class AdminCredentals extends Component {
     this.setState({
       msg: 'checking...',
     });
+
+    await this.adminRequest.saveCredentials(this.state.username, this.state.password);
     const response = await this.adminRequest.fetchWithCredentials(
       this.checkLoginUrl,
       this.state.username,
@@ -132,12 +138,12 @@ class AdminCredentals extends Component {
       this.setState({
         msg: 'correct, reloading...',
       });
-      await this.adminRequest.saveCredentials(this.state.username, this.state.password);
       await this.credentialsOk();
     } else {
       this.setState({
         msg: 'incorrect',
       });
+      await this.adminRequest.logout();
     }
   }
 
@@ -400,6 +406,7 @@ class AdminView extends Component {
               </div>
               </div> `;
     }
+    console.log('No files present, showing admin credentials');
 
     return html`<${AdminCredentals} 
       credentialsOk=${this.updateFileSystem} 

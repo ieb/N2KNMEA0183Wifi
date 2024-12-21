@@ -117,7 +117,7 @@ window.addEventListener('load', () => {
   });
 
   const formatDouble = (v, p) => {
-    if (v === undefined || v === 1e9) {
+    if (v === undefined || v === -1e9) {
       return '--';
     }
     return v.toFixed(p);
@@ -196,7 +196,7 @@ window.addEventListener('load', () => {
     let cellMax;
     let cellMin;
     for (let i = 0; i < cellUpdate.cellMv.length; i++) {
-      if (cellUpdate.cellMv[i] && cellUpdate.cellMv[i] !== 1e9) {
+      if (cellUpdate.cellMv[i] && cellUpdate.cellMv[i] !== -1e9) {
         setInnerHtmlById(`cell.voltage${i}`, (0.001 * cellUpdate.cellMv[i]).toFixed(3));
         if (cellMax !== undefined) {
           cellMax = Math.max(cellMax, cellUpdate.cellMv[i]);

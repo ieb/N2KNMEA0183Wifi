@@ -87,8 +87,8 @@ updated from build or via the admin ui over http.
 * [x] Update BMS app to use streaming http api
 * [x] Add gitsha1 to firmware, press h to see on serial
 * [x] Bench tested E2E with BMS simulator
+* [x] Backport BMS seasmart stream handler to main ui
 * [ ] Test BLE UI on ChromeOS.
-* [ ] Backport BMS seasmart stream handlder to main ui
 * [ ] Log BMS data to flash
 
 

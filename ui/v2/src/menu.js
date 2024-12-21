@@ -51,16 +51,18 @@ class EditableLabel extends Component {
 class Menu extends Component {
   constructor(props) {
     super(props);
-    this.setApiUrl = props.setApiUrl;
+    this.connect = props.connect;
+    this.disconnect = props.disconnect;
     this.menuEvents = props.menuEvents;
 
     this.state = {
       layoutList: [],
       layout: 'main',
-      apiUrl: props.initialApiUrl,
-      apiChangeMessage: '',
+      apiHost: props.apiHost,
       connectButtonText: 'connect',
       editingLayoutName: false,
+      connectionMessage: props.connectionMessage,
+
     };
     this.onClickMenu = this.onClickMenu.bind(this);
     this.apiChange = this.apiChange.bind(this);
@@ -83,6 +85,13 @@ class Menu extends Component {
   handleMenuEvents(command, payload) {
     if (command === 'layouts-changed') {
       this.updateLayouts(payload);
+    } else if (command === 'connection-update') {
+      this.setState({
+        connectButtonText: payload.connected ? 'disconnect' : 'connect',
+        connectionMessage: payload.connectionMessage || this.state.connectionMessage,
+        apiHost: payload.apiHost || this.state.apiHost,
+      })
+      console.log("Connection udpdate", payload);
     }
   }
 
@@ -156,31 +165,21 @@ class Menu extends Component {
   }
 
   async apiChange(event) {
-    const apiUrl = new URL(event.target.value);
-    this.setState({ apiUrl });
+    const apiHost = event.target.value;
+    this.setState({ apiHost });
   }
 
   async onClickConnect() {
     if (this.state.connectButtonText === 'connect') {
       this.setState({
-        apiChangeMessage: 'trying...',
         connectButtonText: 'connecting',
       });
-      const apiConnectState = await this.setApiUrl(this.state.apiUrl);
-      this.setState({
-        apiChangeMessage: apiConnectState.msg,
-        connectButtonText: apiConnectState.btn,
-      });
+      await this.connect(this.state.apiHost);
     } else if (this.state.connectButtonText === 'disconnect') {
       this.setState({
-        apiChangeMessage: 'trying...',
         connectButtonText: 'disconnecting',
       });
-      const apiConnectState = await this.setApiUrl();
-      this.setState({
-        apiChangeMessage: apiConnectState.msg,
-        connectButtonText: apiConnectState.btn,
-      });
+      await this.disconnect();
     }
   }
 
@@ -306,9 +305,9 @@ class Menu extends Component {
               </div>
             </div>
             <div class="nav-item">
-              <input type="text" name="apiurl" value=${this.state.apiUrl} onChange=${this.apiChange} />
+              <input type="text" name="apiHost" value=${this.state.apiHost} onChange=${this.apiChange} />
               <button onClick=${this.onClickConnect} >${this.state.connectButtonText}</button>
-              ${this.state.apiChangeMessage}
+              ${this.state.connectionMessage}
             </div>
         </div>`;
   }

@@ -95,7 +95,7 @@ self.addEventListener('fetch', (event) => {
         }
       }
       try {
-        console.debug('Request ', event.request);
+        console.debug('PASS Request ', event.request);
         const passResponse = await fetch(event.request);
         console.debug('PASS request', event.request);
         for (const k of event.request.headers.keys()) {
