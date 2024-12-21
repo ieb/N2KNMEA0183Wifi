@@ -74,7 +74,8 @@ private:
     unsigned long lastRegO5;
 
     uint8_t reg = 3;
-    uint8_t maxReqRegs = 5;
+    uint8_t requestReg05 = 0;
+    uint8_t maxReqRegs = 4;
     bool debug = false;
 
     void requestRegister(uint8_t regNo);

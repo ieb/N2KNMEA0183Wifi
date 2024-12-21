@@ -47,7 +47,6 @@ class NMEA2000JBDMessageDecoder {
             if (registerLength === 0) {
               return {};
             }
-            console.log("Register length == ", registerLength);
             const nNTC = canMessage.data.getUint8(27);
             const endNTC = REG_NTC_READINGS_U8 + 2 * nNTC;
             /*
@@ -94,11 +93,11 @@ class NMEA2000JBDMessageDecoder {
               protectionStatus: this.get2ByteUInt(canMessage.data, REG_ERRORS_U16),
               balanceActive: this.getBalanceStatus(canMessage.data),
               currentErrors: this.getCurrentErrors(canMessage.data),
-              bmsSWVersion: this.get1ByteUDouble(canMessage, REG_SOFTWARE_VERSION_U8, 0.1),
+              bmsSWVersion: this.get1ByteUDouble(canMessage.data, REG_SOFTWARE_VERSION_U8, 0.1),
               FETStatus: this.getFETStatus(canMessage.data),
-              numberOfCells: this.get1ByteUInt(canMessage, REG_NUMBER_OF_CELLS_U8),
+              numberOfCells: this.get1ByteUInt(canMessage.data, REG_NUMBER_OF_CELLS_U8),
               tempSensorCount: nNTC,
-              humidity: this.get1ByteUInt(canMessage, endNTC),
+              humidity: this.get1ByteUInt(canMessage.data, endNTC),
               alarmStatus: this.get2ByteUInt(canMessage.data, endNTC + 1),
               fullChargeCapacity: this.get2ByteUDouble(canMessage.data, endNTC + 3, 0.01),
               remainingChargeCapacity: this.get2ByteUDouble(canMessage.data, endNTC + 5, 0.01),
@@ -143,9 +142,9 @@ class NMEA2000JBDMessageDecoder {
   getCellMv(dataView) {
     const nCells = dataView.getUint8(4) / 2;
     const cellMv = [];
-    for (let i = 0; i < nCells / 2; i++) {
+    for (let i = 0; i < nCells; i++) {
       cellMv[i] = dataView.getUint16(5 + i * 2, true);
-      if ( cellMv[i] === 0xffff) {
+      if (cellMv[i] === 0xffff) {
         return undefined;
       }
     }
@@ -154,7 +153,7 @@ class NMEA2000JBDMessageDecoder {
 
   // eslint-disable-next-line class-methods-use-this
   decodeDate(dateU16) {
-    if ( dateU16 == 0xffff) {
+    if (dateU16 === 0xffff) {
       return undefined;
     }
     // eslint-disable-next-line no-bitwise
@@ -168,7 +167,7 @@ class NMEA2000JBDMessageDecoder {
 
   getBalanceStatus(dataView) {
     let status = dataView.getUint16(REG_BAT0_15_STATUS_U16, true);
-    if (status == 0xffff) {
+    if (status === 0xffff) {
       return undefined;
     }
     const ncells = dataView.getUint8(REG_NUMBER_OF_CELLS_U8);
@@ -197,7 +196,7 @@ class NMEA2000JBDMessageDecoder {
 
   getCurrentErrors(dataView) {
     const status = dataView.getUint16(REG_ERRORS_U16, true);
-    if ( status === 0xffff) {
+    if (status === 0xffff) {
       return undefined;
     }
     const currentErrors = {
@@ -302,17 +301,6 @@ class NMEA2000JBDMessageDecoder {
   }
 
 
-  // eslint-disable-next-line class-methods-use-this
-  get2ByteUDouble(dataView, byteOffset, factor) {
-    if (dataView.byteLength < byteOffset + 2) {
-      return undefined;
-    }
-    if (dataView.getUint8(byteOffset) === 0xff
-          && dataView.getUint8(byteOffset + 1) === 0xff) {
-      return undefined;
-    }
-    return factor * dataView.getUint16(byteOffset, true);
-  }
 
   // eslint-disable-next-line class-methods-use-this
   get2ByteDouble(dataView, byteOffset, factor) {
@@ -445,7 +433,7 @@ class SeaSmartParser extends EventEmitter {
  *   statusUpdate the BLE status updates.
  *
  *
- */ 
+ */
 class ChunkedSeaSmartStream extends EventEmitter {
   constructor(url, seasmartParser) {
     super();
@@ -461,7 +449,7 @@ class ChunkedSeaSmartStream extends EventEmitter {
    * started goes from false to true, but is never reset.
    * once started, running is set to true, and then false, never reset.
    * end state is started == true and running == false.
-   *   
+   *
    */
   start() {
     if (!this.started) {
@@ -614,7 +602,7 @@ class JDBBMSReaderSeasmart extends EventEmitter {
         this.messagedDecoded++;
         that.emitEvent('n2kdecoded', decodedMessage);
       } catch (e) {
-        log.error('Failed to process decoded message', e);
+        console.error('Failed to process decoded message', e);
       }
     });
     setInterval(() => {
@@ -630,7 +618,7 @@ class JDBBMSReaderSeasmart extends EventEmitter {
 
   async connectBMS(url) {
     if (!this.stream) {
-      console.log("Starting connection to ", url);
+      console.log('Starting connection to ', url);
       this.streamCount++;
       this.stream = new ChunkedSeaSmartStream(url, this.parser);
       const that = this;
@@ -639,14 +627,14 @@ class JDBBMSReaderSeasmart extends EventEmitter {
       });
       this.stream.start();
     } else {
-      console.log("Already connected");
+      console.log('Already connected');
     }
   }
 
   async disconnectBMS() {
     this.url = undefined;
     await this.stream.stop();
-    console.log("Stopped");
+    console.log('Stopped');
     this.stream = undefined;
   }
 }

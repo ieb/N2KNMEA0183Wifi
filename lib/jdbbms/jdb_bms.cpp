@@ -93,11 +93,17 @@ void JdbBMS::update() {
     unsigned long now = millis();
     if ( (now - lastSend) > 1000) {
         lastSend = now;
-        if ( reg > maxReqRegs) {
-            reg = REQ_REGSTART;
+        if ( requestReg05 == 0) {
+            requestRegister(0x05);
+            requestReg05 = 15;
+        } else {
+            if ( reg > maxReqRegs) {
+                reg = REQ_REGSTART;
+            }
+            requestRegister(reg);
+            requestReg05--;
+            reg++;            
         }
-        requestRegister(reg);
-        reg++;
     }
 }
 
@@ -150,8 +156,6 @@ int JdbBMS::processFrame(int from) {
     } else if (responseReg == 0x05) {
         copyReg05(&buffer[from+4], dataLength);
         register05Length = dataLength;
-        maxReqRegs = 4; // only require 0x05 once.
-        reg = 3;
     }
     return endPacketPos+1;
 }

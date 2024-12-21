@@ -159,7 +159,7 @@ class TimeSeries {
 
   storedSize() {
     const size = JSON.stringify(this.history).length;
-    console.log("Stored size is ",size);
+    console.log('Stored size is ', size);
   }
 
   // event emitter
@@ -340,7 +340,8 @@ class VoltagesGraph {
       });
     } else {
       for (let i = 0; i < history.ts.length; i++) {
-        if (!Number.isNaN(history.voltageV.mean[i]) && history.voltageV.mean[i] !== 0) {
+        if (Number.isFinite(history.voltageV.mean[i])
+          && history.voltageV.mean[i] !== 0) {
           voltageV = history.voltageV.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
@@ -351,6 +352,12 @@ class VoltagesGraph {
         }
       }
     }
+
+    data.forEach((d) => {
+      if (!Number.isFinite(d.voltageV)) {
+        console.log('Error in graph data', d);
+      }
+    });
 
 
 
@@ -441,7 +448,7 @@ class CurrentGraph {
       });
     } else {
       for (let i = 0; i < history.ts.length; i++) {
-        if (!Number.isNaN(history.currentA.mean[i]) && history.currentA.mean[i] !== 0) {
+        if (Number.isFinite(history.currentA.mean[i]) && history.currentA.mean[i] !== 0) {
           currentA = history.currentA.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
@@ -452,6 +459,11 @@ class CurrentGraph {
         }
       }
     }
+    data.forEach((d) => {
+      if (!Number.isFinite(d.currentA)) {
+        console.log('Error in graph data', d);
+      }
+    });
 
 
 
@@ -546,7 +558,7 @@ class StateOfChargeGraph {
       });
     } else {
       for (let i = 0; i < history.ts.length; i++) {
-        if (!Number.isNaN(history.soc.mean[i]) && history.soc.mean[i] !== 0) {
+        if (Number.isFinite(history.soc.mean[i]) && history.soc.mean[i] !== 0) {
           soc = 100 * history.soc.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
@@ -558,6 +570,11 @@ class StateOfChargeGraph {
       }
     }
 
+    data.forEach((d) => {
+      if (!Number.isFinite(d.soc)) {
+        console.log('Error in graph data', d);
+      }
+    });
 
     console.debug('StateOfCharge ', data);
 
@@ -647,7 +664,7 @@ class ChargeRemainingGraph {
       });
     } else {
       for (let i = 0; i < history.ts.length; i++) {
-        if (!Number.isNaN(history.chargeAh.mean[i]) && history.chargeAh.mean[i] !== 0) {
+        if (Number.isFinite(history.chargeAh.mean[i]) && history.chargeAh.mean[i] !== 0) {
           chargeAh = history.chargeAh.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
@@ -659,6 +676,11 @@ class ChargeRemainingGraph {
       }
     }
 
+    data.forEach((d) => {
+      if (!Number.isFinite(d.chargeAh)) {
+        console.log('Error in graph data', d);
+      }
+    });
 
     console.debug('ChrgeRemaining ', data);
 
@@ -758,16 +780,16 @@ class CellVoltagesGraph {
       }
     } else {
       for (let i = 0; i < history.ts.length; i++) {
-        if (!Number.isNaN(history.cell0V.mean[i]) && history.cell0V.mean[i]) {
+        if (Number.isFinite(history.cell0V.mean[i]) && history.cell0V.mean[i]) {
           cellV[0] = history.cell0V.mean[i];
         }
-        if (!Number.isNaN(history.cell1V.mean[i]) && history.cell1V.mean[i]) {
+        if (Number.isFinite(history.cell1V.mean[i]) && history.cell1V.mean[i]) {
           cellV[1] = history.cell1V.mean[i];
         }
-        if (!Number.isNaN(history.cell2V.mean[i]) && history.cell2V.mean[i]) {
+        if (Number.isFinite(history.cell2V.mean[i]) && history.cell2V.mean[i]) {
           cellV[2] = history.cell2V.mean[i];
         }
-        if (!Number.isNaN(history.cell3V.mean[i]) && history.cell3V.mean[i]) {
+        if (Number.isFinite(history.cell3V.mean[i]) && history.cell3V.mean[i]) {
           cellV[3] = history.cell3V.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
@@ -777,6 +799,15 @@ class CellVoltagesGraph {
         }
       }
     }
+
+
+    data.forEach((cell) => {
+      cell.forEach((d) => {
+        if (!Number.isFinite(d.v)) {
+          console.log('Error in graph data', d);
+        }
+      });
+    });
 
     console.debug('Cell Voltage Data ', data);
 
@@ -896,13 +927,13 @@ class TemperatureGraph {
       }
     } else {
       for (let i = 0; i < history.ts.length; i++) {
-        if (!Number.isNaN(history.boardTempC.mean[i]) && history.boardTempC.mean[i]) {
+        if (Number.isFinite(history.boardTempC.mean[i]) && history.boardTempC.mean[i]) {
           temps[0] = history.boardTempC.mean[i];
         }
-        if (!Number.isNaN(history.cell0C.mean[i]) && history.cell0C.mean[i]) {
+        if (Number.isFinite(history.cell0C.mean[i]) && history.cell0C.mean[i]) {
           temps[1] = history.cell0C.mean[i];
         }
-        if (!Number.isNaN(history.cell1C.mean[i]) && history.cell1C.mean[i]) {
+        if (Number.isFinite(history.cell1C.mean[i]) && history.cell1C.mean[i]) {
           temps[2] = history.cell1C.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
@@ -912,6 +943,14 @@ class TemperatureGraph {
         }
       }
     }
+
+    data.forEach((cell) => {
+      cell.forEach((d) => {
+        if (!Number.isFinite(d.t)) {
+          console.log('Error in graph data', d);
+        }
+      });
+    });
 
 
     console.debug('Temperatures ', data);

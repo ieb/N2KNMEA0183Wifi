@@ -8,3 +8,5 @@ pcb/*.bak
 data/*
 src/version.h
 node_modules
+*.gcode
+*.gbr

@@ -40,6 +40,7 @@ Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
 
 let rstate = 0;
 let factoryMode = false;
+let inBufferLen = 0;
 serialPort.on('data', function (data) {
   console.log("Got ",data);
   data.forEach((val) => {
@@ -183,14 +184,9 @@ function createReg04() {
   return new Uint8Array(buffer);
 }
 function createReg05() {
-  const b = new Uint8Array(6);
-  b[0] = 5;
-  b[1] = 'M';
-  b[2] = 'Y';
-  b[3] = 'B';
-  b[4] = 'M';
-  b[5] = 'S';
-  return b;
+  const hw = Buffer.from(' fw:1.0 sw:2.3');
+  hw[0] = hw.length-1;
+  return new Uint8Array(hw);
 }
 
 function createRegAA() {
