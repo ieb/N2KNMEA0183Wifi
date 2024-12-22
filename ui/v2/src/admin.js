@@ -33,16 +33,13 @@ class AdminRequest {
 
   // eslint-disable-next-line class-methods-use-this
   async fetchWithCredentials(url, username, password) {
-    console.log('Fetching ', username, password);
     const opts = {};
     opts.credentials = 'include';
     opts.headers = {};
     const auth = btoa(`${username}:${password}`);
     opts.headers.Authorization = `Basic ${auth}`;
     opts.headers.Origin = window.location;
-    console.log('At Fetch ', username, password);
     const ret = await fetch(new URL(url, this.base), opts);
-    console.log('Done fetch ', ret);
     return ret;
   }
 
@@ -99,7 +96,6 @@ class AdminCredentals extends Component {
     this.updatePassword = this.updatePassword.bind(this);
     this.showPassword = this.showPassword.bind(this);
     this.clickLogin = this.clickLogin.bind(this);
-
   }
 
   updateUsername(event) {
@@ -164,7 +160,7 @@ class AdminCredentals extends Component {
                         <span className="password-toggle-icon"><i className=${showPwClass}  onCLick=${this.showPassword} ></i></span>
                       </div>
                       <div className="user-box">
-                          <button title="login" onClick=${this.clickLogin} >Login</button>
+                          <button type="button" title="login" onClick=${this.clickLogin} >Login</button>
                       </div>
                       <div className="user-box message">
                           ${this.state.msg}
@@ -200,14 +196,18 @@ class AdminView extends Component {
     await this.updateFileSystem();
   }
 
+  // do not delete when empty, both mount and unmount must exist to be called.
+  // eslint-disable-next-line no-empty-function
+  async componentDidUnmount() {
+  }
+
+
 
 
   async updateFileSystem() {
     const adminRequest = new AdminRequest(this.apiUrl);
     const response = await adminRequest.fetch('/api/fs.json');
-    console.log('Response ', response);
     const dir = await response.json();
-    console.log('Got Files', dir);
     this.setState({
       dir,
     });
@@ -406,8 +406,6 @@ class AdminView extends Component {
               </div>
               </div> `;
     }
-    console.log('No files present, showing admin credentials');
-
     return html`<${AdminCredentals} 
       credentialsOk=${this.updateFileSystem} 
       checkLoginUrl='/api/login.json'

@@ -88,6 +88,8 @@ updated from build or via the admin ui over http.
 * [x] Add gitsha1 to firmware, press h to see on serial
 * [x] Bench tested E2E with BMS simulator
 * [x] Backport BMS seasmart stream handler to main ui
+* [x] Fixed admin ui bug, buttons without type=button cause form submissions.
+* [x] Fixed processing of temperature messages PGN 130312 and PGN 127506 battery status.
 * [ ] Test BLE UI on ChromeOS.
 * [ ] Log BMS data to flash
 

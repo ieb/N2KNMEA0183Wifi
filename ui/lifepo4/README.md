@@ -25,6 +25,7 @@ The Bluetooth adapter for these BMS exposes Modbus RTE from the BMS UART over 2 
 - [-] ~~Make the BLE work in the background ~~  The Web Bluetooth API is not available in any background task.
 - [x] Add charge discharge gauge in svg
 - [x] Port to use seasmart http stream and deprecate BLE stream
+- [ ] State of charge and remaining charge graphs
 
 
 

@@ -555,12 +555,43 @@ class Store extends EventEmitter {
         }
         break;
       case 127506: // DC Status
+
+        /*
+        {"pgn":127506,"src":15,"count":255,"message":"N2K DC Status","sid":192,"dcInstance":1,
+          "dcType":{"id":0,"name":"Battery"},
+          "stateOfCharge":89,
+          "stateOfHealth":95,
+          "timeRemaining":3932040,
+          "rippleVoltage":-1000000000,
+          "capacity":1026000}
+          */
+        newState.service_battery_stateOfCharge = message.stateOfCharge;
+        newState.service_battery_stateOfHealth = message.stateOfHealth;
+        newState.service_battery_timeRemaining = message.timeRemaining;
+        newState.service_battery_rippleVoltage = message.rippleVoltage;
+        newState.service_battery_capacity = message.capacity;
+
+
         // ignore for now, may be able to get from LifePO4 BT adapter
         break;
       case 127508: // DC Bat status
-        newState[`voltage_${message.instance}`] = message.batteryVoltage;
-        newState[`current_${message.instance}`] = message.batteryCurrent;
-        newState[`temperature_${message.instance}`] = message.batteryTemperature;
+        if (message.instance === 0) {
+          newState.engine_battery_voltage = message.batteryVoltage;
+          newState.engine_battery_current = message.batteryCurrent;
+          newState.engine_battery_temperature = message.batteryTemperature;
+        } else if (message.instance === 1) {
+          newState.service_battery_voltage = message.batteryVoltage;
+          newState.service_battery_current = message.batteryCurrent;
+          newState.service_battery_temperature = message.batteryTemperature;
+        } else if (message.instance === 2) {
+          newState.alternator_battery_voltage = message.batteryVoltage;
+          newState.alternator_battery_current = message.batteryCurrent;
+          newState.alternator_battery_temperature = message.batteryTemperature;
+        } else {
+          newState[`battery_${message.instance}_voltage`] = message.batteryVoltage;
+          newState[`battery_${message.instance}_current`] = message.batteryCurrent;
+          newState[`battery_${message.instance}_temperature`] = message.batteryTemperature;
+        }
         break;
       case 130312: // temp
 
@@ -595,27 +626,7 @@ class Store extends EventEmitter {
             requestedTemperature: this.get2ByteUDouble(message, 5,0.01)
         };
 */
-
-        switch (message.source.id) {
-          case 0: // sea temperature
-            newState.seaTemperature = message.actualTemperature;
-            break;
-          case 3: // engine room temperature
-            newState.engineRoomTemperature = message.actualTemperature;
-            break;
-          case 4: // engine room temperature
-            newState.mainCabinTemperature = message.actualTemperature;
-            break;
-          case 14: // exhaust temperature
-            newState.exhaustTemperature = message.actualTemperature;
-            break;
-          case 15: // exhaust temperature
-            newState.alternatorTemperature = message.actualTemperature;
-            break;
-          default:
-            break;
-        }
-
+        newState[`${message.source.name}`] = message.actualTemperature;
         break;
       case 127505: // fluid level
         if (message.fluidType.name === 'Fuel') {

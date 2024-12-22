@@ -459,6 +459,13 @@ class NMEA2000Reference {
         13: { id: 13, name: 'Freezer Temperature' },
         14: { id: 14, name: 'Exhaust Gas Temperature' },
         15: { id: 15, name: 'Shaft Seal Temperature' },
+        30: { id: 30, name: 'Alternator Temperature' },
+        31: { id: 31, name: 'A2B Charger Temperature' },
+        32: { id: 32, name: 'Sensor 32 Temperature' },
+        33: { id: 33, name: 'Sensor 33 Temperature' },
+        34: { id: 34, name: 'Sensor 34 Temperature' },
+        35: { id: 35, name: 'Sensor 35 Temperature' },
+        36: { id: 36, name: 'Sensor 36 Temperature' },
         132: { id: 15, name: 'Shaft Seal Temperature' },
       },
       humiditySource: {
