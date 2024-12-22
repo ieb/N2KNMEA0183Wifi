@@ -90,6 +90,7 @@ updated from build or via the admin ui over http.
 * [x] Backport BMS seasmart stream handler to main ui
 * [x] Fixed admin ui bug, buttons without type=button cause form submissions.
 * [x] Fixed processing of temperature messages PGN 130312 and PGN 127506 battery status.
+* [ ] Http streams appear to be not cleaned up correctly, according to the status information.
 * [ ] Test BLE UI on ChromeOS.
 * [ ] Log BMS data to flash
 

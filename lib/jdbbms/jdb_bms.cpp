@@ -264,6 +264,21 @@ uint16_t JdbBMS::getDaysSince1970(uint8_t offset, uint8_t * data, size_t dataLen
     return elapsedDays(makeTime(tm));
 }
 
+void JdbBMS::printProductionDate(Print *stream, uint8_t offset, uint8_t * data, size_t dataLength) {
+    if ( offset+1 >= dataLength ) {
+        dumpNa();
+        stream->print("--/--/----");
+        return;
+    }
+    dump2Bytes(data, offset);
+    uint16_t timeEnc = (data[offset]&0xff) | ((data[offset+1]<<8)&0xff00); 
+    if ( timeEnc == 0xffff) {
+        stream->print("--/--/----");
+        return;
+    }
+    stream->printf("%02d/%02d/%04d",timeEnc&0x1f,((timeEnc&0x1e0)>>5),(((timeEnc&0xfe00)>>9)+2000));
+}
+
 
 
 
@@ -424,33 +439,33 @@ void JdbBMS::printStatus03(Print *stream) {
     stream->print("BMS Reg03 dataLength:");stream->println(register03Length);
     int nNTC = getUInt8(REG_NTC_COUNT_U8, register03, register03Length);
     stream->print("  calcLength:");stream->println(REG_BALLANCE_CURRENT_U16(nNTC)+2);
-    stream->print("  voltage:");stream->println(getUDouble(REG_VOLTAGE_U16, 0.01, register03, register03Length));
-    stream->print("  current:");stream->println(getDouble(REG_CURRENT_S16, 0.01, register03, register03Length));
-    stream->print("  remaining:");stream->println(getUDouble(REG_PACK_CAPACITY_U16, 0.01, register03, register03Length));
-    stream->print("  full:");stream->println(getUDouble(REG_FULL_CAPACITY_U16,  0.01, register03, register03Length));
-    stream->print("  cycles:");stream->println(getUInt16(REG_CHARGE_CYCLES_U16,  register03, register03Length));
-    stream->print("  production: 0x");stream->println(getUInt16(REG_PRODUCTION_DATE_U16, register03, register03Length), HEX);
-    stream->print("  status0: 0x");stream->println(getUInt16(REG_BAT0_15_STATUS_U16, register03, register03Length), HEX);
-    stream->print("  status1: 0x");stream->println(getUInt16(REG_BAT16_31_STATUS_U16, register03, register03Length), HEX);
-    stream->print("  errors: 0x");stream->println(getUInt16(REG_ERRORS_U16, register03, register03Length), HEX);
-    stream->print("  version: 0x");stream->println(getUInt8(REG_SOFTWARE_VERSION_U8, register03, register03Length), HEX);
-    stream->print("  soc:");stream->println(getUInt8(REG_SOC_U8, register03, register03Length));
-    stream->print("  fet: 0x");stream->println(getUInt8(REG_FET_STATUS_U8, register03, register03Length), HEX);
-    stream->print("  cells:");stream->println(getUInt8(REG_NUMBER_OF_CELLS_U8, register03, register03Length));
-    stream->print("  ntcCount:");stream->println(getUInt8(REG_NTC_COUNT_U8, register03, register03Length));
-    stream->print("  ntc0:");stream->println(getUDouble(REG_NTC_READINGS_U16(0), 0.1, register03, register03Length));
-    stream->print("  ntc1:");stream->println(getUDouble(REG_NTC_READINGS_U16(1), 0.1, register03, register03Length));
-    stream->print("  ntc2:");stream->println(getUDouble(REG_NTC_READINGS_U16(2), 0.1, register03, register03Length));
-    stream->print("  humidity:");stream->println(getUInt8(REG_HUMIDITY_U8(nNTC), register03, register03Length)); // 55% humidity
-    stream->print("  alarm: )x");stream->println(getUInt16(REG_ALARM_STATUS_U16(nNTC), register03, register03Length), HEX); // Alarm status
-    stream->print("  fullcharge:");stream->println(getUDouble(REG_FULL_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // full charge capacit
-    stream->print("  remaining:");stream->println(getUDouble(REG_REMAINING_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // remaining capacity
-    stream->print("  ballance:");stream->println(getUDouble(REG_BALLANCE_CURRENT_U16(nNTC), 0.001, register03, register03Length)); // balance current
+    stream->print("  voltage    (V): ");stream->println(getUDouble(REG_VOLTAGE_U16, 0.01, register03, register03Length));
+    stream->print("  current    (A): ");stream->println(getDouble(REG_CURRENT_S16, 0.01, register03, register03Length));
+    stream->print("  remaining (Ah): ");stream->println(getUDouble(REG_PACK_CAPACITY_U16, 0.01, register03, register03Length));
+    stream->print("  full      (Ah): ");stream->println(getUDouble(REG_FULL_CAPACITY_U16,  0.01, register03, register03Length));
+    stream->print("  cycles        : ");stream->println(getUInt16(REG_CHARGE_CYCLES_U16,  register03, register03Length));
+    stream->print("  production    : ");printProductionDate(stream, REG_PRODUCTION_DATE_U16, register03, register03Length);stream->println("");
+    stream->print("  status0       : 0x");stream->println(getUInt16(REG_BAT0_15_STATUS_U16, register03, register03Length), HEX);
+    stream->print("  status1       : 0x");stream->println(getUInt16(REG_BAT16_31_STATUS_U16, register03, register03Length), HEX);
+    stream->print("  errors        : 0x");stream->println(getUInt16(REG_ERRORS_U16, register03, register03Length), HEX);
+    stream->print("  version       : 0x");stream->println(getUInt8(REG_SOFTWARE_VERSION_U8, register03, register03Length), HEX);
+    stream->print("  soc        (%): ");stream->println(getUInt8(REG_SOC_U8, register03, register03Length));
+    stream->print("  fet           : 0x");stream->println(getUInt8(REG_FET_STATUS_U8, register03, register03Length), HEX);
+    stream->print("  cells         : ");stream->println(getUInt8(REG_NUMBER_OF_CELLS_U8, register03, register03Length));
+    stream->print("  ntcCount      : ");stream->println(getUInt8(REG_NTC_COUNT_U8, register03, register03Length));
+    stream->print("  ntc0       (C): ");stream->println(getUDouble(REG_NTC_READINGS_U16(0), 0.1, register03, register03Length)-273.15);
+    stream->print("  ntc1       (C): ");stream->println(getUDouble(REG_NTC_READINGS_U16(1), 0.1, register03, register03Length)-273.15);
+    stream->print("  ntc2       (C): ");stream->println(getUDouble(REG_NTC_READINGS_U16(2), 0.1, register03, register03Length)-273.15);
+    stream->print("  humidity   (%): ");stream->println(getUInt8(REG_HUMIDITY_U8(nNTC), register03, register03Length)); // 55% humidity
+    stream->print("  alarm         : 0x");stream->println(getUInt16(REG_ALARM_STATUS_U16(nNTC), register03, register03Length), HEX); // Alarm status
+    stream->print("  fullcharge(Ah): ");stream->println(getUDouble(REG_FULL_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // full charge capacit
+    stream->print("  remaining (Ah): ");stream->println(getUDouble(REG_REMAINING_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // remaining capacity
+    stream->print("  ballance  (A) : ");stream->println(getUDouble(REG_BALLANCE_CURRENT_U16(nNTC), 0.001, register03, register03Length),3); // balance current
 }
 void JdbBMS::printStatus04(Print *stream) {
     stream->print("BMS Reg04 dataLength:");stream->println(register04Length);
-    for (int i = 0; i < register04Length/2; i++) {
-        stream->print("  cell V ");stream->print(i/2);stream->println(getUDouble(i, 0.001, register04, register04Length),3); // Cell Voltage
+    for (int i = 0; i < register04Length; i+=2) {
+        stream->print("  cell ");stream->print(i/2);stream->print(" (V): ");stream->println(getUDouble(i, 0.001, register04, register04Length),3); // Cell Voltage
     }
 }
 void JdbBMS::printStatus05(Print *stream) {
@@ -459,7 +474,7 @@ void JdbBMS::printStatus05(Print *stream) {
     for (int i = 0; i < register05Length; ++i) {
         hwVersion[i] = register05[i];
     }
-     hwVersion[register05Length] = '\0';
+    hwVersion[register05Length] = '\0';
     stream->print("  HW Version:");stream->println(hwVersion);
 }
 

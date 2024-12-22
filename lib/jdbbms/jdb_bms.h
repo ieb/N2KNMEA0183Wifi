@@ -93,6 +93,8 @@ private:
     void printStatus03(Print *stream);
     void printStatus04(Print *stream);
     void printStatus05(Print *stream);
+    void printProductionDate(Print *stream, uint8_t offset, uint8_t * data, size_t dataLength);
+
 
     void dumpBuffer(const char *msg, uint8_t *b, uint8_t s, uint8_t e);
     void dump2Bytes(uint8_t * data, uint8_t offset);
