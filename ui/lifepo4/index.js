@@ -233,7 +233,7 @@ window.addEventListener('load', () => {
   };
 
   bmsReader.on('n2kdecoded', (decodedMessage) => {
-    console.debug('Decoded Message', decodedMessage);
+    // console.debug('Decoded Message', decodedMessage);
     if (decodedMessage.register === 0x03) {
       handleStatusUpdate(decodedMessage);
     } else if (decodedMessage.register === 0x04) {

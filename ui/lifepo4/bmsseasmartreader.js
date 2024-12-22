@@ -462,7 +462,6 @@ class ChunkedSeaSmartStream extends EventEmitter {
 
       const timeoutCheck = setInterval(() => {
         if (that.running) {
-          console.debug(`${Date.now()} ${this.streamId} Timeout `, (Date.now() - that.lastMessage));
           if ((Date.now() - that.lastMessage) > 10000) {
             // eslint-disable-next-line no-console
             that.restartDelay = 100;
@@ -591,9 +590,9 @@ class JDBBMSReaderSeasmart extends EventEmitter {
     const that = this;
     this.parser.on('n2kraw', (rawMessage) => {
       if (rawMessage.pgn === 130829) {
-        console.debug('BLE Message', rawMessage);
+        // console.debug('BLE Message', rawMessage);
       } else if (rawMessage.pgn === 127508) {
-        console.debug('BattereyStatus Message', rawMessage);
+        // console.debug('BattereyStatus Message', rawMessage);
       }
       this.messagesRecieved++;
     });

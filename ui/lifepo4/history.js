@@ -221,11 +221,11 @@ class TimeSeriesManager {
       this.cells0Temp.update(statusUpdate.tempSensorValues[1]);
       this.cells1Temp.update(statusUpdate.tempSensorValues[2]);
     }
-    if (statusUpdate.stateOfCharge) {
+    if (statusUpdate.capacity && statusUpdate.capacity.stateOfCharge) {
       this.stateOfCharge.update(statusUpdate.capacity.stateOfCharge);
     }
-    if (statusUpdate.fullCapacity) {
-      this.chargeRemaining.update(statusUpdate.capacity.fullCapacity);
+    if (statusUpdate.packBalCap) {
+      this.chargeRemaining.update(statusUpdate.packBalCap);
     }
   }
 
@@ -480,7 +480,7 @@ class CurrentGraph {
 
 
 
-    console.debug('Pack Current Data ', data);
+    // console.debug('Pack Current Data ', data);
 
     const x = d3.scaleTime(
       d3.extent(data, (d) => d.date),
@@ -572,7 +572,7 @@ class StateOfChargeGraph {
     } else {
       for (let i = 0; i < history.ts.length; i++) {
         if (Number.isFinite(history.soc.mean[i]) && history.soc.mean[i] !== 0) {
-          soc = 100 * history.soc.mean[i];
+          soc = history.soc.mean[i];
         }
         if (history.ts[i] >= startTs && history.ts[i] <= endTs) {
           data.push({
@@ -589,7 +589,7 @@ class StateOfChargeGraph {
       }
     });
 
-    console.debug('StateOfCharge ', data);
+    // console.debug('StateOfCharge ', data);
 
     const x = d3.scaleTime(
       d3.extent(data, (d) => d.date),
@@ -695,7 +695,7 @@ class ChargeRemainingGraph {
       }
     });
 
-    console.debug('ChrgeRemaining ', data);
+    // console.debug('ChrgeRemaining ', data);
 
     const x = d3.scaleTime(
       d3.extent(data, (d) => d.date),
@@ -744,7 +744,7 @@ class ChargeRemainingGraph {
         .attr('y', 10)
         .attr('fill', 'currentColor')
         .attr('text-anchor', 'start')
-        .text('Charge Remaining Ah %'));
+        .text('Charge Remaining Ah'));
 
     // Append a path for the line.
     svg.append('path')
@@ -822,7 +822,7 @@ class CellVoltagesGraph {
       });
     });
 
-    console.debug('Cell Voltage Data ', data);
+    // console.debug('Cell Voltage Data ', data);
 
 
     let times = d3.extent(data[0], (d) => d.date);
@@ -966,7 +966,7 @@ class TemperatureGraph {
     });
 
 
-    console.debug('Temperatures ', data);
+    // console.debug('Temperatures ', data);
 
 
     let times = d3.extent(data[0], (d) => d.date);
