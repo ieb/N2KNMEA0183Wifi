@@ -27,7 +27,5 @@ To build
     npm build
 
 
-# Bugs
-
 
 

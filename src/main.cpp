@@ -252,6 +252,21 @@ nmeaSender.sendBufToClients(buf); // UDP
 
 
 
+void printStatus(Print *stream) {
+  stream->print("Total heap:  ");stream->println(ESP.getHeapSize());
+  stream->print("Free heap:   ");stream->println(ESP.getFreeHeap());
+  // ESP32-WROOM chips which are common dont have PSRAM. 
+  // ESP32-WRover do. See https://en.wikipedia.org/wiki/ESP32
+  stream->print("Has PSRAM:");stream->println(psramFound());
+  stream->print("Total PSRAM: ");stream->println(ESP.getPsramSize());
+  stream->print("Free PSRAM:  ");stream->println(ESP.getFreePsram());
+
+  wifi.printStatus(stream);
+  nmeaServer.printStatus(stream);
+  webServer.printStatus(stream);
+  bms.printStatus(stream);
+}
+
 void setup() {
   Serial.begin(115200); 
   if ( !psramInit() ) {
@@ -281,6 +296,10 @@ void setup() {
   webServer.setStoreCallback([](Print *stream) {
     n2kHander.output(stream); // H,...
     performance.output(stream); // P,...
+  });
+
+  webServer.setStatusCallback([](Print *stream) {
+    printStatus(stream);
   });
 
   webServer.setDeviceListCallback([](Print *stream) {
@@ -342,19 +361,6 @@ void setup() {
 
 //*****************************************************************************
 
-void showStatus() {
-  Serial.print("Total heap:  ");Serial.println(ESP.getHeapSize());
-  Serial.print("Free heap:   ");Serial.println(ESP.getFreeHeap());
-  // ESP32-WROOM chips which are common dont have PSRAM. 
-  // ESP32-WRover do. See https://en.wikipedia.org/wiki/ESP32
-  Serial.print("Has PSRAM:");Serial.println(psramFound());
-  Serial.print("Total PSRAM: ");Serial.println(ESP.getPsramSize());
-  Serial.print("Free PSRAM:  ");Serial.println(ESP.getFreePsram());
-
-  wifi.printStatus();
-  nmeaServer.printStatus();
-  webServer.printStatus();
-}
 
 //*****************************************************************************
 //NMEA 2000 message handler - should  be in a class so it can be attached.
@@ -373,7 +379,7 @@ void CheckCommand() {
       case 'h': showHelp(); break;
       case 'u': listDevices.list(true); break;
       case 's':
-        showStatus();
+        printStatus(OutputStream);
         break;
       case 'o': 
         n2kPrinter.showData = !n2kPrinter.showData;

@@ -74,7 +74,7 @@ class SeasmartResponseStream: public AsyncAbstractResponse {
     bool acceptPgn(unsigned long pgn);
     bool _sourceValid() const { return (_state < RESPONSE_END); }
     virtual size_t _fillBuffer(uint8_t *buf, size_t maxLen) override;
-    void printStatus();
+    void printStatus(Print *stream);
 
     SeasmartResponseStream * nextStream = NULL;
 

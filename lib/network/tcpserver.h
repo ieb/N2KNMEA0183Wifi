@@ -57,7 +57,7 @@ public:
             };
     void begin();
     void handle();
-    void printStatus();
+    void printStatus(Print *stream);
     void sendBufToClients(const char *buf);
     bool acceptN2k(long pgn);
     void sendN2k(long pgn, const char * buf);

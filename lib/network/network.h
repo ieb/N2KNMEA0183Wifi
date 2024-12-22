@@ -39,7 +39,7 @@ public:
     String getPassword() { return password; };
     void startSTA(String wifi_ssid = WIFI_SSID, String wifi_pass = WIFI_PASS);
     void startAP();
-    void printStatus();
+    void printStatus(Print *stream);
     bool isSoftAP() {
         return softAP;
     };
@@ -76,7 +76,7 @@ class WebServer {
     public:
         WebServer(Stream *outputStream ) : outputStream{outputStream} {};
         void begin(const char * configurationFile = "/config.txt");
-        void printStatus();
+        void printStatus(Print *);
         String getBasicAuth() { return basicAuth; };
         void sendN0183(const char *buffer);
 
@@ -97,6 +97,9 @@ class WebServer {
         void setDeviceListCallback(FnResponseOutputHandler h) {
             listDeviceOutputFn = h;
         }
+        void setStatusCallback(FnResponseOutputHandler h) {
+            statusOutputFn = h;
+        }
 
 
     private:  
@@ -116,6 +119,7 @@ class WebServer {
 
         FnResponseOutputHandler storeOutputFn = NULL;
         FnResponseOutputHandler listDeviceOutputFn = NULL;
+        FnResponseOutputHandler statusOutputFn = NULL;
         String handleTemplate(AsyncWebServerRequest * request, const String &var);
         void handleAllFileUploads(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
         bool authorized(AsyncWebServerRequest *request);

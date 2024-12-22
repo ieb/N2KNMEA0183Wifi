@@ -30,8 +30,8 @@ void TcpServer::handle() {
 
 
 
-void TcpServer::printStatus() {
-  outputStream->println("TCPClients");
+void TcpServer::printStatus(Print *stream) {
+  stream->println("TCPClients");
   for(int i = 0; i < MAX_TCP_CLIENTS; i++) {
     tcpClients[i].status();
   }

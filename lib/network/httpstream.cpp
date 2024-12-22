@@ -153,30 +153,30 @@ void SeasmartResponseStream::writeLine(const char * buffer) {
     writes++;
 }
 
-void SeasmartResponseStream::printStatus() {
+void SeasmartResponseStream::printStatus(Print *stream) {
     unsigned long now = millis();
     double bandwidth = bytesSent/(1024.0*(0.001*(now - startedAt)));
-    outputStream->print("HttpStream ->");
-    outputStream->print(remoteIP);
-    outputStream->print(" bandwidth:");
-    outputStream->print(bandwidth);
-    outputStream->print("kb/s sent:");
-    outputStream->print(bytesSent/1024);
-    outputStream->print("kb buffer reads:");
-    outputStream->print(reads);
-    outputStream->print(" buffer writes:");
-    outputStream->print(writes);
-    outputStream->print(" overflows:");
-    outputStream->print(overflows);
+    stream->print("HttpStream ->");
+    stream->print(remoteIP);
+    stream->print(" bandwidth:");
+    stream->print(bandwidth);
+    stream->print("kb/s sent:");
+    stream->print(bytesSent/1024);
+    stream->print("kb buffer reads:");
+    stream->print(reads);
+    stream->print(" buffer writes:");
+    stream->print(writes);
+    stream->print(" overflows:");
+    stream->print(overflows);
     if ( _npgns > 0 ) {
-        outputStream->print(" filter:");
+        stream->print(" filter:");
         for(int i = 0; i < _npgns; i++ ) {
-          outputStream->print(" ");
-          outputStream->print(_pgns[i]);
+          stream->print(" ");
+          stream->print(_pgns[i]);
         }        
     } else {
-        outputStream->print(" no filter");        
+        stream->print(" no filter");        
     }
-    outputStream->println("");
+    stream->println("");
 }
 

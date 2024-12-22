@@ -280,7 +280,6 @@ bool JdbBMS::setN2KMsg(tN2kMsg &N2kMsg) {
         if ( nNTC > 0 && nNTC != 0xff ) {
             temperature = getUDouble(REG_NTC_READINGS_U16(nNTC-1), 0.1, register03, register03Length);
         }
-        dumpReg03();
         SetN2kDCBatStatus(N2kMsg,batteryInstance,voltage,current,temperature,sid);
         return true;
     }
@@ -343,6 +342,9 @@ Marine           4 == 100
             N2kMsg.AddByte(register03[i]); 
         }
         dumpBuffer("Sent ", register03, 0, register03Length);
+        if (debug) {
+            printStatus03(&Serial);
+        }
         return true;
     }
     if ( (now - lastRegO4) > BMS_PERIOD_REG04) {
@@ -356,6 +358,9 @@ Marine           4 == 100
         for (int i = 0; i < register04Length; i++) {
             N2kMsg.AddByte(register04[i]); 
         }
+        if (debug) {
+            printStatus04(&Serial);
+        }
         return true;
     }
     if ( (now - lastRegO5) > BMS_PERIOD_REG05) {
@@ -368,6 +373,9 @@ Marine           4 == 100
         // the first byte of reg05 is the length, so not sending 2x lengths.
         for (int i = 0; i < register05Length; i++) {
             N2kMsg.AddByte(register05[i]); 
+        }
+        if (debug) {
+            printStatus05(&Serial);
         }
         return true;
     }
@@ -407,34 +415,52 @@ void JdbBMS::dumpBuffer(const char *msg, uint8_t *b, uint8_t s, uint8_t e) {
     }
 }
 
-void JdbBMS::dumpReg03() {
-    if ( debug ) {    
-        Serial.print("Reg03 dataLength:");Serial.println(register03Length);
-        int nNTC = getUInt8(REG_NTC_COUNT_U8, register03, register03Length);
-        Serial.print("  calcLength:");Serial.println(REG_BALLANCE_CURRENT_U16(nNTC)+2);
-        Serial.print("  voltage:");Serial.println(getUDouble(REG_VOLTAGE_U16, 0.01, register03, register03Length));
-        Serial.print("  current:");Serial.println(getDouble(REG_CURRENT_S16, 0.01, register03, register03Length));
-        Serial.print("  remaining:");Serial.println(getUDouble(REG_PACK_CAPACITY_U16, 0.01, register03, register03Length));
-        Serial.print("  full:");Serial.println(getUDouble(REG_FULL_CAPACITY_U16,  0.01, register03, register03Length));
-        Serial.print("  cycles:");Serial.println(getUInt16(REG_CHARGE_CYCLES_U16,  register03, register03Length));
-        Serial.print("  production:");Serial.println(getUInt16(REG_PRODUCTION_DATE_U16, register03, register03Length), HEX);
-        Serial.print("  status0:");Serial.println(getUInt16(REG_BAT0_15_STATUS_U16, register03, register03Length), HEX);
-        Serial.print("  status1:");Serial.println(getUInt16(REG_BAT16_31_STATUS_U16, register03, register03Length), HEX);
-        Serial.print("  errors:");Serial.println(getUInt16(REG_ERRORS_U16, register03, register03Length), HEX);
-        Serial.print("  version:");Serial.println(getUInt8(REG_SOFTWARE_VERSION_U8, register03, register03Length), HEX);
-        Serial.print("  soc:");Serial.println(getUInt8(REG_SOC_U8, register03, register03Length));
-        Serial.print("  fet:");Serial.println(getUInt8(REG_FET_STATUS_U8, register03, register03Length), HEX);
-        Serial.print("  cells:");Serial.println(getUInt8(REG_NUMBER_OF_CELLS_U8, register03, register03Length));
-        Serial.print("  ntcCount:");Serial.println(getUInt8(REG_NTC_COUNT_U8, register03, register03Length));
-        Serial.print("  ntc0:");Serial.println(getUDouble(REG_NTC_READINGS_U16(0), 0.1, register03, register03Length));
-        Serial.print("  ntc1:");Serial.println(getUDouble(REG_NTC_READINGS_U16(1), 0.1, register03, register03Length));
-        Serial.print("  ntc2:");Serial.println(getUDouble(REG_NTC_READINGS_U16(2), 0.1, register03, register03Length));
-        Serial.print("  humidity:");Serial.println(getUInt8(REG_HUMIDITY_U8(nNTC), register03, register03Length)); // 55% humidity
-        Serial.print("  alarm:");Serial.println(getUInt16(REG_ALARM_STATUS_U16(nNTC), register03, register03Length), HEX); // Alarm status
-        Serial.print("  fullcharge:");Serial.println(getUDouble(REG_FULL_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // full charge capacit
-        Serial.print("  remaining:");Serial.println(getUDouble(REG_REMAINING_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // remaining capacity
-        Serial.print("  ballance:");Serial.println(getUDouble(REG_BALLANCE_CURRENT_U16(nNTC), 0.001, register03, register03Length)); // balance current
+void JdbBMS::printStatus(Print *stream) {
+    printStatus03(stream);
+    printStatus04(stream);
+    printStatus05(stream);
+}
+void JdbBMS::printStatus03(Print *stream) {
+    stream->print("BMS Reg03 dataLength:");stream->println(register03Length);
+    int nNTC = getUInt8(REG_NTC_COUNT_U8, register03, register03Length);
+    stream->print("  calcLength:");stream->println(REG_BALLANCE_CURRENT_U16(nNTC)+2);
+    stream->print("  voltage:");stream->println(getUDouble(REG_VOLTAGE_U16, 0.01, register03, register03Length));
+    stream->print("  current:");stream->println(getDouble(REG_CURRENT_S16, 0.01, register03, register03Length));
+    stream->print("  remaining:");stream->println(getUDouble(REG_PACK_CAPACITY_U16, 0.01, register03, register03Length));
+    stream->print("  full:");stream->println(getUDouble(REG_FULL_CAPACITY_U16,  0.01, register03, register03Length));
+    stream->print("  cycles:");stream->println(getUInt16(REG_CHARGE_CYCLES_U16,  register03, register03Length));
+    stream->print("  production: 0x");stream->println(getUInt16(REG_PRODUCTION_DATE_U16, register03, register03Length), HEX);
+    stream->print("  status0: 0x");stream->println(getUInt16(REG_BAT0_15_STATUS_U16, register03, register03Length), HEX);
+    stream->print("  status1: 0x");stream->println(getUInt16(REG_BAT16_31_STATUS_U16, register03, register03Length), HEX);
+    stream->print("  errors: 0x");stream->println(getUInt16(REG_ERRORS_U16, register03, register03Length), HEX);
+    stream->print("  version: 0x");stream->println(getUInt8(REG_SOFTWARE_VERSION_U8, register03, register03Length), HEX);
+    stream->print("  soc:");stream->println(getUInt8(REG_SOC_U8, register03, register03Length));
+    stream->print("  fet: 0x");stream->println(getUInt8(REG_FET_STATUS_U8, register03, register03Length), HEX);
+    stream->print("  cells:");stream->println(getUInt8(REG_NUMBER_OF_CELLS_U8, register03, register03Length));
+    stream->print("  ntcCount:");stream->println(getUInt8(REG_NTC_COUNT_U8, register03, register03Length));
+    stream->print("  ntc0:");stream->println(getUDouble(REG_NTC_READINGS_U16(0), 0.1, register03, register03Length));
+    stream->print("  ntc1:");stream->println(getUDouble(REG_NTC_READINGS_U16(1), 0.1, register03, register03Length));
+    stream->print("  ntc2:");stream->println(getUDouble(REG_NTC_READINGS_U16(2), 0.1, register03, register03Length));
+    stream->print("  humidity:");stream->println(getUInt8(REG_HUMIDITY_U8(nNTC), register03, register03Length)); // 55% humidity
+    stream->print("  alarm: )x");stream->println(getUInt16(REG_ALARM_STATUS_U16(nNTC), register03, register03Length), HEX); // Alarm status
+    stream->print("  fullcharge:");stream->println(getUDouble(REG_FULL_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // full charge capacit
+    stream->print("  remaining:");stream->println(getUDouble(REG_REMAINING_CHARGE_CAPACITY_U16(nNTC), 0.01, register03, register03Length)); // remaining capacity
+    stream->print("  ballance:");stream->println(getUDouble(REG_BALLANCE_CURRENT_U16(nNTC), 0.001, register03, register03Length)); // balance current
+}
+void JdbBMS::printStatus04(Print *stream) {
+    stream->print("BMS Reg04 dataLength:");stream->println(register04Length);
+    for (int i = 0; i < register04Length/2; i++) {
+        stream->print("  cell V ");stream->print(i/2);stream->println(getUDouble(i, 0.001, register04, register04Length),3); // Cell Voltage
     }
+}
+void JdbBMS::printStatus05(Print *stream) {
+    stream->print("BMS Reg05 dataLength:");stream->println(register05Length);
+    char hwVersion[register05Length+1];
+    for (int i = 0; i < register05Length; ++i) {
+        hwVersion[i] = register05[i];
+    }
+     hwVersion[register05Length] = '\0';
+    stream->print("  HW Version:");stream->println(hwVersion);
 }
 
 void JdbBMS::dump2Bytes(uint8_t * data, uint8_t offset) {

@@ -137,24 +137,24 @@ void Wifi::loadIPConfig(String key) {
 
 }
 
-void Wifi::printStatus() {
+void Wifi::printStatus(Print *stream) {
     if ( softAP ) {
-        outputStream->println("Wifi Access Point enabled");
-        outputStream->print("SSID:");outputStream->println(ssid);
-        outputStream->print("Password:");outputStream->println(password);
-        outputStream->print("IP Address:");outputStream->println(WiFi.softAPIP());
-        outputStream->print("Broadcast IP: ");outputStream->println(WiFi.softAPBroadcastIP());
-        outputStream->print("Network IP: ");outputStream->println(WiFi.softAPNetworkID());
-        outputStream->print("Tx Power: ");outputStream->println(0.25*WiFi.getTxPower());
+        stream->println("Wifi Access Point enabled");
+        stream->print("SSID:");stream->println(ssid);
+        stream->print("Password:");stream->println(password);
+        stream->print("IP Address:");stream->println(WiFi.softAPIP());
+        stream->print("Broadcast IP: ");stream->println(WiFi.softAPBroadcastIP());
+        stream->print("Network IP: ");stream->println(WiFi.softAPNetworkID());
+        stream->print("Tx Power: ");stream->println(0.25*WiFi.getTxPower());
     } else {
-        outputStream->println("");
-        outputStream->println("WiFi connected.");
-        outputStream->print("IP Address: ");outputStream->println(WiFi.localIP());
-        outputStream->print("Subnet Mask: ");outputStream->println(WiFi.subnetMask());
-        outputStream->print("Gateway IP: ");outputStream->println(WiFi.gatewayIP());
-        outputStream->print("DNS Server: ");outputStream->println(WiFi.dnsIP());
-        outputStream->print("Broadcast: ");outputStream->println(WiFi.broadcastIP());
-        outputStream->print("Tx Power: ");outputStream->println(0.25*WiFi.getTxPower());
+        stream->println("");
+        stream->println("WiFi connected.");
+        stream->print("IP Address: ");stream->println(WiFi.localIP());
+        stream->print("Subnet Mask: ");stream->println(WiFi.subnetMask());
+        stream->print("Gateway IP: ");stream->println(WiFi.gatewayIP());
+        stream->print("DNS Server: ");stream->println(WiFi.dnsIP());
+        stream->print("Broadcast: ");stream->println(WiFi.broadcastIP());
+        stream->print("Tx Power: ");stream->println(0.25*WiFi.getTxPower());
     }
 
 }

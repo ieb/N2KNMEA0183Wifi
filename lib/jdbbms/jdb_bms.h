@@ -44,6 +44,7 @@ public:
         lastRegO4 = lastSend+140;
         lastRegO5 = lastSend+150;
     };
+    void printStatus(Print *stream);
     void setSerial(Stream *stream) {
         this->io = stream;
     };
@@ -89,9 +90,11 @@ private:
     void copyReg03(uint8_t * data, size_t dataLength);
     void copyReg04(uint8_t * data, size_t dataLength);
     void copyReg05(uint8_t * data, size_t dataLength);
+    void printStatus03(Print *stream);
+    void printStatus04(Print *stream);
+    void printStatus05(Print *stream);
 
     void dumpBuffer(const char *msg, uint8_t *b, uint8_t s, uint8_t e);
-    void dumpReg03();
     void dump2Bytes(uint8_t * data, uint8_t offset);
     void dump1Byte(uint8_t * data, uint8_t offset);
     void dumpNa();

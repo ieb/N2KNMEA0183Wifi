@@ -71,7 +71,7 @@ void WebServer::begin(const char * configurationFile) {
 
     // text output of all devices.
     server.on("/api/devices", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (storeOutputFn == NULL) {
+        if (listDeviceOutputFn == NULL) {
             request->send(404);
         } else {
             AsyncResponseStream *response = request->beginResponseStream("text/plain");
@@ -306,6 +306,27 @@ void WebServer::begin(const char * configurationFile) {
     });
 
     // management
+
+    server.on("/api/statusDump", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (statusOutputFn == NULL) {
+            request->send(404);
+        } else {
+            AsyncResponseStream *response = request->beginResponseStream("text/plain");
+            addCORS(request, response);
+            response->setCode(200);
+            size_t total = SPIFFS.totalBytes();
+            size_t used = SPIFFS.usedBytes();
+            size_t free = total-used;
+            response->print("Status Dump");
+            response->println("disk:");
+            response->print("  total:");response->println(total);
+            response->print("  used:");response->println(used);
+            response->print("  free:");response->println(free);
+            statusOutputFn(response);
+            request->send(response);
+        }
+    });
+
     server.on("/api/status.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
             AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -455,10 +476,10 @@ void WebServer::sendN2K(const char *buffer) {
 #endif
 
 
-void WebServer::printStatus() {
+void WebServer::printStatus(Print *stream) {
     SeasmartResponseStream *headStream = seasmartStreamsHead;
     while(headStream != NULL ) {
-        headStream->printStatus();
+        headStream->printStatus(stream);
         headStream = headStream->nextStream;
     }
 }

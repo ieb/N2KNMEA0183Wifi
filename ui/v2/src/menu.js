@@ -90,8 +90,8 @@ class Menu extends Component {
         connectButtonText: payload.connected ? 'disconnect' : 'connect',
         connectionMessage: payload.connectionMessage || this.state.connectionMessage,
         apiHost: payload.apiHost || this.state.apiHost,
-      })
-      console.log("Connection udpdate", payload);
+      });
+      console.log('Connection udpdate', payload);
     }
   }
 
