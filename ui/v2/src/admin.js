@@ -225,7 +225,7 @@ class AdminView extends Component {
     console.log('Delete ', path);
     const details = {
       op: 'delete',
-      path,
+      path
     };
 
     const formBody = [];
@@ -340,9 +340,9 @@ class AdminView extends Component {
 
   renderFile(n, fileInfo) {
     const clickDelete = () => {
-      this.deleteFile(fileInfo.path);
+      this.deleteFile(`/${fileInfo.path}`);
     };
-    const downloadUrl = `${this.apiUrl}${fileInfo.path}`;
+    const downloadUrl = `${this.apiUrl}/${fileInfo.path}`;
     return html`<div className="line" key=${n}>
                       <div className="fileInfo">
                         <div><a href="${downloadUrl}" >${fileInfo.path}</a></div>

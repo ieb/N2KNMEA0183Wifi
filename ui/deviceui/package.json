@@ -1,0 +1,28 @@
+{
+  "private": true,
+  "browserslist": "> 0.5%, last 2 versions, not dead",
+  "scripts": {
+    "start": "http-server ./src",
+    "build": "webpack",
+    "lint:js": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "lint:css": "stylelint  'src/*.css'",
+    "lint:css:fix": "stylelint --fix  'src/*.css'",
+    "lint": "npm run lint:js"
+  },
+  // only here to download, d3-combined contains the d3 libraries required.
+  "dependencies": {
+    "d3-array": "^3.2.4",
+    "d3-axis": "^3.0.0",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.2.0"
+  },
+  "devDependencies": {
+    "eslint": "8.35.0",
+    "eslint-config-airbnb-base": "15.0.0",
+    "http-server": "^14.1.1",
+    "stylelint": "15.2.0",
+    "stylelint-config-standard": "30.0.1"
+  }
+}

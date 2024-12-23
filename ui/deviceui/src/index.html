@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JBD BMS Monitor</title>
+    <script type="text/javascript" src="d3-combined.js"></script>
+    <script type="module" src="index.js"></script>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<body>
+
+
+
+<div class="views">
+    <label>API host
+        <input id="url" value="boatsystems.local" />
+    </label>
+    <button id="connect"  >Connect</button>
+    <button id="disconnect" class="hidden">Disconnect</button>
+    <span id="connectionError" class="xxx">o</span>
+    <span id="streamCount">streams:0</span>
+    <span id="connectionCount">connections:0</span>
+    <span id="timeoutCount">timeouts:0</span>
+    <span id="receivedCount">received:0</span>
+    <span id="decodedCount">used:0</span>
+</div>
+
+<div>
+</div>
+
+<div class="bms">
+    <svg id="currentWidget" height="200" width="200" class="guage" >
+    <defs>
+        <linearGradient id="currentGradCharge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="15%" stop-color="orange" stop-opacity="1"></stop>
+            <stop offset="85%" stop-color="yellow" stop-opacity="1"></stop>
+        </linearGradient>
+        <linearGradient id="currentGradDischarge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="15%" stop-color="red" stop-opacity="1"></stop>
+            <stop offset="85%" stop-color="blue" stop-opacity="1"></stop>
+        </linearGradient>
+       <path
+         id="guageCurrentTextPath"
+         fill="none"
+         stroke="red"
+         d="M64.64,64.64 A 50 50 0 0 1 135.35,64.64" />
+
+       <path
+         id="guageStateOfChargeTextPath"
+         fill="none"
+         stroke="red"
+         d="M64.64,135.35 A 50 50 0 0 0 135.35,135.35" />
+    </defs>
+
+    <!-- the stroke color indicates charg vs discharge
+         the dasharray dash is the %, full scale is pi*d*270/360.
+         dash is percent*full scale is pi*d*270/360
+     -->
+
+      <circle
+       class="guageBase"
+       id="currentBase"
+       cx="100"
+       cy="100"
+       fill="transparent"
+       stroke="gray"
+       r="75"
+       stroke-width="25"
+       stroke-dasharray="353 471"
+       transform="rotate(135, 100, 100)"
+     />
+     <circle
+        class="guagePercent"
+        id="currentGuage"
+        cx="100"
+        cy="100"
+        fill="transparent"
+        r=75
+        stroke="url(#currentGradCharge)"
+        stroke-width="25"
+        stroke-dasharray="87 471"
+        transform="rotate(135, 100, 100)"
+        style="transition: stroke-dasharray 0.3s"
+      />
+
+     <!-- bottom arc charge
+       green filling the whole arc
+       overlayed by dark grey giving the impression that the green 
+       sector is the qauge, easier to do but the dash array for the grey sector has 
+       to be adjusted to 1-% 
+       full scale is 0 dash
+       0 is pi*d*90/360
+       dash is (1-percent)*(p*d*90/360)
+     -->
+    <circle 
+        class="guageSubBase"
+        id="stateOfChargeBase"
+        cx="100" 
+        cy="100" 
+        fill="transparent" 
+        stroke="green" 
+        r="75" 
+        stroke-width="25" 
+        stroke-dasharray="120 471" 
+        transform="rotate(45, 100, 100)" 
+        style="transition: stroke 0.3s"
+        />
+
+    <circle 
+        class="guageSubPercent"
+        id="chargeGuage"
+        cx="100" 
+        cy="100" 
+        fill="transparent" 
+        stroke="darkgrey" 
+        r="75" 
+        stroke-width="25" 
+        stroke-dasharray="90 471" 
+        transform="rotate(45, 100, 100)" 
+        style="transition: stroke-dasharray 0.3s"
+      />
+
+   
+
+    <!-- annotations 
+    current in the center.
+    soc and voltage below that.
+    -->
+    <text id="guageVoltageText" x="100" y="100" alignment-baseline="middle" text-anchor="middle">?v</text>
+    <text text-anchor="middle" >
+       <textPath id="guageCurrentText" startOffset="50%" alignment-baseline="middle" href="#guageCurrentTextPath">?A</textPath>
+    </text>
+    <text text-anchor="middle"  >
+       <textPath id="guageStateOfChargeText" startOffset="50%" alignment-baseline="middle" href="#guageStateOfChargeTextPath">?Ah</textPath>
+    </text>
+
+
+</svg>
+<ul class="state">
+    <li>State</li>
+    <li>Voltage: <span id="status.voltage">?</span> V</li>
+    <li>Current: <span id="status.current">?</span> A</li>
+    <li>State Of Charge: <span id="status.capacity.stateOfCharge">?</span> %</li>
+    <li>Full Capacity: <span id="status.capacity.fullCapacity">?</span> Ah</li>
+    <li><span id="status.charging" class="enabled">Charging</span> <span id="status.discharging" class="disabled">Discharging</span></li>
+ </ul>
+
+  <ul class="cells">
+    <li>Cells</li>
+    <li>0:  <span id="cell.voltage0">0.0</span> V <span id="status.balanceActive0">&#9673;</span></li>
+    <li>1:  <span id="cell.voltage1">0.0</span> V <span id="status.balanceActive1">&#9673;</span></li>
+    <li>2:  <span id="cell.voltage2">0.0</span> V <span id="status.balanceActive2">&#9673;</span></li>
+    <li>3:  <span id="cell.voltage3">0.0</span> V <span id="status.balanceActive3">&#9673;</span></li>
+    <li>Range <span id="cell.range">0.0</span> V</li>
+    <li>Difference <span id="cell.diff">0.0</span> V</li>
+
+  </ul>
+  <ul class="temperatures">
+    <li>Temperatures</li>
+    <li>Board   <span id="status.tempSensorValues0">?</span> C </li>
+    <li>Cell 0  <span id="status.tempSensorValues1">?</span> C </li>
+    <li>Cell 1  <span id="status.tempSensorValues2">?</span> C </li>
+  </ul>
+
+  <ul class="errors">
+    <li>Protections</li>
+    <li class="disabled" id="status.errors.singleCellOvervolt">singleCellOvervolt</li>
+    <li class="disabled" id="status.errors.singleCellUndervolt">singleCellUndervolt</li>
+    <li class="disabled" id="status.errors.packOvervolt">packOvervolt</li>
+    <li class="disabled" id="status.errors.packUndervolt">packUndervolt</li>
+    <li class="disabled" id="status.errors.chargeOvertemp">chargeOvertemp</li>
+    <li class="disabled" id="status.errors.chargeUndertemp">chargeUndertemp</li>
+    <li class="disabled" id="status.errors.dischargeOvertemp">dischargeOvertemp</li>
+    <li class="disabled" id="status.errors.dischargeUndertemp">dischargeUndertemp</li>
+    <li class="disabled" id="status.errors.chargeOvercurrent">chargeOvercurrent</li>
+    <li class="disabled" id="status.errors.dischargeOvercurrent">dischargeOvercurrent</li>
+    <li class="disabled" id="status.errors.shortCircut">shortCircut</li>
+    <li class="disabled" id="status.errors.frontEndDetectionICError">frontEndDetectionICError</li>
+    <li class="disabled" id="status.errors.softwareLockMOS">softwareLockMOS</li>
+</ul>
+
+ <ul class="info">
+    <li>Info</li>
+    <li>Chemistry: <span id="status.chemistry">?</span></li>
+    <li>Charge Cycles: <span id="status.chargeCycles">?</span></li>
+    <li>Pack Capacity: <span id="status.packBalCap">?</span> Ah</li>
+    <li>ProductionDate: <span id="status.productionDate">?</span></li>
+    <li>BMS SW Version: <span id="status.bmsSWVersion">?</span></li>
+    <li>Number of Cells: <span id="status.numberOfCells">?</span></li>
+    <li>Number of NTC Sensors: <span id="status.tempSensorCount">?</span></li>
+  </ul>
+
+</div>
+<div id="status.lastUpdate"></div>
+
+
+    <label for="timewindow">Graph Time Period</label>
+    <select id="timewindow">
+        <option value="3600000">1h</option>
+        <option value="10800000">3h</option>
+        <option value="21600000">6h</option>
+        <option value="43200000">12h</option>
+        <option value="86400000">24h</option>
+    </select>
+    <input type="range" id="endOfWindow" min="-86400000" max="0" step="600000" value="0">
+
+<div class="history" >
+    <div id="packVoltageGraph" ></div>
+    <div id="cellVoltagesGraph" ></div>
+    <div id="currentGraph" ></div>
+    <div id="temperatureGraph" ></div>
+    <div id="stateOfChargeGraph" ></div>
+    <div id="chargeRemainingGraph" ></div>
+
+</div>
+
+<div>
+    <h1>Luna </h1>
+    <ul>
+    <li><a href="/api/seasmart">Seasmart Stream</a></li>
+    <li><a href="/api/nmea0183">NMEA0183 Stream</a></li>
+    <li><a href="/api/devices">N2K Device Info</a></li>
+    <li><a href="/api/statusDump">Status</a></li>
+    <li><a href="/api/fs.json">Files</a></li>
+    <li><a href="/api/layouts.json">Layouts</a></li>
+    <li><a href="/config.txt">Config</a></li>
+    </ul>
+</div>    
+
+
+<script type="text/javascript">
+</script>
+
+</body>
+</html>
+
+
