@@ -1,7 +1,6 @@
 # JBD LifePO4 BMS Display
 
-This is a LifePO4 BMS Display for JBD BMS's with a Bluetooth Adapter. Its implemented as a single HTML page using the WebAPI BLE support present in most modern browsers. To use, open the index.html and click connect.
-
+This is a LifePO4 BMS Display using a seasmart stream of N2K messages from a JBD BMS registers
 To modify the display, change the html, it should support upto 32 cells.
 
 It doesn't change any settings, although it could be patched to do that.
@@ -9,12 +8,17 @@ It doesn't change any settings, although it could be patched to do that.
 
 # Why ?
 
-Because I use ChromeOS for other things on my boat, and none of the Android apps that use BLE work as they require precise location information, which ChromeBooks dont have.... so I wrote this.
+Because I use ChromeOS for other things on my boat, and none of the Android apps that use BLE work as they require precise location information, which ChromeBooks dont have.... so I wrote this... then it evolved to use Seasmart over http as there was no security with the BLE adapter and anyone could walk by and change the BMS settings.
 
 
 # How does it work ?
 
-The Bluetooth adapter for these BMS exposes Modbus RTE from the BMS UART over 2 BLE Characteristics, one to write to, the other to read from. The code sends a read request for registers 0x03 and 0x04 and listens for notifications containing the responses, which it then decodes and displays.
+It consumes PGN 127508 and 130829 from a seasmart http stream the latter containing registers 03, 04, 05. On reception the display is modified. History is captured and saved every 60s into local storage giving graphs of several parameters over a few days.
+
+<div>
+<img alt="UI" src="screenshots/Screenshot 2024-12-23 at 18.11.23.png" />
+</div>
+
 
 # Todo
 

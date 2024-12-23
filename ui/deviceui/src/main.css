@@ -6,6 +6,7 @@ body {
 
 .bms {
   display: flex;
+  flex-flow: wrap;
 }
 .history {
   display: flex;
