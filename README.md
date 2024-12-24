@@ -91,7 +91,8 @@ updated from build or via the admin ui over http.
 * [x] Fixed admin ui bug, buttons without type=button cause form submissions.
 * [x] Fixed processing of temperature messages PGN 130312 and PGN 127506 battery status.
 * [x] Implement a workable UI that can be used on a Android phone to quickly see the status of the BMS.
-* [ ] Http streams appear to be not cleaned up correctly, according to the status information.
+* [x] Http streams appear to be not cleaned up correctly, according to the status information - checked, working as expected.
+* [ ] Split the UIs out into seperate git repos.
 * [ ] Test BLE UI on ChromeOS.
 * [ ] Log BMS data to flash
 
