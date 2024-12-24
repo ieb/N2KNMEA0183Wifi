@@ -11,19 +11,13 @@
 
 # UI
 
-There is a web browser UI written as a single page application, delivered from the http server running on the 
-ESP. It receives CAN messages in SeaSmart format over a http stream which it decodes and displays. The main screen is an instruments screen which can contain 1..n mages and can be configured. Other screens include a store viewer 
-showing the data that has been received, and frame views showing decoding.  There is an admin view which 
-provides access to the flash drive to update the UI files, download log files and monitor disk and ram usage 
-on the device.  There is 2MB of flash available. The App is 26KB of javascript compressed which can be 
-updated from build or via the admin ui over http.
+There are 4 UIs available for use with this firware 3 are web based, and one is a Java Swing UI for Kindle 4 Paperwhites.
 
-![Instruments Main view](screenshots/instruments.png)
-![Admin ](screenshots/admin.png)
-![Decoded Store excluding history](screenshots/decodedstore.png)
-![Frame View](screenshots/frameview.png)
-![Streaming log of messages](screenshots/streaminglog.png)
-![Message view](screenshots/messageview.png)
+* https://github.com/ieb/N2KBMSFwUi  for a the Flash based firmware UI, read only, itended for use on a mobile device.
+* https://github.com/ieb/N2KUi for a install-able PWA App with admin capabilities.
+* https://github.com/ieb/N2KLifePo4 for an install-able PWA App focused on the LiFePo4 BMS
+* https://github.com/ieb/NMEA2000_Booklet a Kindle4 Booklet for use on deck in full sunlight.
+
 
 # Hardware
 
