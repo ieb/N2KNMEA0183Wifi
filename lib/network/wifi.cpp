@@ -9,20 +9,26 @@ void Wifi::begin() {
         outputStream->println("An Error has occurred while mounting SPIFFS");
         return;
     }
-    startSTA();
-    if ( WiFi.status() != WL_CONNECTED ) {
-        outputStream->print("Wifi Failed to connect ");
-        startAP();
+    String ssid;
+    ConfigurationFile::get(configurationFile, "wifi.ssid:", ssid);
+    if (ssid.euqals("softap")) {
+        startAP();        
     } else {
-        // Print local IP address and start web server
-        outputStream->println("");
-        outputStream->println("WiFi connected.");
-        outputStream->print("IP Address: ");outputStream->println(WiFi.localIP());
-        outputStream->print("Subnet Mask: ");outputStream->println(WiFi.subnetMask());
-        outputStream->print("Gateway IP: ");outputStream->println(WiFi.gatewayIP());
-        outputStream->print("DNS Server: ");outputStream->println(WiFi.dnsIP());
-        softAP = false;
+        startSTA();
+        if ( WiFi.status() != WL_CONNECTED ) {
+            outputStream->print("Wifi Failed to connect ");
+            startAP();
+        } else {
+            // Print local IP address and start web server
+            outputStream->println("");
+            outputStream->println("WiFi connected.");
+            outputStream->print("IP Address: ");outputStream->println(WiFi.localIP());
+            outputStream->print("Subnet Mask: ");outputStream->println(WiFi.subnetMask());
+            outputStream->print("Gateway IP: ");outputStream->println(WiFi.gatewayIP());
+            outputStream->print("DNS Server: ");outputStream->println(WiFi.dnsIP());
+            softAP = false;
 
+        }    
     }
 }
 

@@ -99,7 +99,7 @@ Field 7,21,22 will be 0.1Ah if bit 12 offset 29 (Function code) of register 0xfa
 
 
 
-## Register 0x04 - Hardware Version String
+## Register 0x05 - Hardware Version String
 
 | Field # | Field Name        | Description | Unit       | Byte offset |Type                      |
 | ------- | ----------------- | ----------- | ---------- | ----------- | ------------- |

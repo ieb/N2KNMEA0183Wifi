@@ -18,9 +18,9 @@
 
 boardname=$1
 mirror=${2:-60}
-alignoffset=${3:-10}
-bottomalign=${4:-10}
-topalign=${5:-80}
+alignoffset=${3:-55}
+bottomalign=${4:-5}
+topalign=${5:-38}
 
 rm -rf ${boardname}-cnc
 mkdir -p ${boardname}-cnc
@@ -43,7 +43,8 @@ pcb2gcode \
   --drill-feed 50.0 \
   --drills-available 0.8 1.0 3.0 \
   --offset 0.1 \
-  --mill-diameters 0.3 \
+  --mill-diameters 0.25 \
+  --path-finding-limit=0 \
   --milling-overlap 20% \
   --isolation-width 20 \
   --zwork -0.02 \
