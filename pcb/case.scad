@@ -25,13 +25,16 @@ module board() {
                 cube([18,11,7]);
 
                 // bms connector
-                translate([-0.5,15,-4])
+                translate([-0.5,15,2])
                 cube([8,13,6]);
                 
                 // can cable
                 translate([125,21,7])
-                rotate([0,90,0])
+                rotate([0,90,0]) {
                 cylinder(d=7, h=50);
+                    translate([3,0,0])
+                cube([5,6,50], center=true);
+                }
             }
             // es32c3 leds
             color("red") {
@@ -54,9 +57,9 @@ module board() {
     }
 }
 
-module lid(w=130,d=48,h=12,t=2) {
+module lid(w=133,d=50,h=12,t=3) {
    difference() {
-        translate([w/2,d/2-3,8]) 
+        translate([w/2,d/2-4,8]) 
       difference() {
         union() {
             difference() {
@@ -118,9 +121,9 @@ module lid(w=130,d=48,h=12,t=2) {
 
 }
 
-module case(w=130,d=48,h=9,t=2) {
+module case(w=133,d=50,h=9,t=3) {
    difference() {
-   translate([w/2,d/2-3,-2.6]) 
+   translate([w/2,d/2-4,-2.6]) 
       difference() {
         union() {
             difference() {
@@ -166,6 +169,7 @@ module case(w=130,d=48,h=9,t=2) {
         }
         board();
         
+        
     }
 }
 module cables() {
@@ -197,21 +201,21 @@ module cables() {
 
 
 
-/*
+
 difference() {
     union() {
         board();
         color("green") case();
-        lid();
+        //lid();
     }
 
-   translate([0,0,0])
-   cube([20,50,140], center=true);
+   translate([-50,0,0])
+   cube([100,100,140], center=true);
 }
-*/
+
 
 
 
 //board();
 //color("green") case();
-lid();
+//lid();
