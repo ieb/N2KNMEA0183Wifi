@@ -70,6 +70,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "network.h"
 #include "logbook.h"
 #include "Seasmart.h"
+#include "AsyncDNSServer.h"
 #include <ESPmDNS.h>
 #include "jdb_bms.h"
 
@@ -89,6 +90,9 @@ ListDevices listDevices(&NMEA2000, OutputStream);
 
 LogBook logbook;
 Wifi wifi(OutputStream);
+// only respond to this dns. We do not want traffic to google.
+// modified version of the standard esp32 DNSServer
+DNSServer dnsServer("boatsystems.local,boatsystems");
 WebServer webServer(OutputStream);
 EchoServer echoServer(OutputStream);
 TcpServer nmeaServer(OutputStream, 10110);
@@ -280,6 +284,8 @@ void setup() {
   // Start the wifi
   wifi.begin();
 
+
+
   // start MDNS  so others can register.
   ESP_LOGI(TAG, "Starting MDNS");
   MDNS.begin("boatsystems");
@@ -356,8 +362,16 @@ void setup() {
   ESP_LOGI(TAG, "Running.....");
   showHelp();
 
+  if (dnsServer.start()) {
+    Serial.println("Started DNS server");
+  } else {
+    Serial.println("DNS Server not started, not in AP mode");
+  }
+
   
 }
+
+
 
 //*****************************************************************************
 
@@ -417,9 +431,15 @@ void CheckCommand() {
         break;
       case 'A':
         if ( wifi.isSoftAP() ) {
+          dnsServer.stop();
           wifi.startSTA();
         } else {
           wifi.startAP();
+          if (dnsServer.start()) {
+              Serial.println("Started DNS server");
+          } else {
+              Serial.println("DNS Server not started, not in AP mode");
+          }
         }
 #ifdef NMEA0183_UDP
         nmeaSender.setDestination(wifi.getBroadcastIP());

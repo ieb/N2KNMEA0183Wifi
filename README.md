@@ -389,6 +389,10 @@ Project uses PlatformIO.  WebUI is in  ui/v2. This can be developed locally usin
 
 because I always forget.
 
+build the disk image in data/ and upload, to recreate data checkout https://github.com/ieb/N2KBMSFwUi.git
+
+* pio run --target buildfs --environment esp32-c3
+* pio run --target uploadfs --environment esp32-c3
 * pio run -t upload
 * pio device monitor
 

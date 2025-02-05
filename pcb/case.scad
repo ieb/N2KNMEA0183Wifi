@@ -201,21 +201,21 @@ module cables() {
 
 
 
-
+/*
 difference() {
     union() {
-        board();
+        //board();
         color("green") case();
-        //lid();
+        lid();
     }
 
    translate([-50,0,0])
    cube([100,100,140], center=true);
 }
-
+*/
 
 
 
 //board();
 //color("green") case();
-//lid();
+lid();

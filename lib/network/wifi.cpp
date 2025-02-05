@@ -11,7 +11,7 @@ void Wifi::begin() {
     }
     String ssid;
     ConfigurationFile::get(configurationFile, "wifi.ssid:", ssid);
-    if (ssid.euqals("softap")) {
+    if (ssid.equals("softap")) {
         startAP();        
     } else {
         startSTA();
