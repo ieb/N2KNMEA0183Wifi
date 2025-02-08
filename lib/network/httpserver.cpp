@@ -112,7 +112,7 @@ void WebServer::begin(const char * configurationFile) {
                         response->print(",");    
                     }
                     firstTime = false;
-                    response->printf("{ \"path\":\"%s\",  \"size\":%d }",  file.name(), file.size() );
+                    response->printf("{ \"path\":\"%s\",  \"size\":%d }",  file.path(), file.size() );
                     file = root.openNextFile();
                 }
                 size_t total = SPIFFS.totalBytes();
@@ -145,7 +145,7 @@ void WebServer::begin(const char * configurationFile) {
             File file = root.openNextFile();
             bool firstTime = true;
             while (file) {
-                String fileName = file.name();
+                String fileName = file.path();
                 if ( fileName.startsWith("/layout-") && fileName.endsWith(".json") ) {
                     if (!firstTime) {
                         response->print(",");    
