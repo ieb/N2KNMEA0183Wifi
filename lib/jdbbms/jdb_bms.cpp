@@ -73,20 +73,46 @@ void JdbBMS::update() {
                 if (nextFrameStart > 0) {
                     processedTo = nextFrameStart;
                     frameStart = nextFrameStart;
-                } else {
+                } else if ( nextFrameStart == -1 ) {
+                    // more data required for that start possition
+                    // serch for more start of frames
                     frameStart++;
+                } else if ( nextFrameStart == -2 ) {
+                    // didnt find an end packet where expected
+                    // this means the 
+                    // this is a definite data corruption
+                    // reset the frame
+                    wpos = 0;
+                } else if ( nextFrameStart == -3 ) {
+                    // checksum was bad, clear and start again
+                    wpos = 0;
+                } else if ( nextFrameStart == -4 ) {
+                    //bms reported an error, the packet was ok
+                    // ignore and contine to scan
+                    frameStart++;
+                } else {
+                    // ignore and contine to scan
+                    frameStart++;                    
                 }
             } else {
                 frameStart++;
             }
         }
         if ( processedTo > 0) {
+            // copy from the start of the unprocessed
+            // data into the start of the buffer. 
             for(int i = 0; i+processedTo < wpos; i++) {
                 buffer[i] = buffer[i+processedTo];
             }
-            wpos = wpos-processedTo;
-        } else {
+            if ( debug) {
+                Serial.print("wpos:");
+                Serial.println(wpos);
+                Serial.print(" Shift buffer << by:");
+                Serial.println(processedTo);
+            }
 
+            wpos = wpos-processedTo;
+            dumpBuffer("After shift ",buffer, 0, wpos);
         }
     }
     // send out the next register request.
@@ -124,11 +150,16 @@ int JdbBMS::processFrame(int from) {
     int dataLength = buffer[from+3];
     int checkSumPos = from+4+dataLength;
     int endPacketPos = from+6+dataLength;
-    if ( endPacketPos > wpos) {
+    // the end packet position must have been recieved. 
+    if ( !(endPacketPos < wpos) ) {
+        // not enough data yet
         return -1;
     }
+    // and there must be an end packet where expected
+    // 
     if ( buffer[endPacketPos] != END_OF_PACKET ) {
-        return -1;
+        // invalid not seeing an end of packet where expected.
+        return -2;
     }
     uint16_t sum = 0;
     for(int i = from+2; i < checkSumPos; i++) {
@@ -137,12 +168,13 @@ int JdbBMS::processFrame(int from) {
     sum = 0x10000-sum;
     if ( (((sum&0xff00)>>8) != buffer[checkSumPos]) 
         || ((sum&0xff) != buffer[checkSumPos+1]) ) {
-        return -1;
+        // bad checksum
+        return -3;
     } 
 
     if ( errorCode != RESPONSE_OK) {
         dumpBuffer("Error Frame",buffer, from, endPacketPos);
-        return -1;
+        return -4;
     }
     dumpBuffer("Got Frame",buffer, from, endPacketPos);
     // buffer checks out, save it.
@@ -422,6 +454,10 @@ void JdbBMS::dumpBuffer(const char *msg, uint8_t *b, uint8_t s, uint8_t e) {
 
     if ( debug ) {
         Serial.print(msg);
+        Serial.print(" from:");
+        Serial.print(s);
+        Serial.print(" to:");
+        Serial.print(e);
         for(int i = s; i < e; i++) {
             Serial.print(" ");
             Serial.print(b[i],HEX);
