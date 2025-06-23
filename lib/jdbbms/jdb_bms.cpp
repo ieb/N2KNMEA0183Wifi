@@ -48,10 +48,15 @@
 
 
 void JdbBMS::begin() {
-
-    // todo setup the serial port.
-
 }
+
+/**
+ * Then once every second send a register read request cycling 0x03, 0x04, 0x05 with 0x05 only once.
+ * On every call read pending characters and when a complete message is received, process the response.
+ * Hence it may take upto 2s for an update to the 0x03 or 0x04 registers to arrive.
+ * Note, the registers 0x03 and 0x04 are fixed as this is not modbus.
+ * The class contains the last copy of reg 0x03, 0x04 and 0x05 updated by a received message.
+ */ 
 void JdbBMS::update() {
     int toRead = io->available();
     if ( toRead > 0) {
@@ -209,6 +214,7 @@ void JdbBMS::copyReg03(uint8_t * data, size_t dataLength) {
     for(int i = REG_ALARM_STATUS_U16(nNTC); i < register03Length; i+=2) {
         swapBytes(register03, i);
     }
+    reg03Update = millis();
 
 }
 
@@ -225,6 +231,7 @@ void JdbBMS::copyReg04(uint8_t * data, size_t dataLength) {
         register04[i] = data[i+1];
         register04[i+1] = data[i];
     }
+    reg04Update = millis();
 }
 void JdbBMS::copyReg05(uint8_t * data, size_t dataLength) {
     for (int i = 0; i < dataLength && i < BMS_REGISTER05_LENGTH; i++) {
@@ -313,7 +320,9 @@ void JdbBMS::printProductionDate(Print *stream, uint8_t offset, uint8_t * data, 
 
 
 
-
+/**
+ * Pack N2K messages from the register byte arrays. 
+ */ 
 bool JdbBMS::setN2KMsg(tN2kMsg &N2kMsg) {
 // build and send the messages 
     unsigned long now = millis();
@@ -373,8 +382,8 @@ Marine           4 == 100
 */
 #define BMS_PROPRIETARY_CODE 0x9ffe // 2046 & 0x7FE | 0x3<<11 | 0x04<<13
 #define BMS_PROPRIETARY_PGN 130829L
-    if ( (now - lastRegO3) > BMS_PERIOD_REG03) {
-        lastRegO3 = now;
+    if ( (now - lastReg03) > BMS_PERIOD_REG03 && (reg03Update - lastReg03) > 0) {
+        lastReg03 = now;
         N2kMsg.SetPGN(BMS_PROPRIETARY_PGN);
         N2kMsg.Priority=6;
         N2kMsg.Add2ByteUInt(BMS_PROPRIETARY_CODE);
@@ -394,8 +403,8 @@ Marine           4 == 100
         }
         return true;
     }
-    if ( (now - lastRegO4) > BMS_PERIOD_REG04) {
-        lastRegO4 = now;
+    if ( (now - lastReg04) > BMS_PERIOD_REG04 && (reg04Update - lastReg04) > 0) {
+        lastReg04 = now;
         N2kMsg.SetPGN(BMS_PROPRIETARY_PGN);
         N2kMsg.Priority=6;
         N2kMsg.Add2ByteUInt(BMS_PROPRIETARY_CODE);
@@ -410,8 +419,8 @@ Marine           4 == 100
         }
         return true;
     }
-    if ( (now - lastRegO5) > BMS_PERIOD_REG05) {
-        lastRegO5 = now;
+    if ( (now - lastReg05) > BMS_PERIOD_REG05) {
+        lastReg05 = now;
         N2kMsg.SetPGN(BMS_PROPRIETARY_PGN);
         N2kMsg.Priority=6;
         N2kMsg.Add2ByteUInt(BMS_PROPRIETARY_CODE);

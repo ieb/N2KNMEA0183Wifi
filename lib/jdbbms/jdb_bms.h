@@ -24,8 +24,8 @@ Marine           4 == 100
 #define BMS_PERIOD_127508 1500
 #define BMS_PERIOD_127506 1500
 #define BMS_PERIOD_127513 60000
-#define BMS_PERIOD_REG03 5000
-#define BMS_PERIOD_REG04 5000
+#define BMS_PERIOD_REG03 1000
+#define BMS_PERIOD_REG04 1000
 #define BMS_PERIOD_REG05 30000
 
 
@@ -40,9 +40,9 @@ public:
         last127508 = lastSend+100;
         last127506 = lastSend+110;
         last127513 = lastSend+120;
-        lastRegO3 = lastSend+130;
-        lastRegO4 = lastSend+140;
-        lastRegO5 = lastSend+150;
+        lastReg03 = lastSend+130;
+        lastReg04 = lastSend+140;
+        lastReg05 = lastSend+150;
     };
     void printStatus(Print *stream);
     void setSerial(Stream *stream) {
@@ -66,13 +66,15 @@ private:
     uint8_t register05Length = 0;
     uint8_t sid = 0;
     uint8_t batteryInstance = 1;
-    unsigned long lastSend;
-    unsigned long last127508;
-    unsigned long last127506;
-    unsigned long last127513;
-    unsigned long lastRegO3;
-    unsigned long lastRegO4;
-    unsigned long lastRegO5;
+    unsigned long lastSend = 0;
+    unsigned long last127508 = 0;
+    unsigned long last127506 = 0;
+    unsigned long last127513 = 0;
+    unsigned long lastReg03 = 0;
+    unsigned long lastReg04 = 0;
+    unsigned long lastReg05 = 0;
+    unsigned long reg03Update = 0;
+    unsigned long reg04Update = 0;
 
     uint8_t reg = 3;
     uint8_t requestReg05 = 0;

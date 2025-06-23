@@ -208,6 +208,17 @@ void sendViaWebSockets(const tN2kMsg &N2kMsg) {
 #endif
 
 
+bool HandleSeasmartMsg(const char *msg) {
+  tN2kMsg N2kMsg;
+  unsigned long ts;
+  if(SeasmartToN2k(msg, ts, N2kMsg)) {
+    NMEA2000.SendMsg(N2kMsg);
+    return true;
+  }
+  return false;
+}
+
+
 
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
     static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
@@ -311,6 +322,8 @@ void setup() {
   webServer.setDeviceListCallback([](Print *stream) {
     listDevices.output(stream);
   });
+
+  webServer.setSeasmartCallback(HandleSeasmartMsg);
 
   webServer.begin();
 

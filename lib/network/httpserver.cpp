@@ -48,6 +48,31 @@ void WebServer::begin(const char * configurationFile) {
         request->send(response);
         Serial.print("Done response setup "); Serial.println((int) response);
     });
+
+
+
+    // POST a block of seasmart commands to the N2K Bus
+    server.on("/api/seasmart", HTTP_POST, [this](AsyncWebServerRequest *request) {
+
+        String message = "{ \"ok\": false, \"msg\":\"not found\"}";
+        int code = 404;
+        if (request->hasParam("msg", true)) {
+            if (seasmartInputHandler != NULL) {
+                String seasmart = request->getParam("msg", true)->value();
+                if ( seasmartInputHandler(seasmart.c_str())) {
+                    message = "{ \"ok\": true, \"msg\":\"sent\"}";
+                    code = 200;
+                } else {
+                    message = "{ \"ok\": true, \"msg\":\"parse failed\"}";
+                    code = 400;
+                }
+            }
+        }
+        AsyncWebServerResponse * response = request->beginResponse(code, "application/json", message);
+        addCORS(request, response);
+        request->send(response); 
+    });
+
     server.on("/api/nmea0183", HTTP_GET, [this](AsyncWebServerRequest *request) {
         // this will keep sending chunks as long as the client is connected.
         ChunkedResponseStream * response = new ChunkedResponseStream("text/plain", &nmea0183OutputBuffer);

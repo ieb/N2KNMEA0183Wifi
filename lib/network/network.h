@@ -90,6 +90,7 @@ class WebServer {
         void sendSeaSmart(unsigned long pgn, const char *buffer);
 
         typedef std::function<void(Print *stream)> FnResponseOutputHandler;
+        typedef std::function<bool(const char *buffer)> FnSeasmartInputHandler;
 
         void setStoreCallback(FnResponseOutputHandler h) {
             storeOutputFn = h;
@@ -99,6 +100,9 @@ class WebServer {
         }
         void setStatusCallback(FnResponseOutputHandler h) {
             statusOutputFn = h;
+        }
+        void setSeasmartCallback(FnSeasmartInputHandler h) {
+            seasmartInputHandler = h;
         }
 
 
@@ -120,6 +124,7 @@ class WebServer {
         FnResponseOutputHandler storeOutputFn = NULL;
         FnResponseOutputHandler listDeviceOutputFn = NULL;
         FnResponseOutputHandler statusOutputFn = NULL;
+        FnSeasmartInputHandler seasmartInputHandler = NULL;
         String handleTemplate(AsyncWebServerRequest * request, const String &var);
         void handleAllFileUploads(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
         bool authorized(AsyncWebServerRequest *request);
