@@ -2,9 +2,9 @@
 #include "N2KFrameFilter.h"
 #include "config.h"
 
-void N2KFrameFilter::begin(const char * configurationFile) {
+void N2KFrameFilter::begin(const char * filterConfigName, const char * configurationFile) {
   String frameFilterCfg;
-  if ( ConfigurationFile::get(configurationFile, "n2k.filter", frameFilterCfg)) {
+  if ( ConfigurationFile::get(configurationFile, filterConfigName, frameFilterCfg)) {
     // frame filter a space seperated sequence of numbers.
     //    30 means drop everything from 30
     //    12322 means drop all pgns == 12322
@@ -22,6 +22,7 @@ void N2KFrameFilter::begin(const char * configurationFile) {
     // no filters defined.
     endFilters = 0;
   }
+  Serial.print(filterConfigName);
   Serial.print("N2K pgn drop list n:");
   Serial.print(endFilters);
   Serial.print(" filters:");

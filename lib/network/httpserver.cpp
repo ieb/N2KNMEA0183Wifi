@@ -50,27 +50,25 @@ void WebServer::begin(const char * configurationFile) {
     });
 
 
-
     // POST a block of seasmart commands to the N2K Bus
+    // protected by allow list
     server.on("/api/seasmart", HTTP_POST, [this](AsyncWebServerRequest *request) {
-
-        String message = "{ \"ok\": false, \"msg\":\"not found\"}";
-        int code = 404;
-        if (request->hasParam("msg", true)) {
-            if (seasmartInputHandler != NULL) {
-                String seasmart = request->getParam("msg", true)->value();
-                if ( seasmartInputHandler(seasmart.c_str())) {
-                    message = "{ \"ok\": true, \"msg\":\"sent\"}";
-                    code = 200;
-                } else {
-                    message = "{ \"ok\": true, \"msg\":\"parse failed\"}";
-                    code = 400;
+            String message = "{ \"ok\": false, \"msg\":\"not found\"}";
+            uint16_t code = 404;
+            if (request->hasParam("msg", true)) {
+                if (seasmartInputHandler != NULL) {
+                    String seasmart = request->getParam("msg", true)->value();
+                    code = seasmartInputHandler(seasmart.c_str());
+                    if (code == 200) {
+                        message = "{ \"ok\": true, \"msg\":\"sent\"}";
+                    } else {
+                        message = "{ \"ok\": false, \"msg\":\"failed\"}";
+                    }
                 }
             }
-        }
-        AsyncWebServerResponse * response = request->beginResponse(code, "application/json", message);
-        addCORS(request, response);
-        request->send(response); 
+            AsyncWebServerResponse * response = request->beginResponse(code, "application/json", message);
+            addCORS(request, response);
+            request->send(response); 
     });
 
     server.on("/api/nmea0183", HTTP_GET, [this](AsyncWebServerRequest *request) {

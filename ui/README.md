@@ -13,6 +13,20 @@ A convenience for serving the UIs, adjust symbolic links in src to point to wher
     npmstart
 
 
+# building a distribution
 
+The distribution method is to create a zip of the content tree and serve locally on the device.
+This allows installation and where there are significant number of cached files allows those to be served
+locally.
+
+
+    rm -rf dist
+    mkdir dist
+    cp -r src/lifepo4 dist/lifepo4
+    cp -r src/n2k dist/n2k
+    cp -r src/navtex dist/navtex
+    rm -rf dist/lifepo4/node_modules dist/n2k/node_modules dist/navtex/node_modules
+    cd dist
+    tar cvzf ../dist.tgz .
 
     

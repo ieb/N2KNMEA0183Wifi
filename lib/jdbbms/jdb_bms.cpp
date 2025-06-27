@@ -380,7 +380,7 @@ Reserved                 11
 Marine           4 == 100
                       1001111111111110
 */
-#define BMS_PROPRIETARY_CODE 0x9ffe // 2046 & 0x7FE | 0x3<<11 | 0x04<<13
+#define BMS_PROPRIETARY_CODE 0x9ffe // 2046 & 0x7FF | 0x3<<11 | 0x04<<13
 #define BMS_PROPRIETARY_PGN 130829L
     if ( (now - lastReg03) > BMS_PERIOD_REG03 && (reg03Update - lastReg03) > 0) {
         lastReg03 = now;

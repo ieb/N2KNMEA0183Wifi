@@ -90,7 +90,7 @@ class WebServer {
         void sendSeaSmart(unsigned long pgn, const char *buffer);
 
         typedef std::function<void(Print *stream)> FnResponseOutputHandler;
-        typedef std::function<bool(const char *buffer)> FnSeasmartInputHandler;
+        typedef std::function<uint16_t(const char *buffer)> FnSeasmartInputHandler;
 
         void setStoreCallback(FnResponseOutputHandler h) {
             storeOutputFn = h;

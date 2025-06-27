@@ -20,7 +20,7 @@
 
 
 // Pins   
-#ifdef GPIO_NUM_22
+#ifdef ESP_32_BOARD
 // ESP32
 #define ESP32_CAN_RX_PIN GPIO_NUM_22
 #define ESP32_CAN_TX_PIN GPIO_NUM_23
@@ -105,6 +105,7 @@ NMEA0183N2KMessages messageEncoder;
 Performance performance(&messageEncoder);
 N2KHandler n2kHander(messageEncoder, performance, logbook);
 N2KFrameFilter frameFilter;
+N2KFrameFilter inputFilter;
 
 
 JBDBmsSimulator simulator;
@@ -208,14 +209,22 @@ void sendViaWebSockets(const tN2kMsg &N2kMsg) {
 #endif
 
 
-bool HandleSeasmartMsg(const char *msg) {
+uint16_t HandleSeasmartMsg(const char *msg) {
   tN2kMsg N2kMsg;
-  unsigned long ts;
+  uint32_t ts;
+  Serial.println(msg);
   if(SeasmartToN2k(msg, ts, N2kMsg)) {
-    NMEA2000.SendMsg(N2kMsg);
-    return true;
+    // only allow listed messages are allowed
+    if ( !inputFilter.isPgnFiltered(N2kMsg.PGN) ) {
+      // The source is set to this device in send.
+      Serial.println("Sending ");
+      NMEA2000.SendMsg(N2kMsg);
+      N2kMsg.Print(&Serial);
+      return 200;      
+    }
+    return 403;
   }
-  return false;
+  return 400;
 }
 
 
@@ -327,7 +336,9 @@ void setup() {
 
   webServer.begin();
 
-  frameFilter.begin();
+  frameFilter.begin("n2k.filter");
+  inputFilter.begin("n2k.apifilter");
+
 
   ESP_LOGI(TAG, "Starting Nmea20000 Stack");
   // Set Product information
@@ -367,7 +378,11 @@ void setup() {
 
 
   ESP_LOGI(TAG, "Starting BMS Stack");
+  #ifdef ESP_32_BOARD
+  Serial1.begin(9600,SERIAL_8N1);
+  #else
   Serial1.begin(9600,SERIAL_8N1, BMS_RX_PIN, BMS_TX_PIN);
+  #endif
   bms.setSerial(&Serial1);
   bms.begin();
 
