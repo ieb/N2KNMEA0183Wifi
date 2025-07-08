@@ -69,6 +69,7 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "NMEA0183N2KMessages.h"
 #include "network.h"
 #include "logbook.h"
+#include "N2KFreezeFrame.h"
 #include "Seasmart.h"
 #include "AsyncDNSServer.h"
 #include <ESPmDNS.h>
@@ -89,6 +90,7 @@ ListDevices listDevices(&NMEA2000, OutputStream);
 
 
 LogBook logbook;
+N2KFreezeFrame engineFreezeFrame;
 Wifi wifi(OutputStream);
 // only respond to this dns. We do not want traffic to google.
 // modified version of the standard esp32 DNSServer
@@ -105,7 +107,7 @@ NMEA0183N2KMessages messageEncoder;
 Performance performance(&messageEncoder);
 N2KHandler n2kHander(messageEncoder, performance, logbook);
 N2KFrameFilter frameFilter;
-N2KFrameFilter inputFilter;
+N2KFrameFilter inputAllowFilter;
 
 
 JBDBmsSimulator simulator;
@@ -212,14 +214,12 @@ void sendViaWebSockets(const tN2kMsg &N2kMsg) {
 uint16_t HandleSeasmartMsg(const char *msg) {
   tN2kMsg N2kMsg;
   uint32_t ts;
-  Serial.println(msg);
   if(SeasmartToN2k(msg, ts, N2kMsg)) {
     // only allow listed messages are allowed
-    if ( !inputFilter.isPgnFiltered(N2kMsg.PGN) ) {
+    // NB this is an allow filter, not a drop filter.
+    if ( inputAllowFilter.isPgnFiltered(N2kMsg.PGN) ) {
       // The source is set to this device in send.
-      Serial.println("Sending ");
       NMEA2000.SendMsg(N2kMsg);
-      N2kMsg.Print(&Serial);
       return 200;      
     }
     return 403;
@@ -234,6 +234,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
     listDevices.HandleMsg(N2kMsg);
     n2kPrinter.HandleMsg(N2kMsg);
     n2kHander.handle(N2kMsg);
+    engineFreezeFrame.handle(N2kMsg);
 
     bool seaSmartLoaded = false;
     if ( nmeaServer.acceptN2k(N2kMsg.PGN) ) {
@@ -260,6 +261,7 @@ void showHelp() {
   OutputStream->println("  - Send 'o' to toggle output, can be high volume");
   OutputStream->println("  - Send 'd' to toggle packet dump, can be high volume");
   OutputStream->println("  - Send 'b' to toggle bms debug, can be high volume");
+  OutputStream->println("  - Send 'f' to trigger freeze frame");
   OutputStream->println("  - Send 'S' to toggle BMS simulator");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
   OutputStream->println("  - Send 'R' to restart");
@@ -337,7 +339,7 @@ void setup() {
   webServer.begin();
 
   frameFilter.begin("n2k.filter");
-  inputFilter.begin("n2k.apifilter");
+  inputAllowFilter.begin("n2k.apifilter");
 
 
   ESP_LOGI(TAG, "Starting Nmea20000 Stack");
@@ -472,6 +474,9 @@ void CheckCommand() {
 #ifdef NMEA0183_UDP
         nmeaSender.setDestination(wifi.getBroadcastIP());
 #endif
+        break;
+      case 'f':
+        engineFreezeFrame.logFreezeFrame();
         break;
     }
   }

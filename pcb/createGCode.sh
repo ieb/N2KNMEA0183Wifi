@@ -17,8 +17,8 @@
 # Drill the back side.
 
 boardname=$1
-mirror=${2:-60}
-alignoffset=${3:-55}
+mirror=${2:-47}
+alignoffset=${3:-41}
 bottomalign=${4:-5}
 topalign=${5:-38}
 

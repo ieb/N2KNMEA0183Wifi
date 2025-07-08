@@ -87,8 +87,9 @@ There are 4 UIs available for use with this firware 3 are web based, and one is 
 * [x] Implement a workable UI that can be used on a Android phone to quickly see the status of the BMS.
 * [x] Http streams appear to be not cleaned up correctly, according to the status information - checked, working as expected.
 * [x] Split the UIs out into seperate git repos.
+* [x] Implement engine freeze frame functionality to file, see N2KFreezeFrame.cpp
 * [ ] Test BLE UI on ChromeOS.
-* [ ] Test Booklet UI
+* [x] Test Booklet UI
 * [ ] Log BMS data to flash
 
 
