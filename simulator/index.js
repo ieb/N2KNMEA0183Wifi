@@ -1,5 +1,6 @@
 "use strict;"
 const fs = require('node:fs');
+const path = require('node:path');
 
 const { createServer } = require('http');
 const { N2KEncoder, NMEA0183Encoder } = require('./n2kencoder.js');
@@ -26,11 +27,16 @@ server.on('request', (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");              
   }
-
+  
+  if ( req.method === 'OPTIONS') {
+    writeHead(req, res, 200);
+    res.end("");
+    return;
+  }
   const { pathname } = new URL(req.url, 'http://base.url');
   if (pathname === '/api/seasmart') {
     console.log(`${req.method} ${req.url} 200`);
-    res.writeHead(200, { 'Content-Type': 'text/plain', 'keep-alive': 'timeout=30' });
+    writeHead(req, res, 200, { 'Content-Type': 'text/plain', 'keep-alive': 'timeout=30' });
     seaSmartResponses.push(res);
     req.on('close', () => {
       console.log("Close seaSmartResponses");
@@ -38,20 +44,73 @@ server.on('request', (req, res) => {
     });
   } else if ( pathname === '/api/nmea0183') {
     console.log(`${req.method} ${req.url} 200`);
-    res.writeHead(200, { 'Content-Type': 'text/plain', 'keep-alive': 'timeout=30'  });
+    writeHead(req, res, 200, { 'Content-Type': 'text/plain', 'keep-alive': 'timeout=30'  });
     nmea0183Responses.push(res);
     req.on('close', () => {
       nmea0183Responses = nmea0183Responses.filter((r) => (r !== res));
-    });    
+    });
+  } else if ( pathname == '/api/fs.json') {
+    if ( isAuthorised(req, res)) {
+      fs.readdir('spiffs', { withFileTypes: true, recursive: true}, (err, files) => {
+        const message = {
+            files: [],
+            disk:{ size:10240000, used:102400, free:102402022},
+            heap:{ size:1024000, free:102400, minFree:10232, maxAlloc:1028000},
+        };
+        if ( err ) {
+          writeHead(req, res, 500, { 'Content-Type': 'application/json', 'keep-alive': 'timeout=30' });
+        } else {
+          writeHead(req, res, 200, { 'Content-Type': 'application/json', 'keep-alive': 'timeout=30' });
+          message.files = files.map((f) =>  { 
+            const localPath = path.join(f.parentPath,f.name);
+            const httpPath = path.join(f.parentPath.split('/').slice(1).join('/'),f.name);
+            return { 
+              path: httpPath,
+              size: fs.statSync(localPath).size,
+            }; 
+          });
+        }
+        res.end(JSON.stringify(message,null,2));
+      });
+    }
+  } else if ( pathname == '/api/login.json') {
+    if ( isAuthorised(req, res)) {
+      writeHead(req, res, 200, { 'Content-Type': 'application/json', 'keep-alive': 'timeout=30' });
+      res.end(JSON.stringify({ ok: true, msg: "authorised"}));
+    }
+  } else if (fs.existsSync(path.join('spiffs', pathname))) {
+    const mimetypes = {
+      json: 'application/json',
+      txt: 'text/plain'
+    };
+    const mimeType = mimetypes[pathname.split('.').slice(-1)[0]];
+    if ( mimeType ) {
+      writeHead(req, res, 200, { 'Content-Type': mimeType });
+    } else {
+      writeHead(req, res, 200, { 'Content-Type': 'application/octet-stream' });
+    }
+    res.end(fs.readFileSync(path.join('spiffs', pathname)));
   } else {
-    console.log(`${req.method} ${req.url} 404`);
-    console.log("Pathname ", pathname);
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    writeHead(req, res, 404, { 'Content-Type': 'text/plain' });
     res.end("NotFound");
-
   }
 });
+const writeHead = (req, res, code, headers) => {
+  res.writeHead(code, headers);  
+  console.log(`${code} ${req.method} ${req.url}`);
+}
 
+const isAuthorised = (req, res) => {
+  // test:test
+  if (req.headers.authorization === 'Basic dGVzdDp0ZXN0') {
+    return true;
+  }
+  writeHead(req, res, 401,  { 'Content-Type': 'application/json',  
+                      'WWW-Authenticate': 'Basic realm="BoatSystems Admin"',
+                      'keep-alive': 'timeout=30' });
+  res.end(JSON.stringify({ ok: false, msg: "not authorised"}));
+  return false;
+}
 
 const sendSeaSmartChunked = (msgId, msg) => {
     seaSmartResponses.forEach( (res) => {
@@ -194,66 +253,70 @@ setTimeout(emitFrame, 200);
 
 
 
+if (false) {
 
-/*
-setInterval(() => {
-  const data = new DataView(new ArrayBuffer(12));
-  for(let i = 0; i < 12; i++) {
-    data.setUint8(0,i);
-  }
-  sendMessage(n2kraw, 127258, n2kEncoder.encodeBinarPGN({ PGN: 127258, Source:23, DataLen:12, Data: data.buffer }));
-}, 1000);
-*/
-const { networkInterfaces } = require('os');
-const candidates = [];
-const nets = networkInterfaces();
-Object.keys(nets).forEach((interfaceName) => {
-  nets[interfaceName].forEach((ip) => {
-    if ( !ip.internal && ip.family == 'IPv4' ) {
-      candidates.push(ip);
-      console.log("Candidate ", interfaceName, ip);
+  /*
+  setInterval(() => {
+    const data = new DataView(new ArrayBuffer(12));
+    for(let i = 0; i < 12; i++) {
+      data.setUint8(0,i);
     }
-  });
-});
-const ipAddress = candidates[0].address;
-// MDNS support
-var mdns = require('multicast-dns')()
-
-mdns.on('response', function(response) {
-  //console.log('got a response packet:', response)
-  console.log('Answers:',JSON.stringify(response.answers, (key, value) => {
-    if ( value.data && value.type == 'Buffer' ) {
-      const byteA = new Uint8Array(value.data);
-      const s = new TextDecoder().decode(byteA);
-      return s;
-    }
-    return value;
-  }, 2));
-})
-
-mdns.on('query', function(query) {
-//  console.log('got a query packet:', query);
-  //console.log('Questions:', JSON.stringify(query.questions,null,2));
-    query.questions.forEach((q)=> {
-      if ( q.type == 'A' && (q.class == 'UNKNOWN_32769') || (q.class === 'IN') ) {
-        if ( q.name === 'boatsimulator.local' ) {
-          mdns.respond({
-            answers: [{
-              name: 'boatsimulator.local',
-              type: 'A',
-              class: 'IN',
-              ttl: 300,
-              data: `${ipAddress}`
-            }            
-            ]
-          }); 
-        }
+    sendMessage(n2kraw, 127258, n2kEncoder.encodeBinarPGN({ PGN: 127258, Source:23, DataLen:12, Data: data.buffer }));
+  }, 1000);
+  */
+  const { networkInterfaces } = require('os');
+  const candidates = [];
+  const nets = networkInterfaces();
+  Object.keys(nets).forEach((interfaceName) => {
+    nets[interfaceName].forEach((ip) => {
+      if ( !ip.internal && ip.family == 'IPv4' ) {
+        candidates.push(ip);
+        console.log("Candidate ", interfaceName, ip);
       }
+    });
   });
-
-})
-
+  const ipAddress = candidates[0].address;
 
 
+  // MDNS support
+  var mdns = require('multicast-dns')()
+  mdns.on('response', function(response) {
+    //console.log('got a response packet:', response)
+    console.log('Answers:',JSON.stringify(response.answers, (key, value) => {
+      if ( value.data && value.type == 'Buffer' ) {
+        const byteA = new Uint8Array(value.data);
+        const s = new TextDecoder().decode(byteA);
+        return s;
+      }
+      return value;
+    }, 2));
+  })
 
-server.listen(8080);
+  mdns.on('query', function(query) {
+  //  console.log('got a query packet:', query);
+    //console.log('Questions:', JSON.stringify(query.questions,null,2));
+      query.questions.forEach((q)=> {
+        if ( q.type == 'A' && (q.class == 'UNKNOWN_32769') || (q.class === 'IN') ) {
+          if ( q.name === 'boatsimulator.local' ) {
+            mdns.respond({
+              answers: [{
+                name: 'boatsimulator.local',
+                type: 'A',
+                class: 'IN',
+                ttl: 300,
+                data: `${ipAddress}`
+              }            
+              ]
+            }); 
+          }
+        }
+    });
+
+  })
+}
+
+
+
+
+server.listen(8081);
+console.log("http://localhost:8081");

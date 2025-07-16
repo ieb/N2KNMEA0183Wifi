@@ -1,0 +1,5 @@
+time,logTime,lat,long,log,engineHours,status1,status2,rpm,coolantTemp,exhaustT,oilPress,alternatorT,altenatorV,engineBatteryV,serviceBatteryV,serviceBatteryA,serviceBatteryT,engineRoomT,senseT1,senseT2,senseT3,senseT4
+2025-07-16T15:45:04Z,367256704,,,,,0,0,,-1000000273.1,-1000000273.1,,-20.0,,4.47,,,-273.2,-20.0,21.1,21.2,21.2,-1000000273.1
+2025-07-16T15:45:04Z,367256704,,,,,0,0,,,,,-20.0,,4.44,,,-273.2,-20.0,21.1,21.2,21.2,
+2025-07-16T15:45:04Z,367256704,,,,0.01,512,0,999,,,74.636555,,0.00,4.22,,,-273.2,-20.0,26.5,26.3,27.3,
+2025-07-16T15:45:04Z,367256704,,,,0.01,544,0,1000,,,74.491517,,0.00,4.24,,,-273.2,-20.0,26.5,26.3,27.3,
