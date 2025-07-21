@@ -386,6 +386,22 @@ void WebServer::begin(const char * configurationFile) {
         }
     });
 
+    server.on("/*", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        String path = request->url();
+        Serial.println(path);
+        if ( path.endsWith("/") ) {
+            path = path + "index.html";
+        }
+        if (SPIFFS.exists(path) || SPIFFS.exists(path+".gz") )  {
+           AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path);
+           this->addCORS(request, response);
+           request->send(response);
+        }
+    });
+
+
+
+
     // everything else, serve static.
     server.serveStatic("/", SPIFFS, "/" )
         .setDefaultFile("index.html")
