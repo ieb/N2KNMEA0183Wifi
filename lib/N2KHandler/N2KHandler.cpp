@@ -145,7 +145,10 @@ void N2KHandler::handle(const tN2kMsg &N2kMsg) {
 
 
 
-  performance.update(aparentWindAngle, aparentWindSpeed, waterSpeed, roll, headingMagnetic, variation);
+  if ( updatePerformance ) {
+    performance.update(aparentWindAngle, aparentWindSpeed, waterSpeed, roll, headingMagnetic, variation);
+    updatePerformance = false;
+  }
   if ( logbook.shouldLog() ) {
 
     logbook.log(fixSecondsSinceMidnight, daysSince1970, latitude, 
@@ -200,6 +203,9 @@ void N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
   uint16_t _daysSince1970;
   double _variation;
   if ( ParseN2kPGN127258(N2kMsg, SID, _source, _daysSince1970, _variation) ) {
+    if (variation != _variation) {
+      updatePerformance = true;
+    }
     if (_variation != -1e9 ) {
         variation = _variation;
     }
@@ -216,9 +222,15 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
   double _heading = 0;
   if ( ParseN2kPGN127250(N2kMsg, SID, _heading, _deviation, _variation, ref) ) {
     if ( _variation != -1e9 ) {
+      if ( variation != _variation) {
+        updatePerformance = true;
+      }
       variation = _variation;
     }
     if ( ref==N2khr_magnetic ) {
+      if (headingMagnetic != _heading) {
+        updatePerformance = true;
+      }
       if ( _heading != -1e9 ) {
         headingMagnetic = _heading;
         if ( variation != -1e9 ) {
@@ -229,6 +241,9 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
       messageEncoder.sendHDG(_heading, _deviation, _variation);
       messageEncoder.sendHDM(_heading);
     } else {
+      if (headingTrue != _heading) {
+        updatePerformance = true;
+      }
       // only set if we have no magnetic heading on the bus.
       // normally the message is mag heading.
       if ( _heading != -1e9 && headingMagnetic == -1e9 ) {
@@ -253,7 +268,7 @@ void N2KHandler::handle127257(const tN2kMsg &N2kMsg) {
   double _pitch=0;
   double _roll=0;
   if ( ParseN2kPGN127257(N2kMsg, SID, _yaw, _pitch, _roll) ) {
-    updateWithTimeout(roll, _roll, lastRollUpdate, 10000);
+    updatePerformance = updateWithTimeout(roll, _roll, lastRollUpdate, 10000) || updatePerformance;
     messageEncoder.sendXDR_roll(_roll);
   }
 }
@@ -268,7 +283,7 @@ void N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
   tN2kSpeedWaterReferenceType SWRT;
 
   if ( ParseN2kPGN128259(N2kMsg,SID,_waterSpeed,_groundSpeed,SWRT) ) {
-    updateWithTimeout(waterSpeed, _waterSpeed, lastStwUpdate, 10000);
+    updatePerformance = updateWithTimeout(waterSpeed, _waterSpeed, lastStwUpdate, 10000) || updatePerformance;
     messageEncoder.sendVHW(headingTrue, headingMagnetic, _waterSpeed );
   }
 }
@@ -431,8 +446,8 @@ void N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
 
   if ( ParseN2kPGN130306(N2kMsg, SID, _windSpeed, _windAngle, _windReference) ) {
     if ( _windReference == N2kWind_Apparent ) {
-      updateWithTimeout(aparentWindAngle, _windAngle, lastAwaUpdate, 10000);
-      updateWithTimeout(aparentWindSpeed, _windSpeed, lastAwsUpdate, 10000);
+      updatePerformance = updateWithTimeout(aparentWindAngle, _windAngle, lastAwaUpdate, 10000) || updatePerformance;
+      updatePerformance = updateWithTimeout(aparentWindSpeed, _windSpeed, lastAwsUpdate, 10000) || updatePerformance;
       messageEncoder.sendVWR(_windAngle, _windSpeed);
       messageEncoder.sendMVR(_windAngle, _windSpeed);
     } else {

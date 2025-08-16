@@ -15,6 +15,11 @@
 #include <Wire.h>
 
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "driver/gpio.h"
+#include "driver/twai.h"
+
+uint8_t temprature_sens_read();
 
 #define TAG "main"
 
@@ -56,7 +61,7 @@
 // the pins are correct. I've had loads of problems with this depening 
 // on how the libraries are created.
 
-tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
+tNMEA2000_esp32 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 
 
 // #include <NMEA2000_CAN.h>
@@ -68,6 +73,9 @@ tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_PIN));
 #include "N2KFrameFilter.h"
 #include "NMEA0183N2KMessages.h"
 #include "network.h"
+#include "AsyncTcpServer.h"
+#include "echoserver.h"
+#include "udpsender.h"
 #include "logbook.h"
 #include "N2KFreezeFrame.h"
 #include "Seasmart.h"
@@ -96,12 +104,9 @@ Wifi wifi(OutputStream);
 // modified version of the standard esp32 DNSServer
 DNSServer dnsServer("boatsystems.local,boatsystems");
 WebServer webServer(OutputStream);
-EchoServer echoServer(OutputStream);
-TcpServer nmeaServer(OutputStream, 10110);
-
-#ifdef NMEA0183_UDP
-UdpSender nmeaSender(OutputStream, 10110);
-#endif
+EchoServer echoServer;
+AsyncTcpServer nmeaServer(OutputStream, 10110);
+UdpSender nmeaSender(OutputStream);
 
 NMEA0183N2KMessages messageEncoder;
 Performance performance(&messageEncoder);
@@ -237,11 +242,13 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
     engineFreezeFrame.handle(N2kMsg);
 
     bool seaSmartLoaded = false;
+#ifdef NMEA0183_TCP
     if ( nmeaServer.acceptN2k(N2kMsg.PGN) ) {
       N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
       seaSmartLoaded = true;
       nmeaServer.sendN2k(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
     }
+#endif
     if ( webServer.acceptSeaSmart(N2kMsg.PGN) ) {
       if ( !seaSmartLoaded ) {
         N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
@@ -263,20 +270,142 @@ void showHelp() {
   OutputStream->println("  - Send 'b' to toggle bms debug, can be high volume");
   OutputStream->println("  - Send 'f' to trigger freeze frame");
   OutputStream->println("  - Send 'S' to toggle BMS simulator");
+  OutputStream->println("  - Send 'p' set udp port");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
   OutputStream->println("  - Send 'R' to restart");
 }
 
 
+// This must not block as it is called while parsing messages.
+
 void SendNMEA0183Message(const char * buf) {
   nmeaServer.sendBufToClients(buf); // TCP
-#ifdef NMEA0183_UDP
-nmeaSender.sendBufToClients(buf); // UDP
-#endif
+  nmeaSender.sendBufToClients(buf); // UDP
+#ifdef NMEA0183_WEBSOC
   webServer.sendN0183(buf); // websocket
+#endif
 }
 
 
+
+
+
+TaskHandle_t alert_monitor_task_handle_;
+
+
+uint16_t twai_alert_above_err_warn = 0;
+uint16_t twai_alert_below_err_warn = 0;
+uint16_t twai_alert_err_active = 0;
+uint16_t twai_alert_recovery_in_progress = 0;
+uint16_t twai_alert_bus_recovered = 0;
+uint16_t twai_alert_arb_lost = 0;
+uint16_t twai_alert_bus_error = 0;
+uint16_t twai_alert_tx_failed = 0;
+uint16_t twai_alert_rx_queue_full = 0;
+uint16_t twai_alert_err_pass = 0;
+uint16_t twai_alert_bus_off = 0;
+
+void twaiAlertStatus(Print *stream) {
+  stream->print("twai_alert_above_err_warn:");stream->println(twai_alert_above_err_warn);
+  stream->print("twai_alert_below_err_warn:");stream->println(twai_alert_below_err_warn);
+  stream->print("twai_alert_err_active:");stream->println(twai_alert_err_active);
+  stream->print("twai_alert_recovery_in_progress:");stream->println(twai_alert_recovery_in_progress);
+  stream->print("twai_alert_bus_recovered:");stream->println(twai_alert_bus_recovered);
+  stream->print("twai_alert_arb_lost:");stream->println(twai_alert_arb_lost);
+  stream->print("twai_alert_bus_error:");stream->println(twai_alert_bus_error);
+  stream->print("twai_alert_tx_failed:");stream->println(twai_alert_tx_failed);
+  stream->print("twai_alert_rx_queue_full:");stream->println(twai_alert_rx_queue_full);
+  stream->print("twai_alert_err_pass:");stream->println(twai_alert_err_pass);
+  stream->print("twai_alert_bus_off:");stream->println(twai_alert_bus_off);
+
+
+  twai_status_info_t status_info;
+  if (twai_get_status_info(&status_info) == ESP_OK) {
+    stream->print("TWAI state:");
+    switch(status_info.state) {
+      case TWAI_STATE_STOPPED: stream->print("stopped ");break;
+      case TWAI_STATE_RUNNING: stream->print("running ");break;
+      case TWAI_STATE_BUS_OFF: stream->print("off ");break;
+      case TWAI_STATE_RECOVERING: stream->print("recovering ");break;
+      default: stream->print("unknown ");break;
+    }
+    stream->print(" tx(queued:");stream->print(status_info.msgs_to_tx);
+    stream->print(" errors:");stream->print(status_info.tx_error_counter);
+    stream->print(" failed:");stream->print(status_info.tx_failed_count);
+    stream->print(" ) rx (waiting:");stream->print(status_info.msgs_to_rx);
+    stream->print(" rx errors:");stream->print(status_info.rx_error_counter);
+    stream->print(" rx missed:");stream->print(status_info.rx_missed_count);
+    stream->print(" ) arb lost:");stream->print(status_info.arb_lost_count);
+    stream->print(" bus errors:");stream->print(status_info.bus_error_count);
+    stream->println("");
+  } else {
+    stream->println("twai no status");
+  }
+
+}
+
+
+void monitorAlertsTask(void *pvParameters) {
+    uint32_t alerts_to_enable = TWAI_ALERT_ALL;
+    if (twai_reconfigure_alerts(alerts_to_enable, NULL) == ESP_OK) {
+        ESP_LOGE(TAG,"Alerts reconfigured\n");
+    } else {
+        ESP_LOGE(TAG, "Failed to reconfigure alerts");
+    }
+
+    while(1) {
+        uint32_t alerts;
+        twai_read_alerts(&alerts, portMAX_DELAY);
+        if (alerts & TWAI_ALERT_ABOVE_ERR_WARN) {
+            ESP_LOGE(TAG, "Surpassed Error Warning Limit");
+            twai_alert_above_err_warn++;
+        }
+        if (alerts & TWAI_ALERT_BELOW_ERR_WARN) {
+            ESP_LOGE(TAG, "Error counters dropped below warning level.");
+            twai_alert_below_err_warn++;
+        }
+        if (alerts & TWAI_ALERT_ERR_ACTIVE) {
+            ESP_LOGE(TAG, "TWAI Controller active");
+            twai_alert_err_active++;
+        }
+        if (alerts & TWAI_ALERT_RECOVERY_IN_PROGRESS) {
+            ESP_LOGE(TAG, "TWAI Controller bus recovery");
+            twai_alert_recovery_in_progress++;
+        }
+        if (alerts & TWAI_ALERT_BUS_RECOVERED) {
+            ESP_LOGE(TAG, "TWAI Controller bus recovered");
+            twai_alert_bus_recovered++;
+        }
+        if (alerts & TWAI_ALERT_ARB_LOST) {
+            ESP_LOGI(TAG, "TWAI Arbritration lost");
+            twai_alert_arb_lost++;
+        }
+        if (alerts & TWAI_ALERT_BUS_ERROR) {
+            ESP_LOGE(TAG, "Bus error");
+            twai_alert_bus_error++;
+        }
+        if (alerts & TWAI_ALERT_TX_FAILED) {
+            ESP_LOGE(TAG, "Tx failed");
+            twai_alert_tx_failed++;
+        }
+        if (alerts & TWAI_ALERT_RX_QUEUE_FULL) {
+            ESP_LOGE(TAG, "Rx Queue Full %d", twai_alert_rx_queue_full);
+            twai_alert_rx_queue_full++;
+        }
+        if (alerts & TWAI_ALERT_ERR_PASS) {
+            ESP_LOGE(TAG, "TWAI now error passive");
+            twai_alert_err_pass++;
+        }
+        if (alerts & TWAI_ALERT_BUS_OFF) {
+            ESP_LOGE(TAG, "TWAI bus off state");
+            twai_alert_bus_off++;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000)); // pause 1s
+
+    }
+    ESP_LOGE(TAG, "TWAI Alert monitor task exited");
+    vTaskDelete(NULL);
+}
 
 void printStatus(Print *stream) {
   stream->print("Total heap:  ");stream->println(ESP.getHeapSize());
@@ -287,11 +416,15 @@ void printStatus(Print *stream) {
   stream->print("Total PSRAM: ");stream->println(ESP.getPsramSize());
   stream->print("Free PSRAM:  ");stream->println(ESP.getFreePsram());
 
+
+  twaiAlertStatus(stream);
   wifi.printStatus(stream);
+
   nmeaServer.printStatus(stream);
   webServer.printStatus(stream);
   bms.printStatus(stream);
 }
+
 
 void setup() {
   Serial.begin(115200); 
@@ -315,10 +448,7 @@ void setup() {
   ESP_LOGE(TAG, "Starting TCP Servers");
   echoServer.begin();
   nmeaServer.begin();
-#ifdef NMEA0183_UDP
   nmeaSender.begin();
-  nmeaSender.setDestination(wifi.getBroadcastIP());
-#endif
 
   ESP_LOGI(TAG, "Starting Http Server");
   webServer.setStoreCallback([](Print *stream) {
@@ -340,6 +470,27 @@ void setup() {
 
   frameFilter.begin("n2k.filter");
   inputAllowFilter.begin("n2k.apifilter");
+
+
+
+
+
+  ESP_LOGI(TAG, "Starting BMS Stack");
+  #ifdef ESP_32_BOARD
+  Serial1.begin(9600,SERIAL_8N1);
+  #else
+  Serial1.begin(9600,SERIAL_8N1, BMS_RX_PIN, BMS_TX_PIN);
+  #endif
+  bms.setSerial(&Serial1);
+  bms.begin();
+
+
+
+  if (dnsServer.start()) {
+    Serial.println("Started DNS server");
+  } else {
+    Serial.println("DNS Server not started, not in AP mode");
+  }
 
 
   ESP_LOGI(TAG, "Starting Nmea20000 Stack");
@@ -367,6 +518,8 @@ void setup() {
   NMEA2000.SetForwardStream(OutputStream);
   // Set false below, if you do not want to see messages parsed to HEX withing library
   NMEA2000.EnableForward(false);
+  // set the TWAI RX buffer sizes larger to cope with overflows, TX=40 is the default
+  NMEA2000.SetCANBufferSize(100,40);
   NMEA2000.SetN2kCANReceiveFrameBufSize(150);
   NMEA2000.SetN2kCANMsgBufSize(8);
   NMEA2000.ExtendTransmitMessages(TransmitMessages);
@@ -376,27 +529,16 @@ void setup() {
 
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 50);
 //  NMEA2000.SetMode(tNMEA2000::N2km_ListenOnly, 50);
+
+  
   NMEA2000.Open();
+  xTaskCreate(monitorAlertsTask, "TWAI_alertMonitor", 4096, NULL, 5, &alert_monitor_task_handle_);
 
 
-  ESP_LOGI(TAG, "Starting BMS Stack");
-  #ifdef ESP_32_BOARD
-  Serial1.begin(9600,SERIAL_8N1);
-  #else
-  Serial1.begin(9600,SERIAL_8N1, BMS_RX_PIN, BMS_TX_PIN);
-  #endif
-  bms.setSerial(&Serial1);
-  bms.begin();
 
 
   ESP_LOGI(TAG, "Running.....");
   showHelp();
-
-  if (dnsServer.start()) {
-    Serial.println("Started DNS server");
-  } else {
-    Serial.println("DNS Server not started, not in AP mode");
-  }
 
   
 }
@@ -459,6 +601,23 @@ void CheckCommand() {
           bms.setSerial(&simulator);
         }
         break;
+      case 'p':
+        {
+          Serial.print("Enter UDP Port >");
+          Serial.setTimeout(10000);
+          String port = Serial.readStringUntil('\n');
+          Serial.setTimeout(0);
+          if ( port != NULL ) {
+            int portNumber = port.toInt();
+            if ( portNumber > 0  ) {
+              Serial.printf("\nSetting port to %d\n", portNumber);
+              nmeaSender.setPort(portNumber);
+            } else {
+              Serial.printf("\nInvalid port %s\n", port);
+            }
+          }           
+        }
+        break;
       case 'A':
         if ( wifi.isSoftAP() ) {
           dnsServer.stop();
@@ -471,9 +630,6 @@ void CheckCommand() {
               Serial.println("DNS Server not started, not in AP mode");
           }
         }
-#ifdef NMEA0183_UDP
-        nmeaSender.setDestination(wifi.getBroadcastIP());
-#endif
         break;
       case 'f':
         engineFreezeFrame.logFreezeFrame();
@@ -542,19 +698,29 @@ void endTimer(int i) {
 
 //*****************************************************************************
 void loop() { 
-  static unsigned long lastHB = millis();
+  unsigned long last = millis();
   NMEA2000.ParseMessages();
-  nmeaServer.handle();
-  CheckCommand();
-  echoServer.handle();
-  bms.update();
-  EmitMessages();
-
-
   unsigned long now = millis();
-  if ( (now - lastHB) > 5000) {
-        lastHB = now;
-        ESP_LOGD(TAG, "Loop");
-    }
+  if ( now - last > 100) {
+    ESP_LOGE(TAG, "ParseMessages %ld %ld %d" ,now, last, (now - last));
+  }
+  last = now;
+  CheckCommand();
+  now = millis();
+  if ( now - last > 100) {
+    ESP_LOGE(TAG, "CheckCommand %ld %ld %d" ,now, last, (now - last));
+  }
+  last = now;
+  bms.update();
+  now = millis();
+  if ( now - last > 100) {
+    ESP_LOGE(TAG, "bms.update %ld %ld %d" ,now, last, (now - last));
+  }
+  last = now;
+  EmitMessages();
+  now = millis();
+  if ( now - last > 100) {
+    ESP_LOGE(TAG, "EmitMessages %ld %ld %d" ,now, last, (now - last));
+  }
 
 }

@@ -1,32 +1,24 @@
-#include "network.h"
+#include "udpsender.h"
 #include <ESPmDNS.h>
 
 
 
 void UdpSender::begin() {
-    udp.begin(udpPort);
+  if (started) {
     started = true;
     MDNS.addService("_nmea0183-udp","_udp",udpPort);
+  }
 
 }
+
+void UdpSender::setPort(int port) {
+    udpPort = port;
+}
+// This works, but unfortunately not on ChromeOS which
+// blocks all inbound broadcast UDP traffic at its firewall
+// on a per container level, so its useless.
+// Works perfectly on a Android device.
 void UdpSender::sendBufToClients(const char *buf) {
-    if ( WiFi.status() == WL_CONNECTED ) {
-        if ( !started ) {
-            begin();
-        }
-        udp.beginPacket(destination,udpPort);
-        udp.print(buf);
-        if (udp.endPacket() == 0) {
-            restarts++;
-            if ( restarts%20 == 1) {
-                Serial.printf("UDP restarts:%d disconnects:%d \n", restarts, disconnects);
-            }
-            begin();
-        }        
-    } else {
-        if ( started ) {
-            disconnects++;
-        }
-        started = false;
-    }
+
+    udp.broadcastTo(buf, udpPort);
 }

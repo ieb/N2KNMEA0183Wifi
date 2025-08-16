@@ -85,15 +85,11 @@ SeasmartResponseStream::SeasmartResponseStream(Stream *outputStream, const Strin
       &_pgns[8],
       &_pgns[9]
      );
-  Serial.print("Core:");
-  Serial.println(xPortGetCoreID());
-  Serial.print("PGNS are :");
-  Serial.print(_npgns);
+  String pgnsOut = "";
   for (int i = 0; i < _npgns; i++ ) {
-      Serial.print(",");
-      Serial.print(_pgns[i]);
+      pgnsOut += "," + _pgns[i];
   }
-  Serial.println("");
+  ESP_LOGI(TAG, "Core: %d PGNS are %d %s ", xPortGetCoreID(), _npgns, pgnsOut );
   startedAt = millis();
 }
 

@@ -8,12 +8,10 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
-#define DEBUG_ESP_DNS
-#ifdef DEBUG_ESP_PORT
-#define DEBUG_OUTPUT DEBUG_ESP_PORT
-#else
-#define DEBUG_OUTPUT Serial
-#endif
+#include "esp_log.h"
+
+#define TAG "dns"
+
 
 #define DNS_MIN_REQ_LEN 17  // minimal size for DNS request asking ROOT = DNS_HEADER_SIZE + 1 null byte for Name + 4 bytes type/class
 
@@ -174,12 +172,10 @@ void DNSServer::replyWithIP(AsyncUDPPacket &req, DNSHeader &dnsHeader, DNSQuesti
 
   _udp.sendTo(rpl, req.remoteIP(), req.remotePort());
 
-#ifdef DEBUG_ESP_DNS
-  DEBUG_OUTPUT.printf(
+  ESP_LOGI(TAG,
     "DNS responds: %s for %s\n", _resolvedIP.toString().c_str(),
     getDomainNameWithoutWwwPrefix(static_cast<const unsigned char *>(dnsQuestion.QName), dnsQuestion.QNameLength).c_str()
   );
-#endif
 }
 
 void DNSServer::replyWithCustomCode(AsyncUDPPacket &req, DNSHeader &dnsHeader) {

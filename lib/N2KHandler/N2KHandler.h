@@ -58,6 +58,7 @@ private:
     double headingTrue = -1e9;
     double headingMagnetic = -1e9;
     bool faaValid = false;
+    bool updatePerformance = false;
     double sog = -1e9;
     double cogt = -1e9;
     double cogm = -1e9;

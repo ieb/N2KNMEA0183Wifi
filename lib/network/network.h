@@ -6,8 +6,6 @@
 #include <FS.h>
 #include "local_secrets.h"
 
-#include "tcpserver.h"
-#include "udpsender.h"
 #include "httpstream.h"
 #ifdef ENABLE_WEBSOCKETS
 #include "pgnwebsocket.h"
@@ -58,18 +56,6 @@ private:
 };
 
 
-class EchoServer  {
-public: 
-    EchoServer(Stream *outputStream) : outputStream{outputStream} {};
-    void begin();
-    void handle();
-private:
-    WiFiServer server;
-    Stream *outputStream;
-    bool clientConnected = false;
-    WiFiClient client; 
-    String request;
-};
 
 
 class WebServer {

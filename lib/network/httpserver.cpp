@@ -9,13 +9,16 @@
 #include <base64.h>
 
 
+#include "esp_log.h"
+
+#define TAG "http"
 
 
 
 void WebServer::begin(const char * configurationFile) {
       // Initialize SPIFFS
     if(!SPIFFS.begin(false)){
-        outputStream->println("An Error has occurred while mounting SPIFFS");
+        ESP_LOGE(TAG, "An Error has occurred while mounting SPIFFS");
         return;
     }
 
@@ -37,16 +40,16 @@ void WebServer::begin(const char * configurationFile) {
             pgns = op->value();
         }
         SeasmartResponseStream * response = new SeasmartResponseStream(outputStream, "text/plain", request);
-        Serial.print("Registering stream "); Serial.println((int) response);
+        ESP_LOGI(TAG, "Registering stream %d", (int)response);
         this->addSeasmartResponse(response);
         request->onDisconnect([this, response](void){
-            Serial.print("Remove stream "); Serial.println((int) response);
+            ESP_LOGI(TAG, "Remove stream %d", (int)response);
             this->removeSeasmartResponse(response);
         });
         this->addCORS(request, response);
-        Serial.print("Send stream "); Serial.println((int) response);
+        ESP_LOGI("Send stream %d ", (int) response);
         request->send(response);
-        Serial.print("Done response setup "); Serial.println((int) response);
+        ESP_LOGI("Done response setup %d", (int) response);
     });
 
 
@@ -117,7 +120,7 @@ void WebServer::begin(const char * configurationFile) {
     //list the filesystem
     server.on("/api/fs.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
-            outputStream->println("GET /api/fs.json");
+            ESP_LOGI(TAG, "GET /api/fs.json");
             AsyncResponseStream *response = request->beginResponseStream("application/json");
             addCORS(request, response);
             File root = SPIFFS.open("/");
@@ -154,7 +157,7 @@ void WebServer::begin(const char * configurationFile) {
     });
 
     server.on("/api/layouts.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        outputStream->println("GET /api/layouts.json");
+        ESP_LOGI(TAG, "GET /api/layouts.json");
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         addCORS(request, response);
         File root = SPIFFS.open("/");
@@ -184,7 +187,7 @@ void WebServer::begin(const char * configurationFile) {
     });
 
     server.on("/api/layout.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        outputStream->print("GET /api/layout.json");
+        ESP_LOGI(TAG, "GET /api/layout.json");
         AsyncWebParameter * layout = request->getParam("layout", false, false);
         if ( layout == NULL) {
             AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -196,7 +199,7 @@ void WebServer::begin(const char * configurationFile) {
             String layoutFile = "/layout-";
             // checked
             layoutFile = layoutFile + layout->value() + ".json";
-            outputStream->println(layoutFile);
+            ESP_LOGI(TAG, layoutFile);
             AsyncWebServerResponse * fileResponse = request->beginResponse(SPIFFS, layoutFile, "application/json");
             if ( fileResponse == NULL) {
                 AsyncResponseStream * response = request->beginResponseStream("application/json");
@@ -216,7 +219,7 @@ void WebServer::begin(const char * configurationFile) {
     // perform operations on the filesystem
     server.on("/api/fs.json", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if ( this->authorized(request) ) {
-            outputStream->println("POST /api/fs.json");
+            ESP_LOGI(TAG, "POST /api/fs.json");
             AsyncResponseStream *response = request->beginResponseStream("application/json");
             addCORS(request, response);
             AsyncWebParameter * op = request->getParam("op", true, false);
@@ -279,7 +282,7 @@ void WebServer::begin(const char * configurationFile) {
             AsyncWebParameter * op = request->getParam("op", true, false);
             if ( path != NULL && op != NULL && op->value() == "upload" ) {
                 if ( request->_tempObject != NULL ) {
-                    Serial.println("Upload only supports one file at a time");
+                    ESP_LOGE(TAG, "Upload only supports one file at a time");
                 } else {
                     if ( request->_tempFile ) {
                         // if there was a file open, close it.
@@ -373,7 +376,7 @@ void WebServer::begin(const char * configurationFile) {
             response->setCode(200);
             response->println("{ \"ok\":true, \"msg\":\"reboot in 1s\" }");
             request->send(response);
-            outputStream->println("Rebooting in 1s, requested by Browser");
+            ESP_LOGE(TAG, "Rebooting in 1s, requested by Browser");
             delay(1000);
             ESP.restart();
         }
@@ -388,7 +391,7 @@ void WebServer::begin(const char * configurationFile) {
 
     server.on("/*", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String path = request->url();
-        Serial.println(path);
+        ESP_LOGI(TAG,"GET %s", path);
         if ( path.endsWith("/") ) {
             path = path + "index.html";
         }
@@ -430,12 +433,11 @@ void WebServer::begin(const char * configurationFile) {
             basicAuth += (char)((48+buffer[i]%(125-48)));
         }
         httpauth = "Basic "+base64::encode(basicAuth);
-        outputStream->printf("Using generated http basic auth admin password: %s\n", basicAuth.c_str());
-        outputStream->printf("Use Header: Authorization: %s\n", httpauth.c_str());
+        ESP_LOGE(TAG, "Using generated http basic auth admin password: %s\n", basicAuth.c_str());
+        ESP_LOGE(TAG, "Use Header: Authorization: %s\n", httpauth.c_str());
     } else {
         httpauth = "Basic "+base64::encode(basicAuth);
-        outputStream->print("Configured http Authorzation header to be ");
-        outputStream->println(httpauth);
+        ESP_LOGI(TAG, "Configured http Authorzation header to be %s ", httpauth);
     }
     server.begin();
 };
@@ -452,8 +454,7 @@ void WebServer::handleAllFileUploads(AsyncWebServerRequest *request, String file
         AsyncWebParameter * op = request->getParam("path", true, false);
         AsyncWebParameter * path = request->getParam("path", true, false);
         if ( request->url() == "/api/fs.json" && op != NULL && path != NULL && op->value() == "upload" ) {
-            Serial.print("Handing a file upload to ");
-            Serial.println(path->value());
+            ESP_LOGI(TAG, "Handing a file upload to %s ", path->value());
             int status = 201;
             if ( SPIFFS.exists(path->value()) ) {
                 status = 200;
@@ -551,17 +552,8 @@ void WebServer::sendSeaSmart(unsigned long pgn, const char *buffer) {
 
 
 void WebServer::addSeasmartResponse(SeasmartResponseStream * response) {
-    // no list, start a new one.
-    /*Serial.print("Cheking pointer "); Serial.println((int) response);
-    if ( response->acceptPgn(12343) ) {
-        Serial.println("Checked true, ok");
-    } else {
-        Serial.println("Checked false, ok");
-    } */
+    ESP_LOGI("Core: %d Add %d", xPortGetCoreID(), (int) response);
     if ( seasmartStreamsHead == NULL ) {
-        Serial.print("Core:");
-        Serial.print(xPortGetCoreID());
-        Serial.print("Add "); Serial.println((int) response);
         seasmartStreamsHead = response;
         return;
     }
@@ -570,9 +562,6 @@ void WebServer::addSeasmartResponse(SeasmartResponseStream * response) {
     while(headStream->nextStream != NULL ) {
         headStream = headStream->nextStream;
     }
-        Serial.print("Core:");
-        Serial.print(xPortGetCoreID());
-    Serial.print("Add "); Serial.println((int) response);
     headStream->nextStream = response;
 }
 

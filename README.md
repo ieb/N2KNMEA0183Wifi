@@ -91,6 +91,7 @@ There are 4 UIs available for use with this firware 3 are web based, and one is 
 * [ ] Test BLE UI on ChromeOS.
 * [x] Test Booklet UI
 * [ ] Log BMS data to flash
+* [ ] Fix hangs, see Hangs...
 
 
 ## HTTP APIs
@@ -348,6 +349,42 @@ Below is a copy
 Probably too much of a pain to implement.
 
 
+# Hangs
+
+At times, the device appears to hang, with no data being emitted, but clients still able to connect. The symptoms are no data being recieved over CAN, however this only apparent at the NMEA2000.parseMessages call and not in the underlying ESP32 hardware. Most probably cause seems to be that a network problem causes the single core on the ESP32-C3 to block which blocks the main loop, which then causes the ESP32 recieve buffer to overflow since NMEA2000.parseMessages is not being called frequently enough to read the messages. Some of the pauses are 20s as per below.
+
+
+        [562578][E][main.cpp:388] monitorAlertsTask(): [main] Rx Queue Full 60
+        [564735][E][main.cpp:690] loop(): [main] ParseMessages 564735 544725 20010
+        Sentence recieved as []
+        Checksum Calculated as 0
+        Checksum from 192.168.4.4 Bad :
+        Sentence recieved as []
+        Checksum Calculated as 0
+        Checksum from 192.168.4.4 Bad :
+        Sentence recieved as []
+        Checksum Calculated as 0
+        Checksum from192.168.4.4 Bad :
+        Sentence recieved as []
+        Checksum Calculated as 0
+        Checksum from 192.168.4.4 Bad :
+        Client Connected on tcp from:192.168.4.2
+        [582584][E][main.cpp:388] monitorAlertsTask(): [main] Rx Queue Full 80
+        [583798][E][WiFiClient.cpp:429] write(): fail on fd 50, errno: 104, "Connection reset by peer"
+        Client Disconnected: 192.168.4.2
+        Client Disconnected: 192.168.4.2
+        [583825][E][main.cpp:690] loop(): [main] ParseMessages 583825 564749 19076
+        Client Connected on tcp from:192.168.4.2
+
+In this case it was caused by a connected client, 192.168.4.2 disabling its WiFi blocking writes in the WiFiCLient code. When this is not happening the device is easilly capable of handlng a CAN bus fully loaded running at 250Kbit.
+
+The problem is in the implementation of the TCP server which is blocking, and hence blocks the parser.
+
+Switching to UDP fixes this, but ChromeOS blocks all UDP broadcast traffic to Android Apps. Android Apps on Android do not do this and work perfectly on UDP. (sigh!), there was a report that binding to a udp port will open the port to traffic, but this doesnt work, tested in python.  So have to fix the TCP sockets implementation.
+
+Implemented a AsyncTcpSever (and done the same for the Echoserver) which fixes the problem of hangs. Tested at 100% CAN Buss load. Device appears stable, but will continue to soak test.
+
+ChromeOS still blocks all UDP traffic to containers. This is due to the permissions_borker in ChromeOS not setting up the correct IPTables when a UDP listener is opened by a Android device. On the version of ChromeOS I am on, there is no fix and I cant upgrade since upgrading will breal all ChromeOS Apps including the ChromeOS WebServer app. May be forecd to implement a SSD card in the wifi server to serve files  if forced to upgrade. There is a DBus API in ChromeOS called ModifyPortRule which accepts Protobuf and can be called from within a container to setup rules, however calling this would be hard to automate. So in the end, I gave up on UDP. Pitty.
 
 
 ## Archived functionality
