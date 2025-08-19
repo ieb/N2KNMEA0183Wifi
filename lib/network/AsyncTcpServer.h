@@ -62,8 +62,9 @@ class AsyncTcpClient {
         uint16_t errors = 0;
         uint16_t lastSent = 0;
         unsigned long lastMetrics = 0;
-        volatile double bandwidthSent = 0.0;
-        volatile uint16_t bytesSent = 0;
+        unsigned long createdAt = 0;
+        double bandwidthSent = 0.0;
+        uint16_t bytesSent = 0;
 
         void readInput(char *data, size_t len);
         void parseSentence();

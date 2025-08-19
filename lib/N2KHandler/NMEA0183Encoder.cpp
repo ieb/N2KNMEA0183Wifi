@@ -176,14 +176,14 @@ void NMEA0183Encoder::appendLongitude(double longitude) {
 }
 
 void NMEA0183Encoder::appendDMY(uint16_t daysSince1970) {
-  time_t d = ((uint32_t)(daysSince1970)*3600000UL*24UL);
+  time_t d = ((uint32_t)(daysSince1970)*3600UL*24UL);
   struct tm * tmd = gmtime(&d);
   sprintf(inbuffer, "%02d,%02d,%04d",tmd->tm_mday, tmd->tm_mon+1, tmd->tm_year+1900);
   checkBuffer("dmy");
   append(inbuffer);
 }
 void NMEA0183Encoder::appendDate(uint16_t daysSince1970) {
-  time_t d = ((uint32_t)(daysSince1970)*3600000UL*24UL);
+  time_t d = ((uint32_t)(daysSince1970)*3600UL*24UL);
   struct tm * tmd = gmtime(&d);
   sprintf(inbuffer, "%02d%02d%02d",tmd->tm_mday,tmd->tm_mon+1,tmd->tm_year%100);
   append(inbuffer);

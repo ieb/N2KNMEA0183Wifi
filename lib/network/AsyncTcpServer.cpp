@@ -8,7 +8,7 @@ AsyncTcpServer::AsyncTcpServer(Stream *outputStream, uint16_t port) : server(por
   this->outputStream = outputStream;
   server.onClient(
     [outputStream](void *s, AsyncClient *c) {
-      ESP_LOGE(TAG, "Client Connected");
+      ESP_LOGI(TAG, "Client Connected");
       if (c == NULL) {
         return;
       }
@@ -16,7 +16,8 @@ AsyncTcpServer::AsyncTcpServer(Stream *outputStream, uint16_t port) : server(por
       AsyncTcpClient *tcpC = new AsyncTcpClient(thisServer, c, outputStream);
       if (tcpC == NULL) {
         ESP_LOGE(TAG, "Client Create failed");
-        c->abort();
+        c->close(true);
+        c->free();
         delete c;
       }
     },
@@ -45,6 +46,7 @@ void AsyncTcpServer::begin() {
 
 
 void AsyncTcpServer::end() {
+  server.onClient(NULL, NULL);
   for (auto i = clients.begin(); i != clients.end(); ++i) {
      AsyncTcpClient *client = i->get();
      client->close(false);
@@ -62,13 +64,13 @@ void AsyncTcpServer::registerClient(AsyncTcpClient * client) {
           return;
     }
   }
-  ESP_LOGE(TAG, "Adding client %d", (int) client);
+  ESP_LOGI(TAG, "Adding client %d", (int) client);
   clients.emplace_back(client);
 }
 void AsyncTcpServer::deRegisterClient(AsyncTcpClient * client) {
   for (auto i = clients.begin(); i != clients.end(); ++i) {
     if (i->get() == client) {
-          ESP_LOGE(TAG, "Remove client %d", (int) client);
+          ESP_LOGI(TAG, "Remove client %d", (int) client);
           clients.erase(i);
     }
   }
@@ -119,8 +121,17 @@ int16_t nclients = 0;
 AsyncTcpClient::AsyncTcpClient(AsyncTcpServer * server, AsyncClient *client, Stream *outputStream) : server(server), client(client) {
   this->outputStream = outputStream;
   nclients++;
-  ESP_LOGE(TAG,"NClients %d", nclients);
-
+  ESP_LOGE(TAG,"NClients %d, new %d", nclients, (int)this);
+  createdAt = millis();
+  // this is not actually Ack, it is a Tx timeout between send and sent event on the 
+  // lower layers and indicates how much data is in the send buffer that has not 
+  // been recieved a sent message for some reason. This is an indication that the far end
+  // is not recieving, in whch case the tcp connecton should be closed rather than be allowed
+  // to fill up the heap. If the client is written correctly it will recover.
+  // 12s typically is 30Kb of heap. The 2c typically runs with 130Kb of heap free. That is
+  // assuming the lower layer doesnt drop the messages. If it does, no problem as NMEA0183 is 
+  // line oriented and will recover.
+  client->setAckTimeout(30000);
   client->onError(
     [](void *r, AsyncClient *c, int8_t error) {
       // this may be called with a pointer that has already
@@ -141,7 +152,7 @@ AsyncTcpClient::AsyncTcpClient(AsyncTcpServer * server, AsyncClient *client, Str
   );
   client->onTimeout(
     [client](void *r, AsyncClient* c, uint32_t time) {
-      ESP_LOGE(TAG,"Client Ack Timeout %d", (int) r);
+      ESP_LOGE(TAG,"Client Tx Timeout %d", (int) r);
       AsyncTcpClient *tcpC = (AsyncTcpClient *)r;
       tcpC->close();
     },
@@ -149,7 +160,7 @@ AsyncTcpClient::AsyncTcpClient(AsyncTcpServer * server, AsyncClient *client, Str
   );
   client->onData(
     [](void *r, AsyncClient *c, void *buf, size_t len) {
-      ESP_LOGE(TAG,"Client data %d", (int) r);
+      ESP_LOGI(TAG,"Client data %d", (int) r);
       AsyncTcpClient *tcpC = (AsyncTcpClient *)r;
       // read the line and set any filters.
       tcpC->readInput((char *)buf, len);
@@ -160,25 +171,29 @@ AsyncTcpClient::AsyncTcpClient(AsyncTcpServer * server, AsyncClient *client, Str
 }
 
 AsyncTcpClient::~AsyncTcpClient() {
-  ESP_LOGE(TAG, "destructor %d", (int) this);
+  ESP_LOGI(TAG, "destructor %d", (int) this);
   // make sure close has been called.
   this->close();
+  unsigned long lifetime = (millis() - createdAt)/1000;
+  ESP_LOGE(TAG, "Destroy Client %d lifetime %d s ", (int) this, lifetime );
   nclients--;
 }
 
 void AsyncTcpClient::close(bool deregister) {
-  ESP_LOGE(TAG, "Close Client %d", (int) this);
-  // zero all callbacks to stop them from being used as the socket is closed.
-  client->onError(0,0);
-  client->onDisconnect(0,0);
-  client->onData(0,0);
-  client->onTimeout(0,0);
   if (deregister && server != nullptr ) {
     server->deRegisterClient(this);
     // once the client is deregistered disconnect null the pointer to the server to ensure this does not happen 2x
     server = nullptr;
+  }    
+  if (client->connected()) {
+    ESP_LOGE(TAG, "Close Client %d ",(int) this);
+    // zero all callbacks to stop them from being used as the socket is closed.
+    client->onError(NULL,NULL);
+    client->onDisconnect(NULL,NULL);
+    client->onData(NULL,NULL);
+    client->onTimeout(NULL,NULL);
+    client->close();
   }
-
 }
 
 // task to update the bandwidth calculation every 10s
@@ -195,15 +210,20 @@ void AsyncTcpClient::status() {
   if ( mode == WIFICLIENT_MODE_NMEA0183 ) {
     outputStream->print("NMEA0183 -> ");
     outputStream->print(client->remoteIP());
-    outputStream->print(" send:");
+    outputStream->print(" up:");
+    outputStream->print((millis() - createdAt)/1000.0);
+    outputStream->print("s send:");
     outputStream->print(bandwidthSent);
     outputStream->print("kb/s sentences:");
     outputStream->println(sent);
   } else {
     outputStream->print("SeaSmart -> ");
     outputStream->print(client->remoteIP());
-    outputStream->print(" send:");
+    outputStream->print(" up:");
+    outputStream->print((millis() - createdAt)/1000.0);
+    outputStream->print("s send:");
     outputStream->print(bandwidthSent);
+    outputStream->println("s");
     outputStream->print("kb/s sentences:");
     outputStream->print(sent);
     outputStream->print(" received:");

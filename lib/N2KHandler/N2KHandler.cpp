@@ -3,6 +3,9 @@
 #include <N2kMessages.h>
 
 
+#include "esp_log.h"
+
+#define TAG "n2khandler"
 
 
 
@@ -313,10 +316,10 @@ void N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
   uint32_t _log;
   uint32_t _tripLog;
 
+  // cant trust daysSince1970 here since the source is not a GPS
   if ( ParseN2kPGN128275(N2kMsg, _daysSince1970, _secondsSinceMidnight, _log, _tripLog) ) {
     log = _log;
     tripLog = _tripLog;
-    daysSince1970 = _daysSince1970;
     messageEncoder.sendVLW(_log, _tripLog);
   }
 }
@@ -356,7 +359,7 @@ void N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
                      ) ) {
 
     unsigned long now = millis();
-    if ( _integrety == N2kGNSSIntegrety_Safe ) {
+    if ( _integrety != N2kGNSSIntegrety_Unsafe   ) {
       faaValid = true;
       faaLastValid = now;
       fixSecondsSinceMidnight = _secondsSinceMidnight;
@@ -374,12 +377,25 @@ void N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
     messageEncoder.sendGGA(fixSecondsSinceMidnight, latitude, longitude, (uint8_t)_GNSSmethod, 
         (uint8_t)_nSatellites, _HDOP, _altitude, _geoidalSeparation);
     messageEncoder.sendGLL(fixSecondsSinceMidnight, latitude, longitude, getFaaValid());
-    messageEncoder.sendZDA( _secondsSinceMidnight, _daysSince1970);
+    messageEncoder.sendZDA( _secondsSinceMidnight, daysSince1970);
     messageEncoder.sendRMC(fixSecondsSinceMidnight, latitude, longitude, sog, cogt, 
-      _daysSince1970, variation, getFaaValid() );
+      daysSince1970, variation, getFaaValid() );
   }
 }
 
+void N2KHandler::handle129025(const tN2kMsg &N2kMsg) {
+  double _latitude;
+  double _longitude;
+  if ( ParseN2kPGN129025(N2kMsg, _latitude, _longitude)) {
+    latitude = _latitude;
+    longitude = _longitude;
+    messageEncoder.sendGLL(fixSecondsSinceMidnight, latitude, longitude, getFaaValid());
+    messageEncoder.sendRMC(fixSecondsSinceMidnight, latitude, longitude, sog, cogt, 
+      daysSince1970, variation, getFaaValid() );
+
+  }
+
+} // LatLon(N2kMsg); break;
 
 /**
  * rapid cog/sog
@@ -503,7 +519,7 @@ void N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
   double _pressure;
   if( ParseN2kPGN130314(N2kMsg, SID, _pressureInstance,
                      _pressureSource, _pressure) ) {
-    if ( _pressureSource == N2kps_Atmospheric ) {
+    if ( _pressureSource == N2kps_Atmospheric  && _pressure != -1e9) {
       pressure = _pressure;
       messageEncoder.sendXDR_barometer(_pressure);
     }
@@ -518,8 +534,9 @@ void N2KHandler::handle127245(const tN2kMsg &N2kMsg) {
 
   if ( ParseN2kPGN127245(N2kMsg, _rudderPosition, _instance,
                      _rudderDirectionOrder, _angleOrder) ) {
+    if ( _rudderPosition != -1e9 ) {
       messageEncoder.sendRSA(_rudderPosition);
-
+    }
   }
 }
 
@@ -601,14 +618,6 @@ void N2KHandler::handle128000(const tN2kMsg &N2kMsg) {
   }
 
 } // Leeway(N2kMsg); break;
-void N2KHandler::handle129025(const tN2kMsg &N2kMsg) {
-  double _latitude;
-  double _longitude;
-  if ( ParseN2kPGN129025(N2kMsg, _latitude, _longitude)) {
-
-  }
-
-} // LatLon(N2kMsg); break;
 void N2KHandler::handle130310(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   double _waterTemperature;

@@ -1,5 +1,8 @@
 #include "NMEA0183N2KMessages.h"
 
+#include "esp_log.h"
+
+#define TAG "nmea0183"
 
 
 // send periods.
@@ -12,7 +15,7 @@
 #define SEND_DPT lastSendDPT, 1000
 #define SEND_VLW lastSendVLW, 1000
 #define SEND_GGA lastSendGGA, 1000
-#define SEND_GGL lastSendGGL, 1000
+#define SEND_GLL lastSendGGL, 1000
 #define SEND_ZDA lastSendZDA, 1000
 #define SEND_RMC lastSendRMC, 1000
 #define SEND_VTG lastSendVTG, 1000
@@ -204,7 +207,7 @@ $IIGLL,IIII.II,a,yyyyy.yy,a,hhmmss.ss,A,A*hh
 */
 void NMEA0183N2KMessages::sendGLL(double secondsSinceMidnight, 
       double latitude, double longitude, const char * faaValid) {
-  if ( doSend(SEND_GGL) ) {
+  if ( doSend(SEND_GLL) ) {
     start("$IIGLL");
     appendLatitude(latitude);
     appendLongitude(longitude);
@@ -234,6 +237,18 @@ void NMEA0183N2KMessages::sendZDA( double secondsSinceMidnight, uint16_t daysSin
     send();
   }
 }
+
+// {"updates":[{"source":{"sentence":"RMC","talker":"II","type":"NMEA0183"},
+// "timestamp":"2016-03-04T07:47:18.000Z",
+// "values":[{"path":"navigation.position","value":{"longitude":1.276295,"latitude":51.95897}},
+// {"path":"navigation.courseOverGroundTrue","value":null},
+// {"path":"navigation.speedOverGround","value":0.010288891495408068},
+// {"path":"navigation.magneticVariation","value":0.013962634019142718},
+// {"path":"navigation.magneticVariationAgeOfService","value":1457077638},
+// {"path":"navigation.datetime","value":"2016-03-04T07:47:18.000Z"}]}]}
+
+// $IIRMC,074717.00,V,5157.53810,N,00116.57780,E,0.02,,110782,0.8,E,V*3B
+
 
 
 void NMEA0183N2KMessages::sendRMC(double secondsSinceMidnight, 
@@ -418,7 +433,7 @@ void NMEA0183N2KMessages::sendMTA(double temperature) {
 void NMEA0183N2KMessages::sendXDR_barometer(double pressure) {
   if ( doSend(SEND_XDR_BAROMETER) ) {
     start("$IIXDR");
-    append("C");
+    append("P");
     append(pressure,1.0E-6,5);
     append("B");
     append("Barometer");

@@ -27,6 +27,7 @@ void N2KPrinter::HandleMsg(const tN2kMsg &N2kMsg) {
         case 127513L: BatteryConfigurationStatus(N2kMsg); break;
         case 128259L: Speed(N2kMsg); break;
         case 128267L: WaterDepth(N2kMsg); break;
+        case 129025L: RapidPossition(N2kMsg); break;
         case 129026L: COGSOG(N2kMsg); break;
         case 129029L: GNSS(N2kMsg); break;
         case 129033L: LocalOffset(N2kMsg); break;
@@ -206,6 +207,20 @@ void N2KPrinter::COGSOG(const tN2kMsg &N2kMsg) {
       OutputStream->print("Failed to parse PGN: "); OutputStream->println(N2kMsg.PGN);
     }
 }
+
+void N2KPrinter::RapidPossition(const tN2kMsg &N2kMsg) {
+    double Latitude;
+    double Longitude;
+    
+    if (ParseN2kPositionRapid(N2kMsg,Latitude, Longitude) ) {
+      OutputStream->println("Rapid Possition:");
+      PrintLabelValWithConversionCheckUnDef(OutputStream, "  latitude: ",Latitude,0,true,9);
+      PrintLabelValWithConversionCheckUnDef(OutputStream, "  longitude: ",Longitude,0,true,9);
+    } else {
+      OutputStream->print("Failed to parse PGN: "); OutputStream->println(N2kMsg.PGN);
+    }
+}
+
 
 //*****************************************************************************
 void N2KPrinter::GNSS(const tN2kMsg &N2kMsg) {

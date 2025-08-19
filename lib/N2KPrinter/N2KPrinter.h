@@ -34,6 +34,7 @@ class N2KPrinter {
         void DCStatus(const tN2kMsg &N2kMsg);
         void BatteryConfigurationStatus(const tN2kMsg &N2kMsg);
         void COGSOG(const tN2kMsg &N2kMsg);
+        void RapidPossition(const tN2kMsg &N2kMsg);
         void GNSS(const tN2kMsg &N2kMsg);
         void LocalOffset(const tN2kMsg &N2kMsg);
         void Attitude(const tN2kMsg &N2kMsg);
