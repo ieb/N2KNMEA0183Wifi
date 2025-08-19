@@ -249,8 +249,14 @@ void AsyncTcpClient::status() {
  */
 void AsyncTcpClient::sendBuffer(const char *buf) {
   if (mode == WIFICLIENT_MODE_NMEA0183 ) {
-    client->write(buf);
-    client->write("\n");
+    // explicitly add and snd to ensure that the sentence goes out
+    // in one block and is complete. Not doing this results in 
+    // buffering and pauses with some clients. Noticeable when monitoring
+    // with nc in chromeOS and android containers on the same, not noticable on macOS. 
+    // This change fixes the behaviour.
+    client->add(buf, strlen(buf));
+    client->add("\n", 1);
+    client->send();
     sent++;   
     bytesSent += strlen(buf) + 1; 
     calcMetrics();
@@ -259,8 +265,9 @@ void AsyncTcpClient::sendBuffer(const char *buf) {
 
 void AsyncTcpClient::sendN2k(long pgn, const char *buf) {
   if (mode == WIFICLIENT_MODE_SEASMART && acceptN2k(pgn)) {
-    client->write(buf);
-    client->write("\n");
+    client->add(buf, strlen(buf));
+    client->add("\n", 1);
+    client->send();
     sent++;   
     bytesSent += strlen(buf) + 1; 
     calcMetrics();

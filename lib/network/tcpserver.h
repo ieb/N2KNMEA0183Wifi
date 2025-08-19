@@ -1,4 +1,5 @@
 #pragma once
+// Do not use, it blocks, use AsynTcpServer
 #include <WiFi.h>
 
 

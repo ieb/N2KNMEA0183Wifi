@@ -13,6 +13,7 @@ class N2KFrameFilter {
 
   private:
     uint8_t endFilters = MAX_FILTERS;
+    // todo, perhaps convert to a list
     unsigned long frameFilter[MAX_FILTERS];
 };
 

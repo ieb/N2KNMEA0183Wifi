@@ -85,6 +85,7 @@ tNMEA2000_esp32 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_P
 
 
 #include "esp32-hal-psram.h"
+#include <map>
 
 
 
@@ -111,7 +112,7 @@ UdpSender nmeaSender(OutputStream);
 NMEA0183N2KMessages messageEncoder;
 Performance performance(&messageEncoder);
 N2KHandler n2kHander(messageEncoder, performance, logbook);
-N2KFrameFilter frameFilter;
+N2KFrameFilter frameDenyFilter;
 N2KFrameFilter inputAllowFilter;
 
 
@@ -170,50 +171,7 @@ const unsigned long ReceiveMessages[] PROGMEM={/*126992L,*/ // System time
 
 
 
-#ifdef ENABLE_WEBSOCKETS
-// The ESPAsyncWebServer websocket implementation tends to corrupt the heap
-// so not using any more.
-void sendViaWebSockets(const tN2kMsg &N2kMsg) {
-    static char wsBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
-    static unsigned long flushTTL = millis();
-    static size_t wsOffset = 0;
 
-
-
-    // flush the ws buffer if required.
-    unsigned long now = millis();
-    if ( (now - flushTTL) > 200) {
-      flushTTL = now;
-      if ( wsOffset > 0) {
-        webServer.sendN2K((const char *)&wsBuffer[0]); 
-        wsOffset = 0;               
-      }
-    }
-
-    // check if any websocket client has requested this PGN
-    if ( !frameFilter.isFiltered(N2kMsg.PGN, N2kMsg.Source ) && webServer.shouldSend(N2kMsg.PGN) ) {
-      // todo, use real time based on GPS time.
-      // buffer the messages up to reduce websocket overhead.
-      size_t maxLen = MAX_NMEA2000_MESSAGE_SEASMART_SIZE-wsOffset-1;
-      if ( maxLen < 50) {
-        // reset the buffer
-        webServer.sendN2K((const char *)&wsBuffer[0]); 
-        flushTTL = now;
-        wsOffset = 0;       
-      } else if ( wsOffset > 0) {
-        // replace the terminator with a \n
-        // and to be safe add a terminator
-        wsBuffer[wsOffset++] = '\n';
-        wsBuffer[wsOffset] = 0;
-      }
-      size_t len = N2kToSeasmart(N2kMsg,millis(),&wsBuffer[wsOffset],maxLen);
-      wsOffset += len;
-    }
-}
-#else
-void sendViaWebSockets(const tN2kMsg &N2kMsg) {
-}
-#endif
 
 
 uint16_t HandleSeasmartMsg(const char *msg) {
@@ -232,31 +190,53 @@ uint16_t HandleSeasmartMsg(const char *msg) {
   return 400;
 }
 
+std::map<unsigned long, unsigned long> lastMessageSend;
+bool allowRateLimit(const tN2kMsg &N2kMsg) {
+  unsigned long key = (N2kMsg.PGN*256) + N2kMsg.Source;
+  unsigned long now = millis();
+  if (lastMessageSend.count(key) != 0){
+    if ((now - lastMessageSend[key]) > 1000) {
+      lastMessageSend[key] = now;
+      ESP_LOGI(TAG, "send %d %d %d %d", key, N2kMsg.PGN, N2kMsg.Source, lastMessageSend.size());
+      return true;
+    }
+  } else {
+    lastMessageSend[key] = now;
+    ESP_LOGE(TAG, "new pgn:%d source:%d pgn_count:%d", N2kMsg.PGN, N2kMsg.Source, lastMessageSend.size());
+    return true;
+  }
+  ESP_LOGI(TAG, "debounce %d %d %d", key, N2kMsg.PGN, N2kMsg.Source);
+  return false;
+}
 
-
-void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
-    static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
-    listDevices.HandleMsg(N2kMsg);
-    n2kPrinter.HandleMsg(N2kMsg);
-    n2kHander.handle(N2kMsg);
-    engineFreezeFrame.handle(N2kMsg);
-
+void sendAsSeaSmart(const tN2kMsg &N2kMsg) {
+  static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
+  // send over tcp or http as a N2K message en
+  // but only if the pgn is in the frame filter since there is not enough processing to 
+  // handle a full 250KBit stream.
+  if ( !frameDenyFilter.isFiltered(N2kMsg.PGN, N2kMsg.Source ) &&  allowRateLimit(N2kMsg) ) {
     bool seaSmartLoaded = false;
-#ifdef NMEA0183_TCP
-    if ( nmeaServer.acceptN2k(N2kMsg.PGN) ) {
+    if ( nmeaServer.acceptN2k(N2kMsg.PGN)) {
       N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
       seaSmartLoaded = true;
       nmeaServer.sendN2k(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
     }
-#endif
     if ( webServer.acceptSeaSmart(N2kMsg.PGN) ) {
       if ( !seaSmartLoaded ) {
         N2kToSeasmart(N2kMsg,millis(),&seaSmartBuffer[0],MAX_NMEA2000_MESSAGE_SEASMART_SIZE);
       }
       webServer.sendSeaSmart(N2kMsg.PGN, (const char *) &seaSmartBuffer[0]);
     }
+  }      
+}
 
-    sendViaWebSockets(N2kMsg);
+
+void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
+    listDevices.HandleMsg(N2kMsg);
+    n2kPrinter.HandleMsg(N2kMsg);
+    n2kHander.handle(N2kMsg); // may emit NMEA0183 messages
+    engineFreezeFrame.handle(N2kMsg);
+    sendAsSeaSmart(N2kMsg);
 }
 
 void showHelp() {
@@ -468,7 +448,7 @@ void setup() {
 
   webServer.begin();
 
-  frameFilter.begin("n2k.filter");
+  frameDenyFilter.begin("n2k.filter");
   inputAllowFilter.begin("n2k.apifilter");
 
 

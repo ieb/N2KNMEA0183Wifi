@@ -57,7 +57,7 @@ public:
 
 private:
   SendBufferCallback sendCallback = NULL;
-
+  // todo, convert to a map
   unsigned long lastSendHDG=0;
   unsigned long lastSendHDM=0;
   unsigned long lastSendHDT=0;

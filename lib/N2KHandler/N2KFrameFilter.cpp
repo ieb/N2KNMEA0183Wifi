@@ -14,6 +14,7 @@ void N2KFrameFilter::begin(const char * filterConfigName, const char * configura
     for(int i = 0; i < MAX_FILTERS; i++) {
       frameFilter[i] = strtoul(pEnd,&pEnd,10);
       if ( pEnd == NULL || *pEnd == '\0' ) {
+
         endFilters = i+1;
         break;
       }
