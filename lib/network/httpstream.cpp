@@ -69,7 +69,7 @@ SeasmartResponseStream::SeasmartResponseStream(Stream *outputStream, const Strin
   _chunked = true;
   String pgns = "all";
   if ( request->hasParam("pgns") ) {
-      AsyncWebParameter * op = request->getParam("pgns");
+      const AsyncWebParameter * op = request->getParam("pgns");
       pgns = op->value();
   }
   _npgns = sscanf(pgns.c_str(), 

@@ -61,6 +61,8 @@ private:
 class WebServer {
     public:
         WebServer(Stream *outputStream ) : outputStream{outputStream} {};
+        WebServer(const WebServer&) = delete;
+        WebServer& operator=(const WebServer&) = delete;
         void begin(const char * configurationFile = "/config.txt");
         void printStatus(Print *);
         String getBasicAuth() { return basicAuth; };
@@ -94,7 +96,7 @@ class WebServer {
 
     private:  
         Stream *outputStream;
-        AsyncWebServer server = AsyncWebServer(80);
+        AsyncWebServer server{80};
 #ifdef ENABLE_WEBSOCKETS
         AsyncWebSocket n0183WS = AsyncWebSocket("/ws/183"); 
         PgnWebSocket n2kWSraw = PgnWebSocket("/ws/candump3");  // supports filtering of messages.

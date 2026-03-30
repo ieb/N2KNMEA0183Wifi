@@ -475,6 +475,29 @@ void JdbBMS::dumpBuffer(const char *msg, uint8_t *b, uint8_t s, uint8_t e) {
     }
 }
 
+void JdbBMS::outputStore(Print *stream) {
+    uint8_t nCells = getUInt8(REG_NUMBER_OF_CELLS_U8, register03, register03Length);
+    uint8_t nNTC = getUInt8(REG_NTC_COUNT_U8, register03, register03Length);
+    stream->print("B");
+    stream->print(",");stream->print(getUInt16(REG_VOLTAGE_U16, register03, register03Length));
+    stream->print(",");stream->print((int16_t)getUInt16(REG_CURRENT_S16, register03, register03Length));
+    stream->print(",");stream->print(getUInt16(REG_PACK_CAPACITY_U16, register03, register03Length));
+    stream->print(",");stream->print(getUInt16(REG_FULL_CAPACITY_U16, register03, register03Length));
+    stream->print(",");stream->print(getUInt8(REG_SOC_U8, register03, register03Length));
+    stream->print(",");stream->print(getUInt16(REG_CHARGE_CYCLES_U16, register03, register03Length));
+    stream->print(",");stream->print(getUInt16(REG_ERRORS_U16, register03, register03Length));
+    stream->print(",");stream->print(getUInt8(REG_FET_STATUS_U8, register03, register03Length));
+    stream->print(",");stream->print(nCells);
+    for (int i = 0; i < nCells * 2 && i < register04Length; i += 2) {
+        stream->print(",");stream->print(getUInt16(i, register04, register04Length));
+    }
+    stream->print(",");stream->print(nNTC);
+    for (int i = 0; i < nNTC; i++) {
+        stream->print(",");stream->print(getUInt16(REG_NTC_READINGS_U16(i), register03, register03Length));
+    }
+    stream->println();
+}
+
 void JdbBMS::printStatus(Print *stream) {
     printStatus03(stream);
     printStatus04(stream);

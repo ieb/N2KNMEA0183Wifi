@@ -23,6 +23,8 @@ void WebServer::begin(const char * configurationFile) {
     }
 
     MDNS.addService("_http","_tcp",80);
+    MDNS.addServiceTxt("_http","_tcp","path","/api/");
+    MDNS.addServiceTxt("_http","_tcp","server","N2KNMEA0183Wifi");
 
 #ifdef ENABLE_WEBSOCKETS
     //server.addHandler(&n0183WS);
@@ -36,7 +38,7 @@ void WebServer::begin(const char * configurationFile) {
         // these will keep sending chunks as long as the client is connected.
         String pgns = "all";
         if ( request->hasParam("pgns") ) {
-            AsyncWebParameter * op = request->getParam("pgns");
+            const AsyncWebParameter * op = request->getParam("pgns");
             pgns = op->value();
         }
         SeasmartResponseStream * response = new SeasmartResponseStream(outputStream, "text/plain", request);
@@ -188,7 +190,7 @@ void WebServer::begin(const char * configurationFile) {
 
     server.on("/api/layout.json", HTTP_GET, [this](AsyncWebServerRequest *request) {
         ESP_LOGI(TAG, "GET /api/layout.json");
-        AsyncWebParameter * layout = request->getParam("layout", false, false);
+        const AsyncWebParameter * layout = request->getParam("layout", false, false);
         if ( layout == NULL) {
             AsyncResponseStream *response = request->beginResponseStream("application/json");
             addCORS(request, response);
@@ -222,7 +224,7 @@ void WebServer::begin(const char * configurationFile) {
             ESP_LOGI(TAG, "POST /api/fs.json");
             AsyncResponseStream *response = request->beginResponseStream("application/json");
             addCORS(request, response);
-            AsyncWebParameter * op = request->getParam("op", true, false);
+            const AsyncWebParameter * op = request->getParam("op", true, false);
             if ( op == NULL ) {
                 // try to get it from multipart
                 op = request->getParam("op", true, true);
@@ -232,7 +234,7 @@ void WebServer::begin(const char * configurationFile) {
                 response->println("{ \"ok\":false,\"msg\":\"op required\"}");
                 request->send(response);
             } else if ( op->value() == "delete" ) {
-                AsyncWebParameter * path = request->getParam("path", true, false);
+                const AsyncWebParameter * path = request->getParam("path", true, false);
                 if ( path == NULL ) {
                     response->setCode(400);
                     response->println("{ \"ok\":false,\"msg\":\"path to delete required\"}");
@@ -278,8 +280,8 @@ void WebServer::begin(const char * configurationFile) {
             // first chunk, only start to write the file if there is a path defined.
             // POSTS need to ensure that path and op are sent first before the body of 
             // the file.
-            AsyncWebParameter * path = request->getParam("path", true, false);
-            AsyncWebParameter * op = request->getParam("op", true, false);
+            const AsyncWebParameter * path = request->getParam("path", true, false);
+            const AsyncWebParameter * op = request->getParam("op", true, false);
             if ( path != NULL && op != NULL && op->value() == "upload" ) {
                 if ( request->_tempObject != NULL ) {
                     ESP_LOGE(TAG, "Upload only supports one file at a time");
@@ -396,7 +398,7 @@ void WebServer::begin(const char * configurationFile) {
             path = path + "index.html";
         }
         if (SPIFFS.exists(path) || SPIFFS.exists(path+".gz") )  {
-           AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path);
+           AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, String());
            this->addCORS(request, response);
            request->send(response);
         }
@@ -451,8 +453,8 @@ void WebServer::begin(const char * configurationFile) {
 
 void WebServer::handleAllFileUploads(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
     if ( authorized(request) ) {
-        AsyncWebParameter * op = request->getParam("path", true, false);
-        AsyncWebParameter * path = request->getParam("path", true, false);
+        const AsyncWebParameter * op = request->getParam("path", true, false);
+        const AsyncWebParameter * path = request->getParam("path", true, false);
         if ( request->url() == "/api/fs.json" && op != NULL && path != NULL && op->value() == "upload" ) {
             ESP_LOGI(TAG, "Handing a file upload to %s ", path->value());
             int status = 201;
@@ -472,7 +474,7 @@ void WebServer::handleAllFileUploads(AsyncWebServerRequest *request, String file
 }
 
 bool WebServer::authorized(AsyncWebServerRequest *request) {
-    AsyncWebHeader *authorization = request->getHeader("Authorization");
+    const AsyncWebHeader *authorization = request->getHeader("Authorization");
     if ( authorization == NULL || !httpauth.equals(authorization->value()) ) {
         AsyncWebServerResponse * response = request->beginResponse(401,"application/json","{ \"ok\": false, \"msg\":\"not authorized\"}");
         addCORS(request, response);
@@ -485,7 +487,7 @@ bool WebServer::authorized(AsyncWebServerRequest *request) {
 }
 
 void WebServer::addCORS(AsyncWebServerRequest *request, AsyncWebServerResponse * response ) {
-    AsyncWebHeader *orgin = request->getHeader("Origin");
+    const AsyncWebHeader *orgin = request->getHeader("Origin");
     if ( orgin != NULL) {
         String originValue = orgin->value();
         if ( originValue != NULL ) {

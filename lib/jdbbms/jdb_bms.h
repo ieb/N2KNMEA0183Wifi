@@ -45,6 +45,7 @@ public:
         lastReg05 = lastSend+150;
     };
     void printStatus(Print *stream);
+    void outputStore(Print *stream);
     void setSerial(Stream *stream) {
         this->io = stream;
     };
