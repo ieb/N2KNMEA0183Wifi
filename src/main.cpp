@@ -82,7 +82,8 @@ tNMEA2000_esp32 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_P
 #include "AsyncDNSServer.h"
 #include <ESPmDNS.h>
 #include "jdb_bms.h"
-
+#include "boatwatch_ble.h"
+#include "autopilot_state.h"
 
 #include "esp32-hal-psram.h"
 #include <map>
@@ -119,6 +120,9 @@ N2KFrameFilter inputAllowFilter;
 JBDBmsSimulator simulator;
 JdbBMS bms;
 bool bmsSimulatorOn = false;
+
+BoatWatchBLE bleServer;
+AutopilotBleState apBleState;
 
 
 
@@ -237,6 +241,14 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
     n2kHander.handle(N2kMsg); // may emit NMEA0183 messages
     engineFreezeFrame.handle(N2kMsg);
     sendAsSeaSmart(N2kMsg);
+
+    // Update BLE autopilot state from Raymarine PGNs
+    switch (N2kMsg.PGN) {
+        case 65379: apBleState.handlePGN65379(N2kMsg); break;
+        case 65359: apBleState.handlePGN65359(N2kMsg); break;
+        case 65360: apBleState.handlePGN65360(N2kMsg); break;
+        case 65345: apBleState.handlePGN65345(N2kMsg); break;
+    }
 }
 
 void showHelp() {
@@ -406,8 +418,117 @@ void printStatus(Print *stream) {
 }
 
 
+// ---------------------------------------------------------------------------
+// BLE command handler — translates binary commands to N2K PGN 126208
+// ---------------------------------------------------------------------------
+
+// Raymarine manufacturer bytes
+static const uint8_t RAY_MFR[] = {0x3B, 0x9F};
+
+// Encode degrees to Raymarine radians*10000 as uint16 LE
+static void encodeAngle(double degrees, uint8_t* out) {
+    uint16_t raw = uint16_t(degrees * M_PI / 180.0 * 10000.0) & 0xFFFF;
+    out[0] = raw & 0xFF;
+    out[1] = (raw >> 8) & 0xFF;
+}
+
+void handleBleCommand(uint8_t cmd, const uint8_t* payload, size_t len) {
+    tN2kMsg N2kMsg;
+    N2kMsg.Init(6, 126208L, 50, 0xFF);  // priority 6, PGN 126208, source 50
+
+    // Mode command prefix (12 bytes) + mode/qualifier (2 bytes) + submode suffix (3 bytes) = 17 bytes
+    static const uint8_t MODE_PREFIX[] = {0x01, 0x63, 0xFF, 0x00, 0xF8, 0x04,
+                                          0x01, 0x3B, 0x07, 0x03, 0x04, 0x04};
+    // Heading set prefix (12 bytes) + angle (2 bytes) = 14 bytes
+    static const uint8_t HDG_PREFIX[]  = {0x01, 0x50, 0xFF, 0x00, 0xF8, 0x03,
+                                          0x01, 0x3B, 0x07, 0x03, 0x04, 0x06};
+    // Wind datum prefix (12 bytes) + angle (2 bytes) = 14 bytes
+    static const uint8_t WIND_PREFIX[] = {0x01, 0x41, 0xFF, 0x00, 0xF8, 0x03,
+                                          0x01, 0x3B, 0x07, 0x03, 0x04, 0x04};
+
+    switch (cmd) {
+        case BW_CMD_STANDBY: {
+            memcpy(N2kMsg.Data, MODE_PREFIX, 12);
+            N2kMsg.Data[12] = 0x00; N2kMsg.Data[13] = 0x00;  // standby
+            N2kMsg.Data[14] = 0x05; N2kMsg.Data[15] = 0xFF; N2kMsg.Data[16] = 0xFF;
+            N2kMsg.DataLen = 17;
+            break;
+        }
+        case BW_CMD_COMPASS: {
+            memcpy(N2kMsg.Data, MODE_PREFIX, 12);
+            N2kMsg.Data[12] = 0x40; N2kMsg.Data[13] = 0x00;  // auto/compass
+            N2kMsg.Data[14] = 0x05; N2kMsg.Data[15] = 0xFF; N2kMsg.Data[16] = 0xFF;
+            N2kMsg.DataLen = 17;
+            break;
+        }
+        case BW_CMD_WIND_AWA: {
+            memcpy(N2kMsg.Data, MODE_PREFIX, 12);
+            N2kMsg.Data[12] = 0x00; N2kMsg.Data[13] = 0x01;  // wind
+            N2kMsg.Data[14] = 0x05; N2kMsg.Data[15] = 0x03; N2kMsg.Data[16] = 0x00;  // AWA
+            N2kMsg.DataLen = 17;
+            break;
+        }
+        case BW_CMD_WIND_TWA: {
+            memcpy(N2kMsg.Data, MODE_PREFIX, 12);
+            N2kMsg.Data[12] = 0x00; N2kMsg.Data[13] = 0x01;  // wind
+            N2kMsg.Data[14] = 0x05; N2kMsg.Data[15] = 0x04; N2kMsg.Data[16] = 0x00;  // TWA
+            N2kMsg.DataLen = 17;
+            break;
+        }
+        case BW_CMD_SET_HEADING: {
+            if (len < 2) return;
+            uint16_t raw = payload[0] | (uint16_t(payload[1]) << 8);
+            memcpy(N2kMsg.Data, HDG_PREFIX, 12);
+            encodeAngle(raw * 0.01, &N2kMsg.Data[12]);
+            N2kMsg.DataLen = 14;
+            break;
+        }
+        case BW_CMD_SET_WIND: {
+            if (len < 2) return;
+            int16_t raw = payload[0] | (int16_t(payload[1]) << 8);
+            double deg = raw * 0.01;
+            if (deg < 0) deg += 360.0;
+            memcpy(N2kMsg.Data, WIND_PREFIX, 12);
+            encodeAngle(deg, &N2kMsg.Data[12]);
+            N2kMsg.DataLen = 14;
+            break;
+        }
+        case BW_CMD_ADJUST_HEADING: {
+            if (len < 2) return;
+            int16_t raw = payload[0] | (int16_t(payload[1]) << 8);
+            double newHeading = fmod(apBleState.heading * 0.01 + raw * 0.01 + 360.0, 360.0);
+            memcpy(N2kMsg.Data, HDG_PREFIX, 12);
+            encodeAngle(newHeading, &N2kMsg.Data[12]);
+            N2kMsg.DataLen = 14;
+            break;
+        }
+        case BW_CMD_ADJUST_WIND: {
+            if (len < 2) return;
+            int16_t raw = payload[0] | (int16_t(payload[1]) << 8);
+            double newWind = apBleState.targetWind * 0.01 + raw * 0.01;
+            while (newWind > 180.0) newWind -= 360.0;
+            while (newWind < -180.0) newWind += 360.0;
+            if (newWind < 0) newWind += 360.0;
+            memcpy(N2kMsg.Data, WIND_PREFIX, 12);
+            encodeAngle(newWind, &N2kMsg.Data[12]);
+            N2kMsg.DataLen = 14;
+            break;
+        }
+        default:
+            ESP_LOGW(TAG, "Unknown BLE command: 0x%02X", cmd);
+            return;
+    }
+
+    // Send to N2K bus
+    if (N2kMsg.DataLen > 0) {
+        NMEA2000.SendMsg(N2kMsg);
+        ESP_LOGI(TAG, "BLE cmd 0x%02X -> N2K PGN 126208 (%d bytes)", cmd, N2kMsg.DataLen);
+    }
+}
+
+
 void setup() {
-  Serial.begin(115200); 
+  Serial.begin(115200);
   if ( !psramInit() ) {
 
     ESP_LOGE(TAG, "PSRAM not available.");
@@ -518,10 +639,14 @@ void setup() {
 
 
 
+  // Start BLE server
+  bleServer.begin("BoatWatch", "0000");
+  bleServer.setCommandCallback(handleBleCommand);
+
   ESP_LOGI(TAG, "Running.....");
   showHelp();
 
-  
+
 }
 
 
@@ -699,6 +824,13 @@ void loop() {
   }
   last = now;
   EmitMessages();
+
+  // Update BLE server with current state
+  bleServer.setAutopilotState(apBleState.mode, apBleState.heading,
+                               apBleState.targetHeading, apBleState.targetWind);
+  bleServer.setBatteryState(bms.getRegister03(), bms.getRegister03Length(),
+                             bms.getRegister04(), bms.getRegister04Length());
+  bleServer.loop();
   now = millis();
   if ( now - last > 100) {
     ESP_LOGE(TAG, "EmitMessages %ld %ld %d" ,now, last, (now - last));

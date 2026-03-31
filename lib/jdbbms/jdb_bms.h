@@ -55,6 +55,13 @@ public:
     void toggleDebug() {
         this->debug = !(this->debug);
     };
+
+    // Public register access for BLE binary protocol
+    const uint8_t* getRegister03() const { return register03; }
+    size_t getRegister03Length() const { return register03Length; }
+    const uint8_t* getRegister04() const { return register04; }
+    size_t getRegister04Length() const { return register04Length; }
+
 private:
     Stream * io;
     uint8_t buffer[BMS_MAX_BUFFER_LENGTH]; // enough for a whole packet 
