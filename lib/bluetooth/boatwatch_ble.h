@@ -47,7 +47,7 @@ public:
     // Set autopilot state for next notification
     void setAutopilotState(uint8_t mode, uint16_t heading, uint16_t targetHeading, int16_t targetWind);
 
-    // Set battery state from BMS register data (big-endian BMS format)
+    // Set battery state from BMS register data (little-endian, byte-swapped by JdbBMS)
     void setBatteryState(const uint8_t* reg03, size_t reg03Len,
                          const uint8_t* reg04, size_t reg04Len);
 

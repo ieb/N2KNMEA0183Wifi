@@ -4,7 +4,7 @@
 
 static const char* TAG = "BW_BLE";
 
-// BMS register offsets (big-endian in register buffer)
+// BMS register offsets (little-endian — byte-swapped from BMS big-endian by copyReg03/copyReg04)
 #define REG03_PACK_V_U16      0
 #define REG03_CURRENT_S16     2
 #define REG03_REMAINING_U16   4
@@ -15,17 +15,17 @@ static const char* TAG = "BW_BLE";
 #define REG03_FET_U8          20
 #define REG03_NCELLS_U8       21
 #define REG03_NNTC_U8         22
-// NTC temps start at offset 23 (each U16 big-endian)
+// NTC temps start at offset 23 (each U16 little-endian)
 
-// Helper: read big-endian U16 from BMS register buffer
-static uint16_t beU16(const uint8_t* d, uint8_t off, size_t len) {
+// Helper: read little-endian U16 from BMS register buffer
+static uint16_t leU16(const uint8_t* d, uint8_t off, size_t len) {
     if (off + 2 > len) return 0;
-    return (uint16_t(d[off]) << 8) | d[off + 1];
+    return d[off] | (uint16_t(d[off + 1]) << 8);
 }
 
-// Helper: read big-endian S16 from BMS register buffer
-static int16_t beS16(const uint8_t* d, uint8_t off, size_t len) {
-    return (int16_t)beU16(d, off, len);
+// Helper: read little-endian S16 from BMS register buffer
+static int16_t leS16(const uint8_t* d, uint8_t off, size_t len) {
+    return (int16_t)leU16(d, off, len);
 }
 
 void BoatWatchBLE::begin(const char* deviceName, const char* pin) {
@@ -126,23 +126,24 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
     // Header (little-endian)
     _batBuffer[pos++] = BW_MAGIC_BATTERY;
 
-    // Pack voltage (BMS big-endian → BLE little-endian)
-    uint16_t packV = beU16(reg03, REG03_PACK_V_U16, reg03Len);
+    // Pack voltage (register little-endian → BLE little-endian)
+    uint16_t packV = leU16(reg03, REG03_PACK_V_U16, reg03Len);
+    ESP_LOGI(TAG, "PackV %u ", packV)
     _batBuffer[pos++] = packV & 0xFF;
     _batBuffer[pos++] = (packV >> 8) & 0xFF;
 
     // Current (signed)
-    int16_t current = beS16(reg03, REG03_CURRENT_S16, reg03Len);
+    int16_t current = leS16(reg03, REG03_CURRENT_S16, reg03Len);
     _batBuffer[pos++] = current & 0xFF;
     _batBuffer[pos++] = (current >> 8) & 0xFF;
 
     // Remaining Ah
-    uint16_t remAh = beU16(reg03, REG03_REMAINING_U16, reg03Len);
+    uint16_t remAh = leU16(reg03, REG03_REMAINING_U16, reg03Len);
     _batBuffer[pos++] = remAh & 0xFF;
     _batBuffer[pos++] = (remAh >> 8) & 0xFF;
 
     // Full Ah
-    uint16_t fullAh = beU16(reg03, REG03_FULL_U16, reg03Len);
+    uint16_t fullAh = leU16(reg03, REG03_FULL_U16, reg03Len);
     _batBuffer[pos++] = fullAh & 0xFF;
     _batBuffer[pos++] = (fullAh >> 8) & 0xFF;
 
@@ -150,12 +151,12 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
     _batBuffer[pos++] = (reg03Len > REG03_SOC_U8) ? reg03[REG03_SOC_U8] : 0;
 
     // Cycles
-    uint16_t cycles = beU16(reg03, REG03_CYCLES_U16, reg03Len);
+    uint16_t cycles = leU16(reg03, REG03_CYCLES_U16, reg03Len);
     _batBuffer[pos++] = cycles & 0xFF;
     _batBuffer[pos++] = (cycles >> 8) & 0xFF;
 
     // Errors
-    uint16_t errors = beU16(reg03, REG03_ERRORS_U16, reg03Len);
+    uint16_t errors = leU16(reg03, REG03_ERRORS_U16, reg03Len);
     _batBuffer[pos++] = errors & 0xFF;
     _batBuffer[pos++] = (errors >> 8) & 0xFF;
 
@@ -165,9 +166,9 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
     // N cells
     _batBuffer[pos++] = nCells;
 
-    // Cell voltages from reg04 (big-endian → little-endian)
+    // Cell voltages from reg04 (little-endian)
     for (uint8_t i = 0; i < nCells && (i * 2 + 1) < reg04Len; i++) {
-        uint16_t cellV = beU16(reg04, i * 2, reg04Len);
+        uint16_t cellV = leU16(reg04, i * 2, reg04Len);
         _batBuffer[pos++] = cellV & 0xFF;
         _batBuffer[pos++] = (cellV >> 8) & 0xFF;
     }
@@ -175,10 +176,10 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
     // N NTC
     _batBuffer[pos++] = nNtc;
 
-    // NTC temps from reg03 (big-endian → little-endian, starting at offset 23)
+    // NTC temps from reg03 (little-endian, starting at offset 23)
     for (uint8_t i = 0; i < nNtc; i++) {
         uint8_t off = 23 + i * 2;
-        uint16_t temp = beU16(reg03, off, reg03Len);
+        uint16_t temp = leU16(reg03, off, reg03Len);
         _batBuffer[pos++] = temp & 0xFF;
         _batBuffer[pos++] = (temp >> 8) & 0xFF;
     }
