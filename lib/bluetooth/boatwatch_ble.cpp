@@ -17,16 +17,6 @@ static const char* TAG = "BW_BLE";
 #define REG03_NNTC_U8         22
 // NTC temps start at offset 23 (each U16 little-endian)
 
-// Helper: read little-endian U16 from BMS register buffer
-static uint16_t leU16(const uint8_t* d, uint8_t off, size_t len) {
-    if (off + 2 > len) return 0;
-    return d[off] | (uint16_t(d[off + 1]) << 8);
-}
-
-// Helper: read little-endian S16 from BMS register buffer
-static int16_t leS16(const uint8_t* d, uint8_t off, size_t len) {
-    return (int16_t)leU16(d, off, len);
-}
 
 void BoatWatchBLE::begin(const char* deviceName, const char* pin) {
     _pin = pin;
@@ -123,65 +113,44 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
 
     uint8_t pos = 0;
 
-    // Header (little-endian)
+    // Header
     _batBuffer[pos++] = BW_MAGIC_BATTERY;
 
-    // Pack voltage (register little-endian → BLE little-endian)
-    uint16_t packV = leU16(reg03, REG03_PACK_V_U16, reg03Len);
-    ESP_LOGI(TAG, "PackV %u ", packV);
-    _batBuffer[pos++] = packV & 0xFF;
-    _batBuffer[pos++] = (packV >> 8) & 0xFF;
+    // Registers are already little-endian (byte-swapped by JdbBMS::copyReg03/04),
+    // and BLE protocol is little-endian, so copy bytes directly.
 
-    // Current (signed)
-    int16_t current = leS16(reg03, REG03_CURRENT_S16, reg03Len);
-    _batBuffer[pos++] = current & 0xFF;
-    _batBuffer[pos++] = (current >> 8) & 0xFF;
-
-    // Remaining Ah
-    uint16_t remAh = leU16(reg03, REG03_REMAINING_U16, reg03Len);
-    _batBuffer[pos++] = remAh & 0xFF;
-    _batBuffer[pos++] = (remAh >> 8) & 0xFF;
-
-    // Full Ah
-    uint16_t fullAh = leU16(reg03, REG03_FULL_U16, reg03Len);
-    _batBuffer[pos++] = fullAh & 0xFF;
-    _batBuffer[pos++] = (fullAh >> 8) & 0xFF;
-
-    // SOC
-    _batBuffer[pos++] = (reg03Len > REG03_SOC_U8) ? reg03[REG03_SOC_U8] : 0;
-
-    // Cycles
-    uint16_t cycles = leU16(reg03, REG03_CYCLES_U16, reg03Len);
-    _batBuffer[pos++] = cycles & 0xFF;
-    _batBuffer[pos++] = (cycles >> 8) & 0xFF;
-
-    // Errors
-    uint16_t errors = leU16(reg03, REG03_ERRORS_U16, reg03Len);
-    _batBuffer[pos++] = errors & 0xFF;
-    _batBuffer[pos++] = (errors >> 8) & 0xFF;
-
-    // FET status
-    _batBuffer[pos++] = (reg03Len > REG03_FET_U8) ? reg03[REG03_FET_U8] : 0;
-
-    // N cells
+    // Pack voltage U16
+    memcpy(&_batBuffer[pos], &reg03[REG03_PACK_V_U16], 2); pos += 2;
+    // Current S16
+    memcpy(&_batBuffer[pos], &reg03[REG03_CURRENT_S16], 2); pos += 2;
+    // Remaining Ah U16
+    memcpy(&_batBuffer[pos], &reg03[REG03_REMAINING_U16], 2); pos += 2;
+    // Full Ah U16
+    memcpy(&_batBuffer[pos], &reg03[REG03_FULL_U16], 2); pos += 2;
+    // SOC U8
+    _batBuffer[pos++] = reg03[REG03_SOC_U8];
+    // Cycles U16
+    memcpy(&_batBuffer[pos], &reg03[REG03_CYCLES_U16], 2); pos += 2;
+    // Errors U16
+    memcpy(&_batBuffer[pos], &reg03[REG03_ERRORS_U16], 2); pos += 2;
+    // FET status U8
+    _batBuffer[pos++] = reg03[REG03_FET_U8];
+    // N cells U8
     _batBuffer[pos++] = nCells;
 
-    // Cell voltages from reg04 (little-endian)
-    for (uint8_t i = 0; i < nCells && (i * 2 + 1) < reg04Len; i++) {
-        uint16_t cellV = leU16(reg04, i * 2, reg04Len);
-        _batBuffer[pos++] = cellV & 0xFF;
-        _batBuffer[pos++] = (cellV >> 8) & 0xFF;
+    // Cell voltages from reg04
+    uint8_t cellBytes = nCells * 2;
+    if (cellBytes <= reg04Len) {
+        memcpy(&_batBuffer[pos], reg04, cellBytes); pos += cellBytes;
     }
 
-    // N NTC
+    // N NTC U8
     _batBuffer[pos++] = nNtc;
 
-    // NTC temps from reg03 (little-endian, starting at offset 23)
-    for (uint8_t i = 0; i < nNtc; i++) {
-        uint8_t off = 23 + i * 2;
-        uint16_t temp = leU16(reg03, off, reg03Len);
-        _batBuffer[pos++] = temp & 0xFF;
-        _batBuffer[pos++] = (temp >> 8) & 0xFF;
+    // NTC temps from reg03 (starting at offset 23)
+    uint8_t ntcBytes = nNtc * 2;
+    if (23 + ntcBytes <= reg03Len) {
+        memcpy(&_batBuffer[pos], &reg03[23], ntcBytes); pos += ntcBytes;
     }
 
     _batLen = pos;
