@@ -128,7 +128,7 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
 
     // Pack voltage (register little-endian → BLE little-endian)
     uint16_t packV = leU16(reg03, REG03_PACK_V_U16, reg03Len);
-    ESP_LOGI(TAG, "PackV %u ", packV)
+    ESP_LOGI(TAG, "PackV %u ", packV);
     _batBuffer[pos++] = packV & 0xFF;
     _batBuffer[pos++] = (packV >> 8) & 0xFF;
 
