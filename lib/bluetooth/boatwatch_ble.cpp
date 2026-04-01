@@ -1,3 +1,5 @@
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+#include "esp_log.h"
 #include "boatwatch_ble.h"
 
 static const char* TAG = "BW_BLE";

@@ -49,9 +49,9 @@ void WebServer::begin(const char * configurationFile) {
             this->removeSeasmartResponse(response);
         });
         this->addCORS(request, response);
-        ESP_LOGI("Send stream %d ", (int) response);
+        ESP_LOGI(TAG, "Send stream %d ", (int) response);
         request->send(response);
-        ESP_LOGI("Done response setup %d", (int) response);
+        ESP_LOGI(TAG, "Done response setup %d", (int) response);
     });
 
 
@@ -201,7 +201,7 @@ void WebServer::begin(const char * configurationFile) {
             String layoutFile = "/layout-";
             // checked
             layoutFile = layoutFile + layout->value() + ".json";
-            ESP_LOGI(TAG, layoutFile);
+            ESP_LOGI(TAG, "%s", layoutFile);
             AsyncWebServerResponse * fileResponse = request->beginResponse(SPIFFS, layoutFile, "application/json");
             if ( fileResponse == NULL) {
                 AsyncResponseStream * response = request->beginResponseStream("application/json");
@@ -554,7 +554,7 @@ void WebServer::sendSeaSmart(unsigned long pgn, const char *buffer) {
 
 
 void WebServer::addSeasmartResponse(SeasmartResponseStream * response) {
-    ESP_LOGI("Core: %d Add %d", xPortGetCoreID(), (int) response);
+    ESP_LOGI(TAG, "Core: %d Add %d", xPortGetCoreID(), (int) response);
     if ( seasmartStreamsHead == NULL ) {
         seasmartStreamsHead = response;
         return;

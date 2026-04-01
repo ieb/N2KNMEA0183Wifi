@@ -14,6 +14,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
@@ -201,7 +202,7 @@ bool allowRateLimit(const tN2kMsg &N2kMsg) {
   if (lastMessageSend.count(key) != 0){
     if ((now - lastMessageSend[key]) > 1000) {
       lastMessageSend[key] = now;
-      ESP_LOGI(TAG, "send %d %d %d %d", key, N2kMsg.PGN, N2kMsg.Source, lastMessageSend.size());
+      ESP_LOGD(TAG, "send %d %d %d %d", key, N2kMsg.PGN, N2kMsg.Source, lastMessageSend.size());
       return true;
     }
   } else {
@@ -209,7 +210,7 @@ bool allowRateLimit(const tN2kMsg &N2kMsg) {
     ESP_LOGE(TAG, "new pgn:%d source:%d pgn_count:%d", N2kMsg.PGN, N2kMsg.Source, lastMessageSend.size());
     return true;
   }
-  ESP_LOGI(TAG, "debounce %d %d %d", key, N2kMsg.PGN, N2kMsg.Source);
+  ESP_LOGD(TAG, "debounce %d %d %d", key, N2kMsg.PGN, N2kMsg.Source);
   return false;
 }
 
@@ -529,6 +530,16 @@ void handleBleCommand(uint8_t cmd, const uint8_t* payload, size_t len) {
 
 void setup() {
   Serial.begin(115200);
+  Serial.setDebugOutput(true);
+
+
+    // show what levels are supported
+  ESP_LOGE("MyApp", "Error Reporting On");
+  ESP_LOGW("MyApp", "Warning Reporting On");
+  ESP_LOGI("MyApp", "Information Reporting On");
+  ESP_LOGD("MyApp", "Debug Reporting On");
+  ESP_LOGV("MyApp", "Verbose Reporting On");
+
   if ( !psramInit() ) {
 
     ESP_LOGE(TAG, "PSRAM not available.");
@@ -546,12 +557,12 @@ void setup() {
   ESP_LOGI(TAG, "Starting MDNS");
   MDNS.begin("boatsystems");
 
-  ESP_LOGE(TAG, "Starting TCP Servers");
+  ESP_LOGE(TAG, "Starting TCP Servers xxx");
   echoServer.begin();
   nmeaServer.begin();
   nmeaSender.begin();
 
-  ESP_LOGI(TAG, "Starting Http Server");
+  ESP_LOGE(TAG, "Starting Http Server xxxx");
   webServer.setStoreCallback([](Print *stream) {
     n2kHander.output(stream); // H,...
     performance.output(stream); // P,...
@@ -577,6 +588,7 @@ void setup() {
 
 
 
+  ESP_LOGE(TAG, "Starting BMS Stack");
   ESP_LOGI(TAG, "Starting BMS Stack");
   #ifdef ESP_32_BOARD
   Serial1.begin(9600,SERIAL_8N1);
@@ -643,7 +655,7 @@ void setup() {
   bleServer.begin("BoatWatch", "0000");
   bleServer.setCommandCallback(handleBleCommand);
 
-  ESP_LOGI(TAG, "Running.....");
+  ESP_LOGE(TAG, "Running.....");
   showHelp();
 
 
@@ -807,7 +819,7 @@ void loop() {
   unsigned long last = millis();
   NMEA2000.ParseMessages();
   unsigned long now = millis();
-  if ( now - last > 100) {
+  if ( now - last > 200) {
     ESP_LOGE(TAG, "ParseMessages %ld %ld %d" ,now, last, (now - last));
   }
   last = now;

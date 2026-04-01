@@ -1,5 +1,6 @@
 #include "httpstream.h"
 
+#define TAG "httpstream"
 
 void BroadcastBuffer::writeLine(const char * buffer) {
     const char * bpos = buffer;
