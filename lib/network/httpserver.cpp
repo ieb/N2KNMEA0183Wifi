@@ -22,6 +22,7 @@ void WebServer::begin(const char * configurationFile) {
         return;
     }
 
+    seasmartMutex = xSemaphoreCreateMutex();
     MDNS.addService("_http","_tcp",80);
     MDNS.addServiceTxt("_http","_tcp","path","/api/");
     MDNS.addServiceTxt("_http","_tcp","server","N2KNMEA0183Wifi");
@@ -521,28 +522,35 @@ void WebServer::sendN2K(const char *buffer) {
 
 
 void WebServer::printStatus(Print *stream) {
+    xSemaphoreTake(seasmartMutex, portMAX_DELAY);
     SeasmartResponseStream *headStream = seasmartStreamsHead;
     while(headStream != NULL ) {
         headStream->printStatus(stream);
         headStream = headStream->nextStream;
     }
+    xSemaphoreGive(seasmartMutex);
 }
 
 
 // Handling for a linked list of active seasmart response streams.
 
 bool WebServer::acceptSeaSmart(unsigned long pgn) {
+    xSemaphoreTake(seasmartMutex, portMAX_DELAY);
     SeasmartResponseStream *headStream = seasmartStreamsHead;
+    bool accepted = false;
     while(headStream != NULL ) {
         if ( headStream->acceptPgn(pgn) ) {
-            return true;
+            accepted = true;
+            break;
         }
         headStream = headStream->nextStream;
     }
-    return false;    
+    xSemaphoreGive(seasmartMutex);
+    return accepted;
 }
 
 void WebServer::sendSeaSmart(unsigned long pgn, const char *buffer) {
+    xSemaphoreTake(seasmartMutex, portMAX_DELAY);
     SeasmartResponseStream *headStream = seasmartStreamsHead;
     while(headStream != NULL ) {
         if ( headStream->acceptPgn(pgn) ) {
@@ -550,6 +558,7 @@ void WebServer::sendSeaSmart(unsigned long pgn, const char *buffer) {
         }
         headStream = headStream->nextStream;
     }
+    xSemaphoreGive(seasmartMutex);
 }
 
 
@@ -557,38 +566,42 @@ void WebServer::sendSeaSmart(unsigned long pgn, const char *buffer) {
 
 void WebServer::addSeasmartResponse(SeasmartResponseStream * response) {
     ESP_LOGI(TAG, "Core: %d Add %d", xPortGetCoreID(), (int) response);
+    xSemaphoreTake(seasmartMutex, portMAX_DELAY);
     if ( seasmartStreamsHead == NULL ) {
         seasmartStreamsHead = response;
-        return;
+    } else {
+        // add the response to the end of the linked list of responses.
+        SeasmartResponseStream *headStream = seasmartStreamsHead;
+        while(headStream->nextStream != NULL ) {
+            headStream = headStream->nextStream;
+        }
+        headStream->nextStream = response;
     }
-    // add the response to the end of the linked list of responses.
-    SeasmartResponseStream *headStream = seasmartStreamsHead;
-    while(headStream->nextStream != NULL ) {
-        headStream = headStream->nextStream;
-    }
-    headStream->nextStream = response;
+    xSemaphoreGive(seasmartMutex);
 }
 
 /** 
  * remove the response from the linked list of seasmartStreams.
  */ 
 void WebServer::removeSeasmartResponse(SeasmartResponseStream * response) {
+    xSemaphoreTake(seasmartMutex, portMAX_DELAY);
     if ( seasmartStreamsHead != NULL ) {
-        // first entry in the list, remove it and make the next 
+        // first entry in the list, remove it and make the next
         // entry the first, which could be NULL.
         if (seasmartStreamsHead == response) {
             seasmartStreamsHead = seasmartStreamsHead->nextStream;
-            return;
-        }
-        SeasmartResponseStream *headStream = seasmartStreamsHead;
-        while(headStream->nextStream != NULL) {
-            if ( headStream->nextStream == response) {
-                headStream->nextStream = response->nextStream;
-                return;
+        } else {
+            SeasmartResponseStream *headStream = seasmartStreamsHead;
+            while(headStream->nextStream != NULL) {
+                if ( headStream->nextStream == response) {
+                    headStream->nextStream = response->nextStream;
+                    break;
+                }
+                headStream = headStream->nextStream;
             }
-            headStream = headStream->nextStream;
         }
     }
+    xSemaphoreGive(seasmartMutex);
 }
 
 

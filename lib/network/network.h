@@ -4,6 +4,7 @@
 #include <WiFiUdp.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
+#include <freertos/semphr.h>
 #include "local_secrets.h"
 
 #include "httpstream.h"
@@ -108,6 +109,7 @@ class WebServer {
         BroadcastBuffer nmea0183OutputBuffer;
         // holds the head of a linked list of seasmartStreams.
         SeasmartResponseStream * seasmartStreamsHead = NULL;
+        SemaphoreHandle_t seasmartMutex = NULL;
 
         FnResponseOutputHandler storeOutputFn = NULL;
         FnResponseOutputHandler listDeviceOutputFn = NULL;
