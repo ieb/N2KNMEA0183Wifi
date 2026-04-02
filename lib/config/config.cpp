@@ -32,3 +32,4 @@ bool ConfigurationFile::get(const char * filename, const String &key, String &va
     f.close();
     return false;
 }
+

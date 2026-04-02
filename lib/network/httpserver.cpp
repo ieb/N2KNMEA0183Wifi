@@ -63,6 +63,7 @@ void WebServer::begin(const char * configurationFile) {
             if (request->hasParam("msg", true)) {
                 if (seasmartInputHandler != NULL) {
                     String seasmart = request->getParam("msg", true)->value();
+                    // safe, c_str reference not persisted
                     code = seasmartInputHandler(seasmart.c_str());
                     if (code == 200) {
                         message = "{ \"ok\": true, \"msg\":\"sent\"}";
@@ -290,7 +291,7 @@ void WebServer::begin(const char * configurationFile) {
                         // if there was a file open, close it.
                         request->_tempFile.close();
                     }
-
+                    // safe use of c_str, copied below
                     const char * pathValue = path->value().c_str();
                     // allocate enough space for a uint16_t and the path, including the \0 terminator
                     request->_tempObject = malloc(2+strlen(pathValue)+1);
@@ -315,7 +316,7 @@ void WebServer::begin(const char * configurationFile) {
         // only if a file has been setup to write
         if ( request->_tempObject != NULL && request->_tempFile ) {
 
-            // only if there is come data
+            // only if there is some data
             if ( len ) {
                 // append the chunk to the file.
                 if ( request->_tempFile.write(data,len) != len ) {
@@ -435,6 +436,7 @@ void WebServer::begin(const char * configurationFile) {
             basicAuth += (char)((48+buffer[i]%(125-48)));
         }
         httpauth = "Basic "+base64::encode(basicAuth);
+        // safe use of c_str
         ESP_LOGE(TAG, "Using generated http basic auth admin password: %s\n", basicAuth.c_str());
         ESP_LOGE(TAG, "Use Header: Authorization: %s\n", httpauth.c_str());
     } else {

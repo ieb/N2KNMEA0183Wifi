@@ -78,6 +78,7 @@ void Wifi::startAP() {
         outputStream->print(ssid);
         outputStream->print(" PW ");
         outputStream->println(password);
+        // Safe use of c_str, softAP impl takes a copy of the c_str respecting const char *
         WiFi.softAP(ssid.c_str(), password.c_str());
         // reduce power as all clients are going to be within 5m
         WiFi.setTxPower(maxWifiPower);

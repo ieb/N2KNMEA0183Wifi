@@ -171,7 +171,7 @@ void DNSServer::replyWithIP(AsyncUDPPacket &req, DNSHeader &dnsHeader, DNSQuesti
   rpl.write(reinterpret_cast<uint8_t *>(&ip), sizeof(uint32_t));  // The IPv4 address to return
 
   _udp.sendTo(rpl, req.remoteIP(), req.remotePort());
-
+  // safe c_str
   ESP_LOGI(TAG,
     "DNS responds: %s for %s\n", _resolvedIP.toString().c_str(),
     getDomainNameWithoutWwwPrefix(static_cast<const unsigned char *>(dnsQuestion.QName), dnsQuestion.QNameLength).c_str()

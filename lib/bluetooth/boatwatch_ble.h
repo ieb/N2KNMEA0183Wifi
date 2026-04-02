@@ -33,16 +33,16 @@
 #define BW_MODE_WIND_TWA 3
 
 // Notification intervals
-#define BW_AUTOPILOT_INTERVAL_MS 200   // ~5 Hz
-#define BW_BATTERY_INTERVAL_MS   1000  // ~1 Hz
+#define BW_MAX_AUTOPILOT_INTERVAL_MS 5000   // max 5s
+#define BW_MAX_BATTERY_INTERVAL_MS   5000  // max 5s
 
 class BoatWatchBLE : public NimBLEServerCallbacks,
                      public NimBLECharacteristicCallbacks {
 public:
     using CommandCallback = std::function<void(uint8_t cmd, const uint8_t* payload, size_t len)>;
 
-    void begin(const char* deviceName, const char* pin = "0000");
-    void loop();
+    void begin(const char* deviceName, const char * _configurationFile = "/config.txt");
+    void notify();
 
     // Set autopilot state for next notification
     void setAutopilotState(uint8_t mode, uint16_t heading, uint16_t targetHeading, int16_t targetWind);

@@ -73,6 +73,7 @@ SeasmartResponseStream::SeasmartResponseStream(Stream *outputStream, const Strin
       const AsyncWebParameter * op = request->getParam("pgns");
       pgns = op->value();
   }
+  // safe use of c_str
   _npgns = sscanf(pgns.c_str(), 
       "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld", 
       &_pgns[0], 

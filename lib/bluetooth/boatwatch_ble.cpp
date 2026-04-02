@@ -1,6 +1,7 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "esp_log.h"
 #include "boatwatch_ble.h"
+#include "config.h"
 
 static const char* TAG = "BW_BLE";
 
@@ -18,8 +19,10 @@ static const char* TAG = "BW_BLE";
 // NTC temps start at offset 23 (each U16 little-endian)
 
 
-void BoatWatchBLE::begin(const char* deviceName, const char* pin) {
-    _pin = pin;
+void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile) {
+    if ( !ConfigurationFile::get(_configurationFile, "ble.pin", _pin)) {
+        _pin = "0000";
+    }
 
     NimBLEDevice::init(deviceName);
     NimBLEDevice::setMTU(64);
@@ -56,24 +59,24 @@ void BoatWatchBLE::begin(const char* deviceName, const char* pin) {
     advertising->setName(deviceName);
     advertising->start();
 
-    ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, pin);
+    ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
 }
 
-void BoatWatchBLE::loop() {
+void BoatWatchBLE::notify() {
     if (!_connected || !_authenticated) return;
 
     unsigned long now = millis();
 
-    // Autopilot notifications at ~5 Hz
-    if (_apDirty && (now - _lastApNotify >= BW_AUTOPILOT_INTERVAL_MS)) {
+    // Autopilot when updated, or at least every 5s
+    if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {
         _autopilotChar->setValue(_apBuffer, 10);
         _autopilotChar->notify();
         _lastApNotify = now;
         _apDirty = false;
     }
 
-    // Battery notifications at ~1 Hz
-    if (_batDirty && _batLen > 0 && (now - _lastBatNotify >= BW_BATTERY_INTERVAL_MS)) {
+    // when updated or at least every 5s
+    if (_batLen > 0 && ( _batDirty || (now - _lastBatNotify >= BW_MAX_BATTERY_INTERVAL_MS))) {
         _batteryChar->setValue(_batBuffer, _batLen);
         _batteryChar->notify();
         _lastBatNotify = now;

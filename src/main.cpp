@@ -652,7 +652,7 @@ void setup() {
 
 
   // Start BLE server
-  bleServer.begin("BoatWatch", "0000");
+  bleServer.begin("BoatWatch");
   bleServer.setCommandCallback(handleBleCommand);
 
   ESP_LOGE(TAG, "Running.....");
@@ -817,6 +817,8 @@ void endTimer(int i) {
 //*****************************************************************************
 void loop() { 
   unsigned long last = millis();
+  unsigned long lastBmsUpdate = millis();
+  unsigned long lastPilotUpdate = millis();
   NMEA2000.ParseMessages();
   unsigned long now = millis();
   if ( now - last > 200) {
@@ -836,16 +838,27 @@ void loop() {
   }
   last = now;
   EmitMessages();
-
-  // Update BLE server with current state
-  bleServer.setAutopilotState(apBleState.mode, apBleState.heading,
-                               apBleState.targetHeading, apBleState.targetWind);
-  bleServer.setBatteryState(bms.getRegister03(), bms.getRegister03Length(),
-                             bms.getRegister04(), bms.getRegister04Length());
-  bleServer.loop();
   now = millis();
   if ( now - last > 100) {
     ESP_LOGE(TAG, "EmitMessages %ld %ld %d" ,now, last, (now - last));
+  }
+
+  last = now;
+  // Update BLE server with current state when updated
+  if (apBleState.lastUpdate - lastPilotUpdate > 0) {
+    lastPilotUpdate = apBleState.lastUpdate;
+    bleServer.setAutopilotState(apBleState.mode, apBleState.heading,
+                               apBleState.targetHeading, apBleState.targetWind);
+  }
+  if (bms.getLastUpdate() - lastBmsUpdate > 0) {
+    lastBmsUpdate = bms.getLastUpdate();
+    bleServer.setBatteryState(bms.getRegister03(), bms.getRegister03Length(),
+                                 bms.getRegister04(), bms.getRegister04Length());
+  }
+  bleServer.notify();
+  now = millis();
+  if ( now - last > 100) {
+    ESP_LOGE(TAG, "BLENotify %ld %ld %d" ,now, last, (now - last));
   }
 
 }
