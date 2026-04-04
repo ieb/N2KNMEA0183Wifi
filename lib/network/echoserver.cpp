@@ -38,6 +38,10 @@ void EchoServer::begin() {
   ESP_LOGE(TAG, "Echo Server started");
 }
 
+void EchoServer::end() {
+  server.end();
+}
+
 
 
 /*

@@ -36,6 +36,7 @@ uint8_t temprature_sens_read();
 #define ESP32_CAN_TX_PIN GPIO_NUM_10
 #define BMS_RX_PIN GPIO_NUM_4
 #define BMS_TX_PIN GPIO_NUM_2
+#define CAN_ON_PIN GPIO_NUM_7
 #endif
 #define MAX_NMEA2000_MESSAGE_SEASMART_SIZE 1024
 
@@ -121,6 +122,7 @@ N2KFrameFilter inputAllowFilter;
 JBDBmsSimulator simulator;
 JdbBMS bms;
 bool bmsSimulatorOn = false;
+bool networkUp = false;
 
 BoatWatchBLE bleServer;
 AutopilotBleState apBleState;
@@ -264,6 +266,7 @@ void showHelp() {
   OutputStream->println("  - Send 'f' to trigger freeze frame");
   OutputStream->println("  - Send 'S' to toggle BMS simulator");
   OutputStream->println("  - Send 'p' set udp port");
+  OutputStream->println("  - Send 'N' to toggle Network");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
   OutputStream->println("  - Send 'R' to restart");
 }
@@ -521,17 +524,116 @@ void handleBleCommand(uint8_t cmd, const uint8_t* payload, size_t len) {
     }
 
     // Send to N2K bus
-    if (N2kMsg.DataLen > 0) {
+    if (networkUp && N2kMsg.DataLen > 0) {
         NMEA2000.SendMsg(N2kMsg);
         ESP_LOGI(TAG, "BLE cmd 0x%02X -> N2K PGN 126208 (%d bytes)", cmd, N2kMsg.DataLen);
     }
 }
 
 
+void setupCanStack() {
+    ESP_LOGI(TAG, "Starting Nmea20000 Stack");
+    // Set Product information
+    NMEA2000.SetProductInformation("00000003", // Manufacturer's Model SerialIO code
+                                 100, // Manufacturer's product code
+                                 "N2k Wifi bridge",  // Manufacturer's Model ID
+                                 "1.0.0.10 (2017-07-29)",  // Manufacturer's Software version code
+                                 "1.0.0.0 (2017-07-12)" // Manufacturer's Model version
+                                );
+
+    // Set device information
+    NMEA2000.SetDeviceInformation(5, // Unique number. Use e.g. SerialIO number.
+                                130, // Device function=Display. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                120, // Device class=Display. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                2046 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+                               );
+
+
+    messageEncoder.setSendBufferCallback(SendNMEA0183Message);
+
+    //  NMEA2000.SetN2kCANReceiveFrameBufSize(50);
+    // Do not forward bus messages at all
+    NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
+    NMEA2000.SetForwardStream(OutputStream);
+    // Set false below, if you do not want to see messages parsed to HEX withing library
+    NMEA2000.EnableForward(false);
+    // set the TWAI RX buffer sizes larger to cope with overflows, TX=40 is the default
+    NMEA2000.SetCANBufferSize(100,40);
+    NMEA2000.SetN2kCANReceiveFrameBufSize(150);
+    NMEA2000.SetN2kCANMsgBufSize(8);
+    NMEA2000.ExtendTransmitMessages(TransmitMessages);
+    NMEA2000.ExtendReceiveMessages(ReceiveMessages);
+
+    NMEA2000.SetMsgHandler(HandleNMEA2000Msg);
+
+    NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 50);
+    // this will also trigger a ISO Address claim, which is going to fail
+    // if the can is not runing
+    xTaskCreate(monitorAlertsTask, "TWAI_alertMonitor", 4096, NULL, 5, &alert_monitor_task_handle_);
+    NMEA2000.Open();
+}
+
+void setupNetworkStack() {
+    webServer.setStoreCallback([](Print *stream) {
+        n2kHander.output(stream); // H,...
+        performance.output(stream); // P,...
+        bms.outputStore(stream); // B,...
+    });
+
+    webServer.setStatusCallback([](Print *stream) {
+        printStatus(stream);
+    });
+
+    webServer.setDeviceListCallback([](Print *stream) {
+        listDevices.output(stream);
+    });
+
+    webServer.setSeasmartCallback(HandleSeasmartMsg);
+    webServer.init();
+
+    frameDenyFilter.begin("n2k.filter");
+    inputAllowFilter.begin("n2k.apifilter");
+}
+
+
+void onEnableNetwork() {
+  ESP_LOGI(TAG, "Starting Wifi");
+  wifi.begin();
+  // start MDNS  so others can register.
+  ESP_LOGI(TAG, "Starting MDNS");
+  MDNS.begin("boatsystems");
+
+  ESP_LOGE(TAG, "Starting TCP Servers xxx");
+  echoServer.begin();
+  nmeaServer.begin();
+  nmeaSender.begin();
+  if (dnsServer.start()) {
+    Serial.println("Started DNS server");
+  } else {
+    Serial.println("DNS Server not started, not in AP mode");
+  }
+
+  ESP_LOGE(TAG, "Starting Http Server xxxx");
+
+  webServer.begin();
+}
+
+void onDisableNetwork() {
+    // stop th montor tas
+  webServer.end();
+  dnsServer.stop();
+  nmeaSender.end();
+  nmeaServer.end();
+  echoServer.end();
+  MDNS.end();
+  wifi.end();
+
+}
+
+
 void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
-
 
     // show what levels are supported
   ESP_LOGE("MyApp", "Error Reporting On");
@@ -547,49 +649,12 @@ void setup() {
     ESP_LOGI(TAG, "Total PSRAM: %d", ESP.getPsramSize());
     ESP_LOGI(TAG, "Free PSRAM:  %d", ESP.getFreePsram());
   }
-  ESP_LOGI(TAG, "Starting Wifi");
-  // Start the wifi
-  wifi.begin();
 
-
-
-  // start MDNS  so others can register.
-  ESP_LOGI(TAG, "Starting MDNS");
-  MDNS.begin("boatsystems");
-
-  ESP_LOGE(TAG, "Starting TCP Servers xxx");
-  echoServer.begin();
-  nmeaServer.begin();
-  nmeaSender.begin();
-
-  ESP_LOGE(TAG, "Starting Http Server xxxx");
-  webServer.setStoreCallback([](Print *stream) {
-    n2kHander.output(stream); // H,...
-    performance.output(stream); // P,...
-    bms.outputStore(stream); // B,...
-  });
-
-  webServer.setStatusCallback([](Print *stream) {
-    printStatus(stream);
-  });
-
-  webServer.setDeviceListCallback([](Print *stream) {
-    listDevices.output(stream);
-  });
-
-  webServer.setSeasmartCallback(HandleSeasmartMsg);
-
-  webServer.begin();
-
-  frameDenyFilter.begin("n2k.filter");
-  inputAllowFilter.begin("n2k.apifilter");
-
-
-
-
+  if(!SPIFFS.begin(false)){
+    ESP_LOGE(TAG, "An Error has occurred while mounting SPIFFS");
+  }
 
   ESP_LOGE(TAG, "Starting BMS Stack");
-  ESP_LOGI(TAG, "Starting BMS Stack");
   #ifdef ESP_32_BOARD
   Serial1.begin(9600,SERIAL_8N1);
   #else
@@ -597,68 +662,15 @@ void setup() {
   #endif
   bms.setSerial(&Serial1);
   bms.begin();
-
-
-
-  if (dnsServer.start()) {
-    Serial.println("Started DNS server");
-  } else {
-    Serial.println("DNS Server not started, not in AP mode");
-  }
-
-
-  ESP_LOGI(TAG, "Starting Nmea20000 Stack");
-  // Set Product information
-  NMEA2000.SetProductInformation("00000003", // Manufacturer's Model SerialIO code
-                                 100, // Manufacturer's product code
-                                 "N2k Wifi bridge",  // Manufacturer's Model ID
-                                 "1.0.0.10 (2017-07-29)",  // Manufacturer's Software version code
-                                 "1.0.0.0 (2017-07-12)" // Manufacturer's Model version
-                                );
-
-  // Set device information
-  NMEA2000.SetDeviceInformation(5, // Unique number. Use e.g. SerialIO number.
-                                130, // Device function=Display. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                120, // Device class=Display. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                2046 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
-                               );
-
-
-  messageEncoder.setSendBufferCallback(SendNMEA0183Message);
-
-//  NMEA2000.SetN2kCANReceiveFrameBufSize(50);
-  // Do not forward bus messages at all
-  NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);
-  NMEA2000.SetForwardStream(OutputStream);
-  // Set false below, if you do not want to see messages parsed to HEX withing library
-  NMEA2000.EnableForward(false);
-  // set the TWAI RX buffer sizes larger to cope with overflows, TX=40 is the default
-  NMEA2000.SetCANBufferSize(100,40);
-  NMEA2000.SetN2kCANReceiveFrameBufSize(150);
-  NMEA2000.SetN2kCANMsgBufSize(8);
-  NMEA2000.ExtendTransmitMessages(TransmitMessages);
-  NMEA2000.ExtendReceiveMessages(ReceiveMessages);
-
-  NMEA2000.SetMsgHandler(HandleNMEA2000Msg);
-
-  NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 50);
-//  NMEA2000.SetMode(tNMEA2000::N2km_ListenOnly, 50);
-
-  
-  NMEA2000.Open();
-  xTaskCreate(monitorAlertsTask, "TWAI_alertMonitor", 4096, NULL, 5, &alert_monitor_task_handle_);
-
-
-
-
   // Start BLE server
   bleServer.begin("BoatWatch");
   bleServer.setCommandCallback(handleBleCommand);
 
+  setupCanStack();
+  setupNetworkStack();
+  pinMode(CAN_ON_PIN, INPUT);
   ESP_LOGE(TAG, "Running.....");
   showHelp();
-
-
 }
 
 
@@ -752,6 +764,17 @@ void CheckCommand() {
       case 'f':
         engineFreezeFrame.logFreezeFrame();
         break;
+      case 'N':
+        if (networkUp) {
+            ESP_LOGE(TAG, "Stopping Network");
+            onDisableNetwork();
+            networkUp = false;
+        } else {
+            ESP_LOGE(TAG, "Starting Nework");
+            onEnableNetwork();
+            networkUp = true;
+        }
+        break;
     }
   }
 }
@@ -767,7 +790,7 @@ void EmitMessages() {
     }
     if (!NMEA2000.IsProprietaryMessage(N2kMsg.PGN) ) {
       NMEA2000.SendMsg(N2kMsg);
-    }
+    }        
 }
 
 
@@ -819,10 +842,25 @@ void loop() {
   unsigned long last = millis();
   unsigned long lastBmsUpdate = millis();
   unsigned long lastPilotUpdate = millis();
-  NMEA2000.ParseMessages();
   unsigned long now = millis();
-  if ( now - last > 200) {
-    ESP_LOGE(TAG, "ParseMessages %ld %ld %d" ,now, last, (now - last));
+  if ( networkUp ) {
+      NMEA2000.ParseMessages();
+      if ( now - last > 200) {
+        ESP_LOGE(TAG, "ParseMessages %ld %ld %d" ,now, last, (now - last));
+      }
+  }
+  if ( digitalRead(CAN_ON_PIN) == HIGH ) {
+    if (!networkUp) {
+        ESP_LOGE(TAG, "Starting Nework, can is up");
+        onEnableNetwork();
+        networkUp = true;
+    }
+  } else {
+    if (networkUp) {
+        ESP_LOGE(TAG, "Stopping Network, can is down");
+        onDisableNetwork();
+        networkUp = false;
+    }
   }
   last = now;
   CheckCommand();
@@ -837,10 +875,12 @@ void loop() {
     ESP_LOGE(TAG, "bms.update %ld %ld %d" ,now, last, (now - last));
   }
   last = now;
-  EmitMessages();
-  now = millis();
-  if ( now - last > 100) {
-    ESP_LOGE(TAG, "EmitMessages %ld %ld %d" ,now, last, (now - last));
+  if (networkUp) {
+      EmitMessages();
+      now = millis();
+      if ( now - last > 100) {
+        ESP_LOGE(TAG, "EmitMessages %ld %ld %d" ,now, last, (now - last));
+      }    
   }
 
   last = now;

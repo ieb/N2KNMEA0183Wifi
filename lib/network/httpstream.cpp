@@ -112,7 +112,18 @@ bool SeasmartResponseStream::acceptPgn(unsigned long pgn) {
     return false;
 }
 
-
+/**
+ * _buffer is a circular buffer with 2 pointers into it start and wpos
+ * wpos is the possition of the buffer where characters can be written to.
+ * start is the possition of the buffer where charasters will be read from for sending
+ * writeLine increments wpos, watching start to avoid overwriting
+ * _fillBuffer increments start, watching wpos to avoid overwriting
+ * From a concurrency point of view
+ * writeLine writes to wpos and reads start
+ * _fullBuffer writes to start and reads wpos
+ * both a size_t and on an esp32 these are attomic so these 2 functions may be called from 
+ * different tasks or cores. Other platforms may find they have race conditions.
+ */ 
 size_t SeasmartResponseStream::_fillBuffer(uint8_t *buffer, size_t maxLen){
     size_t i = 0;
     while(i < maxLen && start != wpos) {

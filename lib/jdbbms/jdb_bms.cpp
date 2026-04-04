@@ -227,9 +227,12 @@ void inline JdbBMS::swapBytes(uint8_t * d, uint8_t i) {
 
 void JdbBMS::copyReg04(uint8_t * data, size_t dataLength) {
     // copy and switch endian
-    for (int i = 0; i < dataLength-1 && i < BMS_REGISTER04_LENGTH-1; i+=2) {
-        register04[i] = data[i+1];
-        register04[i+1] = data[i];
+    // avoid a uint underflow if dataLength == 0, then dataLenght-1 == 255,  results corruption
+    if (dataLength > 0 ) {
+        for (int i = 0; i < dataLength-1 && i < BMS_REGISTER04_LENGTH-1; i+=2) {
+            register04[i] = data[i+1];
+            register04[i+1] = data[i];
+        }        
     }
     reg04Update = millis();
     lastUpdate = reg04Update;

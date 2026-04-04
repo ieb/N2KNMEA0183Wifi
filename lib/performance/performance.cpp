@@ -399,7 +399,7 @@ float Performance::correctBearing(float b) {
 float Performance::correctAngle(float b) {
     if ( b > PI ){
         b = b - 2*PI;
-    } else if ( b < PI ) {
+    } else if ( b < -PI ) {
         b = b + 2*PI;
     }
     return b;

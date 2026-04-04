@@ -34,6 +34,7 @@ public:
             configurationFile = _configurationFile;
     };
     void begin();
+    void end();
     String getSSID() { return ssid; };
     String getPassword() { return password; };
     void startSTA(String wifi_ssid = WIFI_SSID, String wifi_pass = WIFI_PASS);
@@ -64,7 +65,9 @@ class WebServer {
         WebServer(Stream *outputStream ) : outputStream{outputStream} {};
         WebServer(const WebServer&) = delete;
         WebServer& operator=(const WebServer&) = delete;
-        void begin(const char * configurationFile = "/config.txt");
+        void init(const char * configurationFile = "/config.txt");
+        void begin();
+        void end();
         void printStatus(Print *);
         String getBasicAuth() { return basicAuth; };
         void sendN0183(const char *buffer);

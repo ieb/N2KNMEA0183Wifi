@@ -72,6 +72,7 @@ void AsyncTcpServer::deRegisterClient(AsyncTcpClient * client) {
     if (i->get() == client) {
           ESP_LOGI(TAG, "Remove client %d", (int) client);
           clients.erase(i);
+          return;
     }
   }
 }

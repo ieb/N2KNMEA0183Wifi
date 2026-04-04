@@ -4,11 +4,16 @@
 
 
 void UdpSender::begin() {
-  if (started) {
+  if (!started) {
     started = true;
     MDNS.addService("_nmea0183-udp","_udp",udpPort);
   }
 
+}
+
+void UdpSender::end() {
+  udp.close();
+  started = false;
 }
 
 void UdpSender::setPort(int port) {

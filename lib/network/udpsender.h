@@ -6,6 +6,7 @@ class UdpSender  {
 public: 
     UdpSender(Stream *outputStream ) : outputStream{outputStream} {};
     void begin();
+    void end();
     void setPort(int port);
     void sendBufToClients(const char *buf);
 private:

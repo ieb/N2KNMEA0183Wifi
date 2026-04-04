@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "device")(type "Legacy")(uri "/Users/ieb/Library/Application Support/kicad/library/device.lib")(options "")(descr ""))
+  (lib (name "power1")(type "Legacy")(uri "/Users/ieb/Library/Application Support/kicad/library/power.lib")(options "")(descr ""))
+  (lib (name "conn")(type "Legacy")(uri "/Users/ieb/Library/Application Support/kicad/library/conn.lib")(options "")(descr ""))
+)

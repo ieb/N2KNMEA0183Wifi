@@ -15,17 +15,8 @@
 
 
 
-void WebServer::begin(const char * configurationFile) {
-      // Initialize SPIFFS
-    if(!SPIFFS.begin(false)){
-        ESP_LOGE(TAG, "An Error has occurred while mounting SPIFFS");
-        return;
-    }
-
+void WebServer::init(const char * configurationFile) {
     seasmartMutex = xSemaphoreCreateMutex();
-    MDNS.addService("_http","_tcp",80);
-    MDNS.addServiceTxt("_http","_tcp","path","/api/");
-    MDNS.addServiceTxt("_http","_tcp","server","N2KNMEA0183Wifi");
 
 #ifdef ENABLE_WEBSOCKETS
     //server.addHandler(&n0183WS);
@@ -444,8 +435,21 @@ void WebServer::begin(const char * configurationFile) {
         httpauth = "Basic "+base64::encode(basicAuth);
         ESP_LOGI(TAG, "Configured http Authorzation header to be %s ", httpauth);
     }
-    server.begin();
 };
+
+void WebServer::begin() {
+    MDNS.addService("_http","_tcp",80);
+    MDNS.addServiceTxt("_http","_tcp","path","/api/");
+    MDNS.addServiceTxt("_http","_tcp","server","N2KNMEA0183Wifi");
+    server.begin();
+}
+
+void WebServer::end() {
+    xSemaphoreTake(seasmartMutex, portMAX_DELAY);
+    seasmartStreamsHead = NULL;
+    xSemaphoreGive(seasmartMutex);
+    server.end();
+}
 
 
 

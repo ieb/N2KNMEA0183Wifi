@@ -5,10 +5,6 @@
 
 
 void Wifi::begin() {
-    if(!SPIFFS.begin(false)){
-        outputStream->println("An Error has occurred while mounting SPIFFS");
-        return;
-    }
     String ssid;
     ConfigurationFile::get(configurationFile, "wifi.ssid:", ssid);
     if (ssid.equals("softap")) {
@@ -30,6 +26,11 @@ void Wifi::begin() {
 
         }    
     }
+}
+
+void Wifi::end() {
+    WiFi.disconnect(true, true);
+    WiFi.mode(WIFI_OFF);
 }
 
 IPAddress Wifi::getBroadcastIP() {
