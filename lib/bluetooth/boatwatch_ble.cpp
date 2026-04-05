@@ -63,7 +63,19 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
 }
 
 void BoatWatchBLE::notify() {
-    if (!_connected || !_authenticated) return;
+    // Use getConnectedCount() as the source of truth — onDisconnect
+    // may not fire for ungraceful disconnects (out of range, app crash).
+    if (_server->getConnectedCount() == 0) {
+        if (_connected) {
+            _connected = false;
+            _authenticated = false;
+            ESP_LOGW(TAG, "Missed disconnect detected — resetting auth state");
+            NimBLEDevice::getAdvertising()->start();
+        }
+        return;
+    }
+
+    if (!_authenticated) return;
 
     unsigned long now = millis();
 
