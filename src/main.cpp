@@ -570,7 +570,6 @@ void setupCanStack() {
     // this will also trigger a ISO Address claim, which is going to fail
     // if the can is not runing
     xTaskCreate(monitorAlertsTask, "TWAI_alertMonitor", 4096, NULL, 5, &alert_monitor_task_handle_);
-    NMEA2000.Open();
 }
 
 void setupNetworkStack() {
@@ -597,6 +596,12 @@ void setupNetworkStack() {
 
 
 void onEnableNetwork() {
+  if (NMEA2000.IsOpen()) {
+    NMEA2000.Restart();
+  } else {
+    NMEA2000.Open();
+  }
+
   ESP_LOGI(TAG, "Starting Wifi");
   wifi.begin();
   // start MDNS  so others can register.
