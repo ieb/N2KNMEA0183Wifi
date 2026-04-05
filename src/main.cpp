@@ -32,11 +32,11 @@ uint8_t temprature_sens_read();
 #define ESP32_CAN_TX_PIN GPIO_NUM_23
 #else
 // ESP32-C3
-#define ESP32_CAN_RX_PIN GPIO_NUM_8
-#define ESP32_CAN_TX_PIN GPIO_NUM_10
-#define BMS_RX_PIN GPIO_NUM_4
-#define BMS_TX_PIN GPIO_NUM_2
 #define CAN_ON_PIN GPIO_NUM_7
+#define ESP32_CAN_RX_PIN GPIO_NUM_6
+#define ESP32_CAN_TX_PIN GPIO_NUM_5
+#define BMS_RX_PIN GPIO_NUM_3
+#define BMS_TX_PIN GPIO_NUM_4
 #endif
 #define MAX_NMEA2000_MESSAGE_SEASMART_SIZE 1024
 
@@ -849,9 +849,9 @@ void loop() {
         ESP_LOGE(TAG, "ParseMessages %ld %ld %d" ,now, last, (now - last));
       }
   }
-  if ( digitalRead(CAN_ON_PIN) == HIGH ) {
+  if ( digitalRead(CAN_ON_PIN) == LOW ) {
     if (!networkUp) {
-        ESP_LOGE(TAG, "Starting Nework, can is up");
+        ESP_LOGE(TAG, "Starting Network, CAN is up");
         onEnableNetwork();
         networkUp = true;
     }
