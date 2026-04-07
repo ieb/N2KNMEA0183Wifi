@@ -3104,12 +3104,6 @@
 		(uuid "4d56a4ad-651d-4570-8e9f-c758e57c6753")
 	)
 	(junction
-		(at 176.53 29.21)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "56e77728-2f52-4872-9aa7-b7e8192844b8")
-	)
-	(junction
 		(at 231.14 118.11)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3531,16 +3525,6 @@
 	)
 	(wire
 		(pts
-			(xy 189.23 29.21) (xy 196.85 29.21)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3575ff74-81de-4a4a-945a-7e10cac43ed0")
-	)
-	(wire
-		(pts
 			(xy 242.57 105.41) (xy 242.57 118.11)
 		)
 		(stroke
@@ -3811,16 +3795,6 @@
 	)
 	(wire
 		(pts
-			(xy 182.88 20.32) (xy 176.53 20.32)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8aac2f8a-cb20-4f39-8332-aa3e613ae998")
-	)
-	(wire
-		(pts
 			(xy 207.01 102.87) (xy 222.25 102.87)
 		)
 		(stroke
@@ -3951,16 +3925,6 @@
 	)
 	(wire
 		(pts
-			(xy 176.53 20.32) (xy 176.53 29.21)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ad3a026e-e477-4056-a372-5ef94a39df5a")
-	)
-	(wire
-		(pts
 			(xy 196.85 160.02) (xy 196.85 151.13)
 		)
 		(stroke
@@ -3981,7 +3945,7 @@
 	)
 	(wire
 		(pts
-			(xy 171.45 29.21) (xy 176.53 29.21)
+			(xy 171.45 29.21) (xy 196.85 29.21)
 		)
 		(stroke
 			(width 0)
@@ -4228,16 +4192,6 @@
 			(type default)
 		)
 		(uuid "f79d4c09-6e1c-486e-a4e8-7d08b327dcb7")
-	)
-	(wire
-		(pts
-			(xy 176.53 29.21) (xy 179.07 29.21)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fa209eb5-bf5d-48db-9659-89fe18b7a864")
 	)
 	(wire
 		(pts
@@ -4489,6 +4443,26 @@
 			)
 		)
 	)
+	(global_label "12v Switched"
+		(shape output)
+		(at 52.07 41.91 0)
+		(effects
+			(font
+				(size 1.524 1.524)
+			)
+			(justify left)
+		)
+		(uuid "2431c578-7868-4fe5-a5c1-288b7a5b23d6")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 52.07 41.91 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "BMS-RX"
 		(shape output)
 		(at 105.41 121.92 180)
@@ -4609,27 +4583,7 @@
 			)
 		)
 	)
-	(global_label "5.8V"
-		(shape output)
-		(at 182.88 20.32 0)
-		(effects
-			(font
-				(size 1.524 1.524)
-			)
-			(justify left)
-		)
-		(uuid "6c8b201c-3db8-44af-a41b-78a8d55456cc")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 182.88 20.32 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "12v"
+	(global_label "12v Switched"
 		(shape input)
 		(at 78.74 29.21 180)
 		(effects
@@ -4721,6 +4675,26 @@
 		(uuid "9e172da9-662a-4f7b-bd50-38e4257b6b31")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 181.61 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "12v"
+		(shape input)
+		(at 52.07 44.45 0)
+		(effects
+			(font
+				(size 1.524 1.524)
+			)
+			(justify left)
+		)
+		(uuid "9e5ec8bf-fbc0-41c1-a2c5-d4de4fc19d8f")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 52.07 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5946,77 +5920,6 @@
 		)
 	)
 	(symbol
-		(lib_id "device:DIODE")
-		(at 184.15 29.21 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "00000000-0000-0000-0000-000062c0c718")
-		(property "Reference" "D105"
-			(at 184.15 26.67 0)
-			(effects
-				(font
-					(size 1.016 1.016)
-				)
-			)
-		)
-		(property "Value" "1N5819"
-			(at 184.15 31.75 0)
-			(effects
-				(font
-					(size 1.016 1.016)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_1206_3216Metric_Pad1.42x1.75mm_HandSolder"
-			(at 184.15 29.21 0)
-			(effects
-				(font
-					(size 1.524 1.524)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 184.15 29.21 0)
-			(effects
-				(font
-					(size 1.524 1.524)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 184.15 29.21 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "a5c6773c-d8df-4180-90ad-87297114f607")
-		)
-		(pin "2"
-			(uuid "b1aca6dc-32a2-4f19-a08c-d0d0e37fda7c")
-		)
-		(instances
-			(project "ESP32CanBoard"
-				(path "/17502814-a097-4dea-91a7-aec909c8a89f"
-					(reference "D105")
-					(unit 1)
-				)
-			)
-			(project "esp32-c3-board"
-				(path "/f1c311d1-2fb5-46a9-8cac-10128a8ff086"
-					(reference "D105")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "conn:CONN_4")
 		(at 279.4 147.32 0)
 		(unit 1)
@@ -7223,6 +7126,74 @@
 			(project "esp32-c3-board-bms"
 				(path "/f1c311d1-2fb5-46a9-8cac-10128a8ff086"
 					(reference "#PWR01")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector_Generic:Conn_01x02")
+		(at 46.99 44.45 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "989b75c6-3e48-4476-9af7-15b022b54f0f")
+		(property "Reference" "J2"
+			(at 46.99 35.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Conn_01x02"
+			(at 46.99 38.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
+			(at 46.99 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 46.99 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 46.99 44.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7d466373-f225-4eb8-8192-152403e7072c")
+		)
+		(pin "2"
+			(uuid "d5e71b35-e129-4de4-a0bc-2ea5283a2b9c")
+		)
+		(instances
+			(project "esp32-c3-board-bms"
+				(path "/f1c311d1-2fb5-46a9-8cac-10128a8ff086"
+					(reference "J2")
 					(unit 1)
 				)
 			)
