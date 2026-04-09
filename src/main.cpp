@@ -636,7 +636,6 @@ void onEnableNetwork() {
 }
 
 void onDisableNetwork() {
-    // stop th montor tas
   NMEA2000.Suspend();
   webServer.end();
   dnsServer.stop();

@@ -82,7 +82,9 @@ void BoatWatchBLE::notify() {
     // Autopilot when updated, or at least every 5s
     if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {
         _autopilotChar->setValue(_apBuffer, 10);
-        _autopilotChar->notify();
+        if (_autopilotChar->getSubscribedCount() > 0) {
+            _autopilotChar->notify();
+        }
         _lastApNotify = now;
         _apDirty = false;
     }
@@ -90,7 +92,9 @@ void BoatWatchBLE::notify() {
     // when updated or at least every 5s
     if (_batLen > 0 && ( _batDirty || (now - _lastBatNotify >= BW_MAX_BATTERY_INTERVAL_MS))) {
         _batteryChar->setValue(_batBuffer, _batLen);
-        _batteryChar->notify();
+        if (_batteryChar->getSubscribedCount() > 0) {
+            _batteryChar->notify();
+        }
         _lastBatNotify = now;
         _batDirty = false;
     }
@@ -236,9 +240,13 @@ void BoatWatchBLE::handleCommand(const uint8_t* data, size_t len) {
 
 void BoatWatchBLE::sendAuthResponse(bool accepted) {
     uint8_t resp[2] = { BW_MAGIC_AUTH_RESP, uint8_t(accepted ? 0x01 : 0x00) };
-    // Send on both notify characteristics
+    // Send on whichever characteristics the client has subscribed to
     _autopilotChar->setValue(resp, 2);
-    _autopilotChar->notify();
+    if (_autopilotChar->getSubscribedCount() > 0) {
+        _autopilotChar->notify();
+    }
     _batteryChar->setValue(resp, 2);
-    _batteryChar->notify();
+    if (_batteryChar->getSubscribedCount() > 0) {
+        _batteryChar->notify();
+    }
 }
