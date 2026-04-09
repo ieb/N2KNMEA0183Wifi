@@ -5,6 +5,7 @@
 
 class ConfigurationFile {
     public:
+        static void begin();
         static bool get(const char * filename, const String &key, String &value);
 };
 

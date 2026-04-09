@@ -86,6 +86,7 @@ tNMEA2000_esp32 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_P
 #include "jdb_bms.h"
 #include "boatwatch_ble.h"
 #include "autopilot_state.h"
+#include "config.h"
 
 #include "esp32-hal-psram.h"
 #include <map>
@@ -342,14 +343,24 @@ void twaiAlertStatus(Print *stream) {
 
 
 void monitorAlertsTask(void *pvParameters) {
+    bool configured = false;
     uint32_t alerts_to_enable = TWAI_ALERT_ALL;
     if (twai_reconfigure_alerts(alerts_to_enable, NULL) == ESP_OK) {
-        ESP_LOGE(TAG,"Alerts reconfigured\n");
+        configured = true;
+        ESP_LOGE(TAG,"Alerts reconfigured");
     } else {
         ESP_LOGE(TAG, "Failed to reconfigure alerts");
     }
 
     while(1) {
+        if (!configured) {
+            if (twai_reconfigure_alerts(alerts_to_enable, NULL) == ESP_OK) {
+                configured = true;
+                ESP_LOGE(TAG,"Alerts now reconfigured");
+            }
+        }
+
+
         uint32_t alerts;
         twai_read_alerts(&alerts, portMAX_DELAY);
         if (alerts & TWAI_ALERT_ABOVE_ERR_WARN) {
@@ -597,6 +608,7 @@ void setupNetworkStack() {
 
 void onEnableNetwork() {
   if (NMEA2000.IsOpen()) {
+    NMEA2000.Resume();
     NMEA2000.Restart();
   } else {
     NMEA2000.Open();
@@ -625,6 +637,7 @@ void onEnableNetwork() {
 
 void onDisableNetwork() {
     // stop th montor tas
+  NMEA2000.Suspend();
   webServer.end();
   dnsServer.stop();
   nmeaSender.end();
@@ -640,6 +653,7 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
 
+  ConfigurationFile::begin();
     // show what levels are supported
   ESP_LOGE("MyApp", "Error Reporting On");
   ESP_LOGW("MyApp", "Warning Reporting On");

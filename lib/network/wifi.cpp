@@ -1,6 +1,5 @@
 #include "network.h"
 #include <WiFi.h>
-#include <SPIFFS.h>
 #include "config.h"
 
 
@@ -146,7 +145,12 @@ void Wifi::loadIPConfig(String key) {
 }
 
 void Wifi::printStatus(Print *stream) {
-    if ( softAP ) {
+
+    uint8_t mode = WiFi.getMode();
+    if ( mode == 0 ) {
+        stream->println("Wifi Access Point disabled");
+    } else if ( mode > 1 ) {
+        stream->println("");
         stream->println("Wifi Access Point enabled");
         stream->print("SSID:");stream->println(ssid);
         stream->print("Password:");stream->println(password);

@@ -1,11 +1,13 @@
 #include "config.h"
 #include <SPIFFS.h>
 
-bool ConfigurationFile::get(const char * filename, const String &key, String &value) {
+void ConfigurationFile::begin() {
     if (!SPIFFS.begin()) {
         Serial.println("Start SPIFFS failed in config");
-        return false;
-    }
+    }    
+}
+
+bool ConfigurationFile::get(const char * filename, const String &key, String &value) {
     if(! SPIFFS.exists(filename) ) {
         return false;
     }
