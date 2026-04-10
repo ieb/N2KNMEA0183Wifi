@@ -62,29 +62,31 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
 }
 
+bool BoatWatchBLE::hasAuthenticatedClients() const {
+    for (auto &it : _clients) {
+        if (it.second) return true;
+    }
+    return false;
+}
+
 void BoatWatchBLE::notify() {
-    // Use getConnectedCount() as the source of truth — onDisconnect
-    // may not fire for ungraceful disconnects (out of range, app crash).
     if (_server->getConnectedCount() == 0) {
-        if (_connected) {
-            _connected = false;
-            _authenticated = false;
-            ESP_LOGW(TAG, "Missed disconnect detected — resetting auth state");
+        if (!_clients.empty()) {
+            ESP_LOGW(TAG, "Missed disconnect detected — clearing %d client(s)", _clients.size());
+            _clients.clear();
             NimBLEDevice::getAdvertising()->start();
         }
         return;
     }
 
-    if (!_authenticated) return;
+    if (!hasAuthenticatedClients()) return;
 
     unsigned long now = millis();
 
     // Autopilot when updated, or at least every 5s
     if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {
         _autopilotChar->setValue(_apBuffer, 10);
-        if (_autopilotChar->getSubscribedCount() > 0) {
-            _autopilotChar->notify();
-        }
+        _autopilotChar->notify();
         _lastApNotify = now;
         _apDirty = false;
     }
@@ -92,9 +94,7 @@ void BoatWatchBLE::notify() {
     // when updated or at least every 5s
     if (_batLen > 0 && ( _batDirty || (now - _lastBatNotify >= BW_MAX_BATTERY_INTERVAL_MS))) {
         _batteryChar->setValue(_batBuffer, _batLen);
-        if (_batteryChar->getSubscribedCount() > 0) {
-            _batteryChar->notify();
-        }
+        _batteryChar->notify();
         _lastBatNotify = now;
         _batDirty = false;
     }
@@ -178,29 +178,36 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
 
 // --- BLE Callbacks ---
 
-void BoatWatchBLE::onConnect(NimBLEServer* pServer) {
-    _connected = true;
-    _authenticated = false;
-    ESP_LOGI(TAG, "Client connected — awaiting auth");
-}
+void BoatWatchBLE::onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
+    uint16_t connHandle = connInfo.getConnHandle();
+    _clients[connHandle] = false;
+    ESP_LOGI(TAG, "Client %d connected — awaiting auth (%d clients)", connHandle, _clients.size());
 
-void BoatWatchBLE::onDisconnect(NimBLEServer* pServer) {
-    _connected = false;
-    _authenticated = false;
-    ESP_LOGI(TAG, "Client disconnected — auth reset");
-
-    // Restart advertising
-    NimBLEDevice::getAdvertising()->start();
-}
-
-void BoatWatchBLE::onWrite(NimBLECharacteristic* pCharacteristic) {
-    std::string val = pCharacteristic->getValue();
-    if (val.size() >= 2) {
-        handleCommand((const uint8_t*)val.data(), val.size());
+    // Keep advertising so more clients can connect (up to BW_MAX_CLIENTS)
+    if (_server->getConnectedCount() < BW_MAX_CLIENTS) {
+        NimBLEDevice::getAdvertising()->start();
     }
 }
 
-void BoatWatchBLE::handleCommand(const uint8_t* data, size_t len) {
+void BoatWatchBLE::onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) {
+    uint16_t connHandle = connInfo.getConnHandle();
+    _clients.erase(connHandle);
+    ESP_LOGI(TAG, "Client %d disconnected (reason=%d) — %d clients remain", connHandle, reason, _clients.size());
+
+    // Restart advertising if below max
+    if (_server->getConnectedCount() < BW_MAX_CLIENTS) {
+        NimBLEDevice::getAdvertising()->start();
+    }
+}
+
+void BoatWatchBLE::onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) {
+    NimBLEAttValue val = pCharacteristic->getValue();
+    if (val.size() >= 2) {
+        handleCommand(connInfo.getConnHandle(), val.data(), val.size());
+    }
+}
+
+void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_t len) {
     if (len < 2 || data[0] != BW_MAGIC_AUTOPILOT) return;
 
     uint8_t cmd = data[1];
@@ -211,42 +218,37 @@ void BoatWatchBLE::handleCommand(const uint8_t* data, size_t len) {
             char pin[5] = {0};
             memcpy(pin, data + 2, 4);
             if (_pin.equals(pin)) {
-                _authenticated = true;
-                sendAuthResponse(true);
-                ESP_LOGI(TAG, "Auth accepted (PIN: %s)", pin);
+                _clients[connHandle] = true;
+                sendAuthResponse(connHandle, true);
+                ESP_LOGI(TAG, "Client %d auth accepted", connHandle);
             } else {
-                sendAuthResponse(false);
-                ESP_LOGW(TAG, "Auth denied (PIN: %s, expected: %s)", pin, _pin.c_str());
+                sendAuthResponse(connHandle, false);
+                ESP_LOGW(TAG, "Client %d auth denied (PIN: %s)", connHandle, pin);
             }
         } else {
-            sendAuthResponse(false);
+            sendAuthResponse(connHandle, false);
         }
         return;
     }
 
     // All other commands require auth
-    if (!_authenticated) {
-        ESP_LOGW(TAG, "Command 0x%02X rejected — not authenticated", cmd);
+    auto it = _clients.find(connHandle);
+    if (it == _clients.end() || !it->second) {
+        ESP_LOGW(TAG, "Client %d cmd 0x%02X rejected — not authenticated", connHandle, cmd);
         return;
     }
 
     if (_commandCallback) {
-        // Pass cmd and payload (after magic + cmd bytes)
         const uint8_t* payload = (len > 2) ? data + 2 : nullptr;
         size_t payloadLen = (len > 2) ? len - 2 : 0;
         _commandCallback(cmd, payload, payloadLen);
     }
 }
 
-void BoatWatchBLE::sendAuthResponse(bool accepted) {
+void BoatWatchBLE::sendAuthResponse(uint16_t connHandle, bool accepted) {
     uint8_t resp[2] = { BW_MAGIC_AUTH_RESP, uint8_t(accepted ? 0x01 : 0x00) };
-    // Send on whichever characteristics the client has subscribed to
     _autopilotChar->setValue(resp, 2);
-    if (_autopilotChar->getSubscribedCount() > 0) {
-        _autopilotChar->notify();
-    }
+    _autopilotChar->notify(connHandle);
     _batteryChar->setValue(resp, 2);
-    if (_batteryChar->getSubscribedCount() > 0) {
-        _batteryChar->notify();
-    }
+    _batteryChar->notify(connHandle);
 }

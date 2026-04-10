@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 #include <functional>
+#include <map>
 
 // GATT UUIDs matching BoatWatch protocol
 #define BW_SERVICE_UUID        "0000aa00-0000-1000-8000-00805f9b34fb"
@@ -34,7 +35,9 @@
 
 // Notification intervals
 #define BW_MAX_AUTOPILOT_INTERVAL_MS 5000   // max 5s
-#define BW_MAX_BATTERY_INTERVAL_MS   5000  // max 5s
+#define BW_MAX_BATTERY_INTERVAL_MS   5000   // max 5s
+
+#define BW_MAX_CLIENTS 3
 
 class BoatWatchBLE : public NimBLEServerCallbacks,
                      public NimBLECharacteristicCallbacks {
@@ -54,19 +57,18 @@ public:
     // Set callback for autopilot commands (mode, heading, wind)
     void setCommandCallback(CommandCallback cb) { _commandCallback = cb; }
 
-    bool isConnected() const { return _connected; }
-    bool isAuthenticated() const { return _authenticated; }
+    bool hasAuthenticatedClients() const;
 
 private:
     // NimBLEServerCallbacks
-    void onConnect(NimBLEServer* pServer) override;
-    void onDisconnect(NimBLEServer* pServer) override;
+    void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override;
+    void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override;
 
     // NimBLECharacteristicCallbacks
-    void onWrite(NimBLECharacteristic* pCharacteristic) override;
+    void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override;
 
-    void handleCommand(const uint8_t* data, size_t len);
-    void sendAuthResponse(bool accepted);
+    void handleCommand(uint16_t connHandle, const uint8_t* data, size_t len);
+    void sendAuthResponse(uint16_t connHandle, bool accepted);
 
     NimBLEServer* _server = nullptr;
     NimBLECharacteristic* _autopilotChar = nullptr;
@@ -76,8 +78,9 @@ private:
     CommandCallback _commandCallback;
 
     String _pin;
-    bool _connected = false;
-    bool _authenticated = false;
+
+    // Per-connection auth state: conn_handle -> authenticated
+    std::map<uint16_t, bool> _clients;
 
     // Autopilot state buffer (10 bytes)
     uint8_t _apBuffer[10] = {0};
