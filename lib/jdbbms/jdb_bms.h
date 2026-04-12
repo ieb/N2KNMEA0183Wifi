@@ -61,7 +61,8 @@ public:
     size_t getRegister03Length() const { return register03Length; }
     const uint8_t* getRegister04() const { return register04; }
     size_t getRegister04Length() const { return register04Length; }
-    unsigned long getLastUpdate() { return lastUpdate; }
+    bool isDirty() { return dirty; }
+    void clean() { dirty = false; }
 
 private:
     Stream * io;
@@ -84,12 +85,12 @@ private:
     unsigned long lastReg05 = 0;
     unsigned long reg03Update = 0;
     unsigned long reg04Update = 0;
-    unsigned long lastUpdate = 0;
 
     uint8_t reg = 3;
     uint8_t requestReg05 = 0;
     uint8_t maxReqRegs = 4;
     bool debug = false;
+    bool dirty = true;
 
     void requestRegister(uint8_t regNo);
     int processFrame(int from);

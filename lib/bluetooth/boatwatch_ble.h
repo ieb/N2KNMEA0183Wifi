@@ -11,10 +11,15 @@
 #define BW_COMMAND_CHAR_UUID   "0000aa02-0000-1000-8000-00805f9b34fb"
 #define BW_BATTERY_CHAR_UUID   "0000aa03-0000-1000-8000-00805f9b34fb"
 
+// NMEABridge Nav Service
+#define BW_NAV_SERVICE_UUID    "0000ff00-0000-1000-8000-00805f9b34fb"
+#define BW_NAV_STATE_CHAR_UUID "0000ff01-0000-1000-8000-00805f9b34fb"
+
 // Binary protocol constants
 #define BW_MAGIC_AUTOPILOT 0xAA
 #define BW_MAGIC_BATTERY   0xBB
 #define BW_MAGIC_AUTH_RESP 0xAF
+#define BW_MAGIC_NAV       0xCC
 
 // Command IDs
 #define BW_CMD_AUTH           0xF0
@@ -36,6 +41,7 @@
 // Notification intervals
 #define BW_MAX_AUTOPILOT_INTERVAL_MS 5000   // max 5s
 #define BW_MAX_BATTERY_INTERVAL_MS   5000   // max 5s
+#define BW_NAV_INTERVAL_MS           1000   // 1 Hz
 
 #define BW_MAX_CLIENTS 3
 
@@ -49,6 +55,11 @@ public:
 
     // Set autopilot state for next notification
     void setAutopilotState(uint8_t mode, uint16_t heading, uint16_t targetHeading, int16_t targetWind);
+
+    // Set navigation state for next notification (all angles in radians, speeds in m/s)
+    void setNavState(double lat, double lon, double cog, double sog,
+                     double variation, double heading, double depth,
+                     double awa, double aws, double stw, uint32_t log);
 
     // Set battery state from BMS register data (little-endian, byte-swapped by JdbBMS)
     void setBatteryState(const uint8_t* reg03, size_t reg03Len,
@@ -74,6 +85,7 @@ private:
     NimBLECharacteristic* _autopilotChar = nullptr;
     NimBLECharacteristic* _commandChar = nullptr;
     NimBLECharacteristic* _batteryChar = nullptr;
+    NimBLECharacteristic* _navChar = nullptr;
 
     CommandCallback _commandCallback;
 
@@ -91,6 +103,11 @@ private:
     uint8_t _batLen = 0;
     bool _batDirty = false;
 
+    // Navigation state buffer (29 bytes)
+    uint8_t _navBuffer[29] = {0};
+    bool _navDirty = false;
+
     unsigned long _lastApNotify = 0;
     unsigned long _lastBatNotify = 0;
+    unsigned long _lastNavNotify = 0;
 };

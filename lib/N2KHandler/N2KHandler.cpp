@@ -208,6 +208,7 @@ void N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
   if ( ParseN2kPGN127258(N2kMsg, SID, _source, _daysSince1970, _variation) ) {
     if (variation != _variation) {
       updatePerformance = true;
+      dirtyNavState = true;
     }
     if (_variation != -1e9 ) {
         variation = _variation;
@@ -227,12 +228,14 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
     if ( _variation != -1e9 ) {
       if ( variation != _variation) {
         updatePerformance = true;
+        dirtyNavState = true;
       }
       variation = _variation;
     }
     if ( ref==N2khr_magnetic ) {
       if (headingMagnetic != _heading) {
         updatePerformance = true;
+        dirtyNavState = true;
       }
       if ( _heading != -1e9 ) {
         headingMagnetic = _heading;
@@ -246,6 +249,7 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
     } else {
       if (headingTrue != _heading) {
         updatePerformance = true;
+        dirtyNavState = true;
       }
       // only set if we have no magnetic heading on the bus.
       // normally the message is mag heading.
@@ -286,6 +290,9 @@ void N2KHandler::handle128259(const tN2kMsg &N2kMsg) {
   tN2kSpeedWaterReferenceType SWRT;
 
   if ( ParseN2kPGN128259(N2kMsg,SID,_waterSpeed,_groundSpeed,SWRT) ) {
+    if (waterSpeed != _waterSpeed){
+      dirtyNavState = true;
+    }
     updatePerformance = updateWithTimeout(waterSpeed, _waterSpeed, lastStwUpdate, 10000) || updatePerformance;
     messageEncoder.sendVHW(headingTrue, headingMagnetic, _waterSpeed );
   }
@@ -302,6 +309,10 @@ void N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
   double _range;
 
   if ( ParseN2kPGN128267(N2kMsg,SID,_depthBelowTransducer,_offset,_range) ) {
+    if ( depth != _depthBelowTransducer) {
+      dirtyNavState = true;
+    }
+    depth = _depthBelowTransducer;
     messageEncoder.sendDBT(_depthBelowTransducer);
     messageEncoder.sendDPT(_depthBelowTransducer, _offset);
   }
@@ -318,6 +329,9 @@ void N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
 
   // cant trust daysSince1970 here since the source is not a GPS
   if ( ParseN2kPGN128275(N2kMsg, _daysSince1970, _secondsSinceMidnight, _log, _tripLog) ) {
+    if ( log != _log ) {
+      dirtyNavState = true;
+    }
     log = _log;
     tripLog = _tripLog;
     messageEncoder.sendVLW(_log, _tripLog);
@@ -359,6 +373,9 @@ void N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
                      ) ) {
 
     unsigned long now = millis();
+    if ( latitude != _latitude || longitude != _longitude) {
+      dirtyNavState = true;      
+    }
     if ( _integrety != N2kGNSSIntegrety_Unsafe   ) {
       faaValid = true;
       faaLastValid = now;
@@ -387,6 +404,9 @@ void N2KHandler::handle129025(const tN2kMsg &N2kMsg) {
   double _latitude;
   double _longitude;
   if ( ParseN2kPGN129025(N2kMsg, _latitude, _longitude)) {
+    if ( latitude != _latitude || longitude != _longitude ) {
+      dirtyNavState = true;
+    }
     latitude = _latitude;
     longitude = _longitude;
     messageEncoder.sendGLL(fixSecondsSinceMidnight, latitude, longitude, getFaaValid());
@@ -411,6 +431,15 @@ void N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
 
     double _cogm = -1e9;
     double _cogt = -1e9;
+    if (  _ref == N2khr_magnetic ) {
+      if ( cogm != _cog || sog != _sog )  {
+        dirtyNavState = true;
+      }
+    } else {
+      if ( cogt != _cog || sog != _sog )  {
+        dirtyNavState = true;
+      }
+    }
     if ( _cog != -1e9 ) {
       if ( _ref == N2khr_magnetic) {
         _cogm=_cog;
@@ -428,7 +457,6 @@ void N2KHandler::handle129026(const tN2kMsg &N2kMsg) {
     // update the stored value value
     // only set the stored value to -1e9 after 10s.
     // cog and sog can stop updating independently.
-
     updateWithTimeout(cogt, _cogt, lastCogtUpdate, 10000);
     updateWithTimeout(cogm, _cogm, lastCogmUpdate, 10000);
     updateWithTimeout(sog, _sog, lastSogUpdate, 10000);
@@ -462,6 +490,9 @@ void N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
 
   if ( ParseN2kPGN130306(N2kMsg, SID, _windSpeed, _windAngle, _windReference) ) {
     if ( _windReference == N2kWind_Apparent ) {
+      if ( aparentWindAngle != _windAngle || aparentWindSpeed != _windSpeed ) {
+        dirtyNavState = true;
+      }
       updatePerformance = updateWithTimeout(aparentWindAngle, _windAngle, lastAwaUpdate, 10000) || updatePerformance;
       updatePerformance = updateWithTimeout(aparentWindSpeed, _windSpeed, lastAwsUpdate, 10000) || updatePerformance;
       messageEncoder.sendVWR(_windAngle, _windSpeed);
@@ -655,6 +686,22 @@ void N2KHandler::handle130313(const tN2kMsg &N2kMsg) {
   }
 
 } // Humidity(N2kMsg); break;
+
+bool N2KHandler::isNavStateDirty() {
+  return dirtyNavState;
+}
+
+void N2KHandler::setCleanNavState() {
+  dirtyNavState = false;
+}
+
+N2KHandler::NavState N2KHandler::getNavState() const {
+    return {
+        latitude, longitude, cogt, sog, variation,
+        headingMagnetic, depth, aparentWindAngle, aparentWindSpeed, waterSpeed,
+        log,
+    };
+}
 
 
 

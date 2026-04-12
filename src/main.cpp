@@ -903,15 +903,25 @@ void loop() {
 
   last = now;
   // Update BLE server with current state when updated
-  if (apBleState.lastUpdate - lastPilotUpdate > 0) {
-    lastPilotUpdate = apBleState.lastUpdate;
+  if (apBleState.dirty) {
     bleServer.setAutopilotState(apBleState.mode, apBleState.heading,
                                apBleState.targetHeading, apBleState.targetWind);
+    apBleState.dirty = false;
   }
-  if (bms.getLastUpdate() - lastBmsUpdate > 0) {
-    lastBmsUpdate = bms.getLastUpdate();
+  // Update nav state from N2K handler
+  if ( n2kHander.isNavStateDirty() ) {
+      N2KHandler::NavState nav = n2kHander.getNavState();
+      bleServer.setNavState(nav.latitude, nav.longitude, nav.cog, nav.sog,
+                            nav.variation, nav.heading, nav.depth,
+                            nav.awa, nav.aws, nav.stw, nav.log);
+      n2kHander.setCleanNavState();
+  }
+
+  if (bms.isDirty()) {
     bleServer.setBatteryState(bms.getRegister03(), bms.getRegister03Length(),
                                  bms.getRegister04(), bms.getRegister04Length());
+    bms.clean();
+    
   }
   bleServer.notify();
   now = millis();

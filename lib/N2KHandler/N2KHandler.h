@@ -28,15 +28,24 @@ class FrameFilter;
 
 class N2KHandler  {
 public:
-  N2KHandler( NMEA0183N2KMessages &messageEncoder, 
+  struct NavState {
+    double latitude, longitude, cog, sog, variation;
+    double heading, depth, awa, aws, stw;
+    uint32_t log;
+  };
+
+  N2KHandler( NMEA0183N2KMessages &messageEncoder,
       Performance &performance,
-      LogBook &logbook ) : 
-    messageEncoder{messageEncoder}, 
+      LogBook &logbook ) :
+    messageEncoder{messageEncoder},
     performance{performance},
     logbook{logbook} {}
   void handle(const tN2kMsg &N2kMsg);
   void output(Print *stream);
-  
+  NavState getNavState() const;
+  bool isNavStateDirty();
+  void setCleanNavState();
+
 private:
 
     NMEA0183N2KMessages &messageEncoder;
@@ -54,6 +63,7 @@ private:
     unsigned long lastRollUpdate=0;
     unsigned long lastEngineSpeedUpdate=0;
     unsigned long lastEngineCoolantUpdate=0;
+    bool dirtyNavState = false;
 
     double headingTrue = -1e9;
     double headingMagnetic = -1e9;
@@ -69,6 +79,7 @@ private:
     double aparentWindAngle = -1e9;
     double aparentWindSpeed = -1e9;
     double waterSpeed = -1e9;
+    double depth = -1e9;
     double roll = -1e9;
     uint16_t daysSince1970 = 0xffff;
     uint32_t log = 0xffffffff;

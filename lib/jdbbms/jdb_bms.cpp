@@ -215,7 +215,7 @@ void JdbBMS::copyReg03(uint8_t * data, size_t dataLength) {
         swapBytes(register03, i);
     }
     reg03Update = millis();
-    lastUpdate = reg03Update;
+    dirty = true;
 }
 
 void inline JdbBMS::swapBytes(uint8_t * d, uint8_t i) {
@@ -235,7 +235,7 @@ void JdbBMS::copyReg04(uint8_t * data, size_t dataLength) {
         }        
     }
     reg04Update = millis();
-    lastUpdate = reg04Update;
+    dirty = true;
 }
 void JdbBMS::copyReg05(uint8_t * data, size_t dataLength) {
     for (int i = 0; i < dataLength && i < BMS_REGISTER05_LENGTH; i++) {

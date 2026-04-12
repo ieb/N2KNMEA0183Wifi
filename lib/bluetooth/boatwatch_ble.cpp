@@ -53,9 +53,18 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
 
     service->start();
 
-    // Start advertising
+    // FF00 — NMEABridge Nav Service
+    NimBLEService* navService = _server->createService(BW_NAV_SERVICE_UUID);
+    _navChar = navService->createCharacteristic(
+        BW_NAV_STATE_CHAR_UUID,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
+    );
+    navService->start();
+
+    // Start advertising both services
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
     advertising->addServiceUUID(BW_SERVICE_UUID);
+    advertising->addServiceUUID(BW_NAV_SERVICE_UUID);
     advertising->setName(deviceName);
     advertising->start();
 
@@ -79,9 +88,18 @@ void BoatWatchBLE::notify() {
         return;
     }
 
-    if (!hasAuthenticatedClients()) return;
-
     unsigned long now = millis();
+
+    // Nav state — no auth required, any connected client receives it
+    if (_navDirty || (now - _lastNavNotify >= BW_NAV_INTERVAL_MS)) {
+        _navChar->setValue(_navBuffer, 29);
+        _navChar->notify();
+        _lastNavNotify = now;
+        _navDirty = false;
+    }
+
+    // Autopilot and battery require authentication
+    if (!hasAuthenticatedClients()) return;
 
     // Autopilot when updated, or at least every 5s
     if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {
@@ -91,13 +109,65 @@ void BoatWatchBLE::notify() {
         _apDirty = false;
     }
 
-    // when updated or at least every 5s
+    // Battery when updated or at least every 5s
     if (_batLen > 0 && ( _batDirty || (now - _lastBatNotify >= BW_MAX_BATTERY_INTERVAL_MS))) {
         _batteryChar->setValue(_batBuffer, _batLen);
         _batteryChar->notify();
         _lastBatNotify = now;
         _batDirty = false;
     }
+}
+
+// Helper to write little-endian values into a buffer
+static void writeU16(uint8_t* buf, uint8_t &pos, double val, double scale, uint16_t na) {
+    uint16_t v = (val <= -1e8) ? na : (uint16_t)(val * scale);
+    buf[pos++] = v & 0xFF;
+    buf[pos++] = (v >> 8) & 0xFF;
+}
+
+static void writeS16(uint8_t* buf, uint8_t &pos, double val, double scale, int16_t na) {
+    int16_t v = (val <= -1e8) ? na : (int16_t)(val * scale);
+    buf[pos++] = v & 0xFF;
+    buf[pos++] = (v >> 8) & 0xFF;
+}
+
+static void writeS32(uint8_t* buf, uint8_t &pos, double val, double scale, int32_t na) {
+    int32_t v = (val <= -1e8) ? na : (int32_t)(val * scale);
+    buf[pos++] = v & 0xFF;
+    buf[pos++] = (v >> 8) & 0xFF;
+    buf[pos++] = (v >> 16) & 0xFF;
+    buf[pos++] = (v >> 24) & 0xFF;
+}
+
+static void writeU32(uint8_t* buf, uint8_t &pos, uint32_t val) {
+    buf[pos++] = val & 0xFF;
+    buf[pos++] = (val >> 8) & 0xFF;
+    buf[pos++] = (val >> 16) & 0xFF;
+    buf[pos++] = (val >> 24) & 0xFF;
+}
+
+void BoatWatchBLE::setNavState(double lat, double lon, double cog, double sog,
+                                double variation, double heading, double depth,
+                                double awa, double aws, double stw, uint32_t log) {
+    uint8_t pos = 0;
+    _navBuffer[pos++] = BW_MAGIC_NAV;
+
+    // lat/lon: degrees → 1e-7 degree integer (S32)
+    writeS32(_navBuffer, pos, lat, 1e7, 0x7FFFFFFF);
+    writeS32(_navBuffer, pos, lon, 1e7, 0x7FFFFFFF);
+
+    // angles: already in radians → 0.0001 rad units
+    writeU16(_navBuffer, pos, cog, 10000.0, 0xFFFF);          // COG
+    writeU16(_navBuffer, pos, sog, 100.0, 0xFFFF);            // SOG (m/s → 0.01 m/s)
+    writeS16(_navBuffer, pos, variation, 10000.0, 0x7FFF);    // Variation
+    writeU16(_navBuffer, pos, heading, 10000.0, 0xFFFF);       // Heading
+    writeU16(_navBuffer, pos, depth, 100.0, 0xFFFF);           // Depth (m → 0.01 m)
+    writeU16(_navBuffer, pos, awa, 10000.0, 0xFFFF);           // AWA
+    writeU16(_navBuffer, pos, aws, 100.0, 0xFFFF);             // AWS (m/s → 0.01 m/s)
+    writeU16(_navBuffer, pos, stw, 100.0, 0xFFFF);             // STW (m/s → 0.01 m/s)
+    writeU32(_navBuffer, pos, log);                             // Log (already in metres)
+
+    _navDirty = true;
 }
 
 void BoatWatchBLE::setAutopilotState(uint8_t mode, uint16_t heading,

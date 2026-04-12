@@ -20,7 +20,7 @@ struct AutopilotBleState {
     uint16_t heading = 0;        // 0.01° units
     uint16_t targetHeading = 0;  // 0.01°
     int16_t targetWind = 0;      // 0.01°
-    unsigned long lastUpdate = 0;
+    bool dirty = false;
 
     // Parse PGN 65379 — Raymarine Pilot Mode
     // Data: [0:1]=mfr(3B 9F), [2]=sid, [3]=mode, [4]=?, [5]=submode
@@ -30,13 +30,13 @@ struct AutopilotBleState {
         uint8_t submode = msg.Data[5];
         if (modeVal == 0x00 && submode == 0x00) {
             mode = BW_MODE_STANDBY;
-            lastUpdate = millis();
+            dirty = true;
         } else if (modeVal == 0x40 && submode == 0x00) {
             mode = BW_MODE_COMPASS;
-            lastUpdate = millis();
+            dirty = true;
         } else if (modeVal == 0x00 && submode == 0x01) {
             mode = BW_MODE_WIND_AWA; // default wind mode
-            lastUpdate = millis();
+            dirty = true;
         }
     }
 
@@ -48,7 +48,7 @@ struct AutopilotBleState {
         if (raw != 0xFFFF) {
             double deg = raw / 10000.0 * 180.0 / M_PI;
             heading = uint16_t(fmod(deg, 360.0) * 100.0);
-            lastUpdate = millis();
+            dirty = true;
         }
     }
 
@@ -60,7 +60,7 @@ struct AutopilotBleState {
         if (raw != 0xFFFF) {
             double deg = raw / 10000.0 * 180.0 / M_PI;
             targetHeading = uint16_t(fmod(deg, 360.0) * 100.0);
-            lastUpdate = millis();
+            dirty = true;
         }
     }
 
@@ -73,7 +73,7 @@ struct AutopilotBleState {
             double deg = raw / 10000.0 * 180.0 / M_PI;
             if (deg > 180.0) deg -= 360.0;
             targetWind = int16_t(deg * 100.0);
-            lastUpdate = millis();
+            dirty = true;
         }
     }
 };
