@@ -51,7 +51,7 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
 
-    service->start();
+    // deprecated service->start();
 
     // FF00 — NMEABridge Nav Service
     NimBLEService* navService = _server->createService(BW_NAV_SERVICE_UUID);
@@ -59,7 +59,7 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         BW_NAV_STATE_CHAR_UUID,
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
-    navService->start();
+    // deprecated navService->start();
 
     // Start advertising both services
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
@@ -91,16 +91,16 @@ void BoatWatchBLE::notify() {
 
     unsigned long now = millis();
 
-    // Nav state — no auth required, any connected client receives it
-    if (_navDirty || (now - _lastNavNotify >= BW_NAV_INTERVAL_MS)) {
+    if (!hasAuthenticatedClients()) return;
+
+    // Autopilot when updated, or at least every 5s
+    if ((_navDirty && (now - _lastNavNotify >= BW_MIN_NAV_INTERVAL_MS)) || (now - _lastNavNotify >= BW_NAV_INTERVAL_MS)) {
         _navChar->setValue(_navBuffer, 29);
         _navChar->notify();
         _lastNavNotify = now;
         _navDirty = false;
     }
 
-    // Autopilot and battery require authentication
-    if (!hasAuthenticatedClients()) return;
 
     // Autopilot when updated, or at least every 5s
     if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {

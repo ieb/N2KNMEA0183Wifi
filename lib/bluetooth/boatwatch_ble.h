@@ -42,6 +42,7 @@
 #define BW_MAX_AUTOPILOT_INTERVAL_MS 5000   // max 5s
 #define BW_MAX_BATTERY_INTERVAL_MS   5000   // max 5s
 #define BW_NAV_INTERVAL_MS           1000   // 1 Hz
+#define BW_MIN_NAV_INTERVAL_MS        500   // max 2Hz
 
 #define BW_MAX_CLIENTS 3
 
