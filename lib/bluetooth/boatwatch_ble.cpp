@@ -64,8 +64,9 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     // Start advertising both services
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
     advertising->addServiceUUID(BW_SERVICE_UUID);
-    advertising->addServiceUUID(BW_NAV_SERVICE_UUID);
     advertising->setName(deviceName);
+    advertising->enableScanResponse(true);
+    advertising->addServiceUUID(BW_NAV_SERVICE_UUID);
     advertising->start();
 
     ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
