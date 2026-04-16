@@ -11,15 +11,30 @@ const serialPort = new SerialPort({
 let voltage = 12.34;
 let current = 4.5;
 let capacity = 285;
+let errors = 0x0000;
+let ntc1 = 5;
+let ntc2 = 10;
+let ntc3 = 15;
 
 function updateBattery() {
   voltage = voltage - 0.01;
   current = current - 1.1;
+  ntc1 = ntc1 + 1;
   if ( voltage < 11) {
     voltage = 15;
   }
   if ( current < -60) {
     current = 60;
+  }
+  if  (ntc1 > 50) {
+    ntc1 = 0;
+  }
+  if ( ntc1 < 2) {
+    errors = 1<<5 | 1<<7;
+  } else if (ntc1 > 40 ) {
+    errors = 1<<4 | 1<<6;
+  } else {
+    errors = 0;
   }
 };
 
@@ -156,16 +171,16 @@ function createReg03(voltage, current, capacity) {
   view.setUint16(8, 386);  //REG_CHARGE_CYCLES_U16
   view.setUint16(10, encodeDate(2020,12,24)); //REG_PRODUCTION_DATE_U16
   view.setUint16(12, 0x05);  //REG_BAT0_15_STATUS_U16
-  view.setUint16(14, 0xf0f0);  //REG_BAT16_31_STATUS_U16
-  view.setUint16(16, 0xf0f0);  //REG_ERRORS_U16
+  view.setUint16(14, 0x00);  //REG_BAT16_31_STATUS_U16
+  view.setUint16(16, errors);  //REG_ERRORS_U16
   view.setUint8(18, 0x11);  //REG_SOFTWARE_VERSION_U8
   view.setUint8(19, 89);  //REG_SOC_U8
   view.setUint8(20, 0x03);  //REG_FET_STATUS_U8
   view.setUint8(21, 4);  //REG_NUMBER_OF_CELLS_U8
   view.setUint8(22, 3);  //REG_NTC_COUNT_U8
-  view.setUint16(23, (27.3+273.15)/0.1);  //REG_NTC_READINGS_U16
-  view.setUint16(25, (23.3+273.15)/0.1);  //REG_NTC_READINGS_U16
-  view.setUint16(27, (22.3+273.15)/0.1);  //REG_NTC_READINGS_U16
+  view.setUint16(23, (ntc1+273.15)/0.1);  //REG_NTC_READINGS_U16
+  view.setUint16(25, (ntc2+273.15)/0.1);  //REG_NTC_READINGS_U16
+  view.setUint16(27, (ntc3+273.15)/0.1);  //REG_NTC_READINGS_U16
   view.setUint8(29, 55);  //55% humidity
   view.setUint16(30, 0x0);  //Alarm status
   view.setUint16(32, 304/0.01);  //full charge capacit

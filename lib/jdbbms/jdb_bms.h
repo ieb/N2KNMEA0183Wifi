@@ -91,6 +91,7 @@ private:
     uint8_t maxReqRegs = 4;
     bool debug = false;
     bool dirty = true;
+    bool sendNext = true;
 
     void requestRegister(uint8_t regNo);
     int processFrame(int from);

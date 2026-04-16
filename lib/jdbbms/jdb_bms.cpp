@@ -120,10 +120,17 @@ void JdbBMS::update() {
             dumpBuffer("After shift ",buffer, 0, wpos);
         }
     }
-    // send out the next register request.
+    // deal with timeouts 
     unsigned long now = millis();
-    if ( (now - lastSend) > 1000) {
+    if ( (now - lastSend) > 2000 ) {
+        sendNext = true;
+    } 
+
+    // send out the next register request.
+    // read evry 250ms so we have an update to each reg every 500ms
+    if ( ((now - lastSend) > 250 && sendNext)) {
         lastSend = now;
+        sendNext = false;
         if ( requestReg05 == 0) {
             requestRegister(0x05);
             requestReg05 = 15;
@@ -164,6 +171,7 @@ int JdbBMS::processFrame(int from) {
     // 
     if ( buffer[endPacketPos] != END_OF_PACKET ) {
         // invalid not seeing an end of packet where expected.
+        sendNext = true;
         return -2;
     }
     uint16_t sum = 0;
@@ -174,11 +182,13 @@ int JdbBMS::processFrame(int from) {
     if ( (((sum&0xff00)>>8) != buffer[checkSumPos]) 
         || ((sum&0xff) != buffer[checkSumPos+1]) ) {
         // bad checksum
+        sendNext = true;
         return -3;
     } 
 
     if ( errorCode != RESPONSE_OK) {
         dumpBuffer("Error Frame",buffer, from, endPacketPos);
+        sendNext = true;
         return -4;
     }
     dumpBuffer("Got Frame",buffer, from, endPacketPos);
@@ -194,6 +204,7 @@ int JdbBMS::processFrame(int from) {
         copyReg05(&buffer[from+4], dataLength);
         register05Length = dataLength;
     }
+    sendNext = true;
     return endPacketPos+1;
 }
 
