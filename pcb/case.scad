@@ -4,62 +4,64 @@ $fn=100;
 
 
 module board() {
-    
+    translate([25,3,0])
     difference() {
         union() {
            translate([0,0,0])
-            cube([120,41,2]);
+            cube([95,41,2]);
            // connectors
             color("blue") {
                 // ESP323C
-                translate([37,12,0])
+                translate([44,2,0])
                 cube([18,22,6]);
-                // 6N137
-                translate([21,11,0])
-                cube([8,9,6]);
-                // 6N137
-                translate([21,22,0])
-                cube([8,9,6]);
-                // DCDC
-                translate([63,6,0])
-                cube([18,11,7]);
+                // Supply
+                translate([12,33,0])
+                cube([17,6,12]);
 
                 // bms connector
-                translate([-0.5,15,2])
-                cube([8,13,6]);
+                translate([29,6,2])
+                cube([6,12,12]);
                 
                 // can cable
-                translate([125,21,7])
+                translate([95,24,0])
                 rotate([0,90,0]) {
                 cylinder(d=7, h=50);
-                    translate([3,0,0])
-                cube([5,6,50], center=true);
                 }
+                // serial cable
+                translate([95,10,0])
+                cube([50,5,3]);
             }
             // es32c3 leds
             color("red") {
-                translate([50,19,0])
+                translate([58,9,0])
                 cylinder(h=9,d=2);
-                translate([40,24.5,0])
+                translate([47,14.5,0])
                 cylinder(h=9,d=2);
-            }           
-
-
+            }          
+           // switch 
+            translate([-20,13,0]) {
+                cube([18,13,7]);
+                translate([-8,13/2,7/2])
+                rotate([0,90,0])
+                    cylinder(h=8,d=6);
+            }
+ 
         };
-            translate([4,4,-2])
+        // holes
+            translate([7,4,-2])
             cylinder(h=10,d=3);
-            translate([4,37,-2])
+            translate([7,37,-2])
             cylinder(h=10,d=3);
-            translate([115,4,-2])
+            translate([90,4,-2])
             cylinder(h=10,d=3);
-            translate([115,37,-2])
+            translate([90,37,-2])
             cylinder(h=10,d=3);
     }
 }
 
-module lid(w=133,d=50,h=12,t=3) {
+module lid(w=133,d=55,h=17,t=3) {
    difference() {
-        translate([w/2,d/2-4,8]) 
+        translate([w/2,d/2-4,10]) 
       difference() {
         union() {
             difference() {
@@ -110,10 +112,13 @@ module lid(w=133,d=50,h=12,t=3) {
 
 
         // led
-        translate([50,19,0])
+    translate([25,3,0]) {
+
+        translate([58,9,0])
                 cylinder(h=50,d=4);
-                translate([40,24.5,0])
+        translate([47,14,0])
                 cylinder(h=50,d=4);
+    }
   
         board();
 
@@ -121,7 +126,7 @@ module lid(w=133,d=50,h=12,t=3) {
 
 }
 
-module case(w=133,d=50,h=9,t=3) {
+module case(w=133,d=55,h=9,t=3) {
    difference() {
    translate([w/2,d/2-4,-2.6]) 
       difference() {
@@ -204,15 +209,16 @@ module cables() {
 /*
 difference() {
     union() {
-        //board();
+        board();
         color("green") case();
         lid();
     }
 
-   translate([-50,0,0])
-   cube([100,100,140], center=true);
+   translate([10,0,0])
+       cube([100,100,140], center=true);
 }
 */
+
 
 
 

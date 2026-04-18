@@ -70,6 +70,11 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     advertising->start();
 
     ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
+
+
+    pinMode(BLE_LED_PIN, OUTPUT);
+    digitalWrite(BLE_LED_PIN, _ledOn);
+
 }
 
 bool BoatWatchBLE::hasAuthenticatedClients() const {
@@ -85,6 +90,7 @@ void BoatWatchBLE::notify() {
             ESP_LOGW(TAG, "Missed disconnect detected — clearing %d client(s)", _clients.size());
             _clients.clear();
             NimBLEDevice::getAdvertising()->start();
+            digitalWrite(BLE_LED_PIN, LOW);
         }
         return;
     }
@@ -117,6 +123,13 @@ void BoatWatchBLE::notify() {
         _lastBatNotify = now;
         _batDirty = false;
     }
+    if ( (now - _ledSwitch) > 1000 ) {
+        _ledSwitch = now;
+        _ledOn = !_ledOn;
+
+        digitalWrite(BLE_LED_PIN, _ledOn);
+    }
+    return;
 }
 
 // Helper to write little-endian values into a buffer
@@ -268,6 +281,10 @@ void BoatWatchBLE::onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo,
     // Restart advertising if below max
     if (_server->getConnectedCount() < BW_MAX_CLIENTS) {
         NimBLEDevice::getAdvertising()->start();
+    }
+    if ( _server->getConnectedCount() == 0) {
+        _ledOn = false;
+        digitalWrite(BLE_LED_PIN, _ledOn);
     }
 }
 

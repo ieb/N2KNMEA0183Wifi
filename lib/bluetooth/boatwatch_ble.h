@@ -44,6 +44,8 @@
 #define BW_NAV_INTERVAL_MS           1000   // 1 Hz
 #define BW_MIN_NAV_INTERVAL_MS        500   // max 2Hz
 
+#define BLE_LED_PIN 8
+
 #define BW_MAX_CLIENTS 3
 
 class BoatWatchBLE : public NimBLEServerCallbacks,
@@ -107,8 +109,10 @@ private:
     // Navigation state buffer (29 bytes)
     uint8_t _navBuffer[29] = {0};
     bool _navDirty = false;
+    bool _ledOn = false;
 
     unsigned long _lastApNotify = 0;
     unsigned long _lastBatNotify = 0;
     unsigned long _lastNavNotify = 0;
+    unsigned long _ledSwitch = 0;
 };

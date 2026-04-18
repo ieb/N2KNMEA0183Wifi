@@ -650,7 +650,7 @@ void onDisableNetwork() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.setDebugOutput(true);
+  delay(1000); // to avoid boot loops.
 
   ConfigurationFile::begin();
     // show what levels are supported
