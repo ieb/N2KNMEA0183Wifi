@@ -10,3 +10,5 @@ src/version.h
 node_modules
 *.gcode
 *.gbr
+test/test_engine_ble/run
+test/test_performance/test_performance

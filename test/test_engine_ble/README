@@ -1,0 +1,17 @@
+Native test for the Engine State (0xFF02) BLE characteristic encoder.
+
+Build and run:
+
+    cd test/test_engine_ble
+    gcc test_engine_ble.c -I../../lib/bluetooth -o run && ./run
+
+The test includes lib/bluetooth/engine_ble_encoder.h directly (it has no
+Arduino / NimBLE dependencies) and byte-compares the encoded payload against
+the "Example payload" in docs/ble-transport.md.
+
+Cases:
+  - golden_example         : 27 bytes match the documented hex exactly.
+  - all_sentinels          : every field "not available" encodes as 0xFF fill.
+  - partial_availability   : engine off, only fuel+hours live.
+  - length                 : encoder returns 27.
+  - rpm_boundary           : 0 and 16383.75 (the latter aliases sentinel by design).
