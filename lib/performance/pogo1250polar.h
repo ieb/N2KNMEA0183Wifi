@@ -2,12 +2,12 @@
 #include <stdint.h>
 
 
-#define  POLAR_NTWS 18
-#define POLAR_NTWA 25
+#define POLAR_NTWS 17
+#define POLAR_NTWA 24
 #define POLAR_MAP_LOOKUP(twsi, twai)  ((twai*POLAR_NTWS)+twsi)
 // Polar, stored in flash as a byte[]
 // in kn
-const uint8_t polar_tws[] = {0, 0, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60};
+const uint8_t polar_tws[] = {0, 4, 6, 8, 10, 12, 14, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60};
 // in deg
 const uint8_t polar_twa[] = {0,5,10,15,20,25,32,36,40,45,52,60,70,80,90,100,110,120,130,140,150,160,170,180};
 // >>> tws
