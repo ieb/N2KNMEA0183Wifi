@@ -34,6 +34,21 @@ public:
     uint32_t log;
   };
 
+  struct EngineState {
+    double rpm;
+    double coolantTemp;        // K
+    double alternatorTemp;     // K (PGN 127489 oil-temp slot, remapped by N2KEngine)
+    double alternatorVolts;    // V
+    double oilPressure;        // Pa
+    double exhaustTemp;        // K (PGN 130316 source 14)
+    double engineRoomTemp;     // K (PGN 130316 source 3)
+    double engineBattVolts;    // V (PGN 127508 instance 0)
+    double fuelLevel;          // %
+    uint32_t engineHours;      // seconds; 0xFFFFFFFF => n/a
+    uint16_t status1;          // PGN 127489 discrete status 1; 0xFFFF => n/a
+    uint16_t status2;          // PGN 127489 discrete status 2; 0xFFFF => n/a
+  };
+
   N2KHandler( NMEA0183N2KMessages &messageEncoder,
       Performance &performance,
       LogBook &logbook ) :
@@ -45,6 +60,9 @@ public:
   NavState getNavState() const;
   bool isNavStateDirty();
   void setCleanNavState();
+  EngineState getEngineState();
+  bool isEngineStateDirty();
+  void setCleanEngineState();
 
 private:
 
@@ -63,7 +81,13 @@ private:
     unsigned long lastRollUpdate=0;
     unsigned long lastEngineSpeedUpdate=0;
     unsigned long lastEngineCoolantUpdate=0;
+    unsigned long lastEngineDynamicUpdate=0;    // shared timeout for all PGN 127489 fields
+    unsigned long lastExhaustTempUpdate=0;
+    unsigned long lastEngineRoomTempUpdate=0;
+    unsigned long lastEngineBattUpdate=0;
+    unsigned long lastFuelLevelUpdate=0;
     bool dirtyNavState = false;
+    bool dirtyEngineState = false;
 
     double headingTrue = -1e9;
     double headingMagnetic = -1e9;
@@ -87,6 +111,16 @@ private:
     double pressure = -1e9;
     double engineSpeed = -1e9;
     double engineCoolantTemp = -1e9;
+    double engineOilPressure = -1e9;
+    double alternatorTemp = -1e9;
+    double alternatorVoltage = -1e9;
+    double exhaustTemp = -1e9;
+    double engineRoomTemp = -1e9;
+    double engineBattVoltage = -1e9;
+    double fuelLevelPct = -1e9;
+    uint32_t engineHoursSec = 0xFFFFFFFFu;
+    uint16_t engineStatus1 = 0xFFFF;
+    uint16_t engineStatus2 = 0xFFFF;
 
 
 

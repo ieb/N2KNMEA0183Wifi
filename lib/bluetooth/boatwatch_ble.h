@@ -4,6 +4,7 @@
 #include <NimBLEDevice.h>
 #include <functional>
 #include <map>
+#include "engine_ble_encoder.h"
 
 // GATT UUIDs matching BoatWatch protocol
 #define BW_SERVICE_UUID        "0000aa00-0000-1000-8000-00805f9b34fb"
@@ -12,14 +13,16 @@
 #define BW_BATTERY_CHAR_UUID   "0000aa03-0000-1000-8000-00805f9b34fb"
 
 // NMEABridge Nav Service
-#define BW_NAV_SERVICE_UUID    "0000ff00-0000-1000-8000-00805f9b34fb"
-#define BW_NAV_STATE_CHAR_UUID "0000ff01-0000-1000-8000-00805f9b34fb"
+#define BW_NAV_SERVICE_UUID     "0000ff00-0000-1000-8000-00805f9b34fb"
+#define BW_NAV_STATE_CHAR_UUID  "0000ff01-0000-1000-8000-00805f9b34fb"
+#define BW_NAV_ENGINE_CHAR_UUID "0000ff02-0000-1000-8000-00805f9b34fb"
 
 // Binary protocol constants
 #define BW_MAGIC_AUTOPILOT 0xAA
 #define BW_MAGIC_BATTERY   0xBB
 #define BW_MAGIC_AUTH_RESP 0xAF
 #define BW_MAGIC_NAV       0xCC
+// BW_MAGIC_ENGINE and BW_ENGINE_PAYLOAD_LEN come from engine_ble_encoder.h
 
 // Command IDs
 #define BW_CMD_AUTH           0xF0
@@ -43,6 +46,8 @@
 #define BW_MAX_BATTERY_INTERVAL_MS   5000   // max 5s
 #define BW_NAV_INTERVAL_MS           1000   // 1 Hz
 #define BW_MIN_NAV_INTERVAL_MS        500   // max 2Hz
+#define BW_ENGINE_INTERVAL_MS        1000   // 1 Hz
+#define BW_MIN_ENGINE_INTERVAL_MS     500   // max 2Hz
 
 #define BLE_LED_PIN 8
 
@@ -68,6 +73,9 @@ public:
     void setBatteryState(const uint8_t* reg03, size_t reg03Len,
                          const uint8_t* reg04, size_t reg04Len);
 
+    // Set engine state for next notification on 0xFF02
+    void setEngineState(const EngineBlePayload& p);
+
     // Set callback for autopilot commands (mode, heading, wind)
     void setCommandCallback(CommandCallback cb) { _commandCallback = cb; }
 
@@ -89,6 +97,7 @@ private:
     NimBLECharacteristic* _commandChar = nullptr;
     NimBLECharacteristic* _batteryChar = nullptr;
     NimBLECharacteristic* _navChar = nullptr;
+    NimBLECharacteristic* _engineChar = nullptr;
 
     CommandCallback _commandCallback;
 
@@ -111,8 +120,13 @@ private:
     bool _navDirty = false;
     bool _ledOn = false;
 
+    // Engine state buffer (27 bytes)
+    uint8_t _engineBuffer[BW_ENGINE_PAYLOAD_LEN] = {0};
+    bool _engineDirty = false;
+
     unsigned long _lastApNotify = 0;
     unsigned long _lastBatNotify = 0;
     unsigned long _lastNavNotify = 0;
+    unsigned long _lastEngineNotify = 0;
     unsigned long _ledSwitch = 0;
 };

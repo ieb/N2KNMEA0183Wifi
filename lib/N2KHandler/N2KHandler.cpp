@@ -541,6 +541,19 @@ void N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
       messageEncoder.sendXDR_airtemp(_actualTemperature);
       messageEncoder.sendMTA(_actualTemperature);
     }
+    // N2KEngine publishes engine-related temperatures on 130316 with numeric
+    // source ids; docs/ble-transport.md "Engine State (0xFF02)" captures them.
+    if ( (uint8_t)_tempSource == 14 ) {             // Exhaust Gas
+      exhaustTemp = _actualTemperature;
+      lastExhaustTempUpdate = millis();
+      dirtyEngineState = true;
+    } else if ( (uint8_t)_tempSource == 3 ) {       // Engine Room
+      engineRoomTemp = _actualTemperature;
+      lastEngineRoomTempUpdate = millis();
+      dirtyEngineState = true;
+    }
+    // Sources 30 (alternator NTC duplicate) and 31+ (OneWire) are intentionally
+    // ignored per the BLE spec.
   }
 }
 void N2KHandler::handle130314_baro(const tN2kMsg &N2kMsg) {
@@ -581,11 +594,13 @@ void N2KHandler::handle127488(const tN2kMsg &N2kMsg) {
 
   if ( ParseN2kPGN127488(N2kMsg, _engineInstance, _engineSpeed,
                      _engineBoostPressure, _engineTiltTrim) ) {
+      if ( _engineInstance != 0 ) return;       // single engine, instance 0 only
 
       if ( ! updateWithTimeout(engineSpeed, _engineSpeed, lastEngineSpeedUpdate, 5000) ) {
         _engineBoostPressure = -1e9;
 
       }
+      dirtyEngineState = true;
 
 
   }
@@ -612,9 +627,22 @@ void N2KHandler::handle127489(const tN2kMsg &N2kMsg) {
                         _fuelRate, _engineHours, _engineCoolantPress, _engineFuelPress,
                         _engineLoad, _engineTorque,
                         _status1, _status2)) {
+        if ( _engineInstance != 0 ) return;     // single engine, instance 0 only
+
         updateWithTimeout(engineCoolantTemp, _engineCoolantTemp, lastEngineCoolantUpdate, 5000);
 
+        // N2KEngine remap: the PGN 127489 engine-oil-temperature field carries
+        // alternator temperature (no oil temp sensor fitted). See
+        // docs/ble-transport.md "Non-Standard Mappings".
+        if ( _engineOilTemp     != -1e9 ) alternatorTemp    = _engineOilTemp;
+        if ( _engineOilPress    != -1e9 ) engineOilPressure = _engineOilPress;
+        if ( _altenatorVoltage  != -1e9 ) alternatorVoltage = _altenatorVoltage;
+        if ( _engineHours       != -1e9 ) engineHoursSec    = (uint32_t)_engineHours;
+        engineStatus1 = _status1.Status;
+        engineStatus2 = _status2.Status;
 
+        lastEngineDynamicUpdate = millis();
+        dirtyEngineState = true;
     }
 
 
@@ -625,7 +653,11 @@ void N2KHandler::handle127505(const tN2kMsg &N2kMsg) {
     double _level;
     double _capacity;
     if ( ParseN2kPGN127505(N2kMsg, _instance, _fluidType, _level, _capacity)) {
-
+        if ( _instance == 0 && _fluidType == N2kft_Fuel && _level != -1e9 ) {
+            fuelLevelPct = _level;
+            lastFuelLevelUpdate = millis();
+            dirtyEngineState = true;
+        }
     }
 
 
@@ -638,7 +670,13 @@ void N2KHandler::handle127508(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   if ( ParseN2kPGN127508(N2kMsg, _batteryInstance, _batteryVoltage, _batteryCurrent,
                      _batteryTemperature,SID)) {
-
+      // Instance 0 is the cranking battery. Instance 2 is the synthetic
+      // "alternator battery" exposed by N2KEngine and is ignored here.
+      if ( _batteryInstance == 0 && _batteryVoltage != -1e9 ) {
+          engineBattVoltage = _batteryVoltage;
+          lastEngineBattUpdate = millis();
+          dirtyEngineState = true;
+      }
   }
 
 } // DCBatteryStatus(N2kMsg); break;
@@ -700,6 +738,49 @@ N2KHandler::NavState N2KHandler::getNavState() const {
         latitude, longitude, cogt, sog, variation,
         headingMagnetic, depth, aparentWindAngle, aparentWindSpeed, waterSpeed,
         log,
+    };
+}
+
+bool N2KHandler::isEngineStateDirty() {
+    return dirtyEngineState;
+}
+
+void N2KHandler::setCleanEngineState() {
+    dirtyEngineState = false;
+}
+
+N2KHandler::EngineState N2KHandler::getEngineState() {
+    // 5 s staleness window for fields that are only emitted while the engine
+    // is running (PGN 127488 rpm, PGN 127489 dynamic). Fuel level, engine-room
+    // and exhaust temperatures and the cranking battery are not expired here
+    // because N2KEngine keeps transmitting them when the engine is off.
+    const unsigned long now = millis();
+    const unsigned long ENGINE_RUNNING_TIMEOUT_MS = 5000;
+
+    double   rpm     = engineSpeed;
+    double   coolant = engineCoolantTemp;
+    double   altT    = alternatorTemp;
+    double   altV    = alternatorVoltage;
+    double   oilP    = engineOilPressure;
+    uint32_t hours   = engineHoursSec;
+    uint16_t s1      = engineStatus1;
+    uint16_t s2      = engineStatus2;
+
+    if ( lastEngineSpeedUpdate == 0 ||
+         (now - lastEngineSpeedUpdate) > ENGINE_RUNNING_TIMEOUT_MS ) {
+        rpm = -1e9;
+    }
+    if ( lastEngineDynamicUpdate == 0 ||
+         (now - lastEngineDynamicUpdate) > ENGINE_RUNNING_TIMEOUT_MS ) {
+        coolant = altT = altV = oilP = -1e9;
+        hours = 0xFFFFFFFFu;
+        s1 = s2 = 0xFFFF;
+    }
+
+    return {
+        rpm, coolant, altT, altV, oilP,
+        exhaustTemp, engineRoomTemp, engineBattVoltage, fuelLevelPct,
+        hours, s1, s2,
     };
 }
 

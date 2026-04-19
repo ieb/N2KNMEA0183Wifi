@@ -917,6 +917,16 @@ void loop() {
       n2kHander.setCleanNavState();
   }
 
+  if ( n2kHander.isEngineStateDirty() ) {
+      N2KHandler::EngineState e = n2kHander.getEngineState();
+      EngineBlePayload p{ e.rpm, e.coolantTemp, e.alternatorTemp, e.alternatorVolts,
+                          e.oilPressure, e.exhaustTemp, e.engineRoomTemp,
+                          e.engineBattVolts, e.fuelLevel,
+                          e.engineHours, e.status1, e.status2 };
+      bleServer.setEngineState(p);
+      n2kHander.setCleanEngineState();
+  }
+
   if (bms.isDirty()) {
     bleServer.setBatteryState(bms.getRegister03(), bms.getRegister03Length(),
                                  bms.getRegister04(), bms.getRegister04Length());

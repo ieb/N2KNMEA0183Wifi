@@ -59,6 +59,12 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         BW_NAV_STATE_CHAR_UUID,
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
+
+    // FF02 — Engine State (NOTIFY + READ)
+    _engineChar = navService->createCharacteristic(
+        BW_NAV_ENGINE_CHAR_UUID,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
+    );
     // deprecated navService->start();
 
     // Start advertising both services
@@ -105,6 +111,15 @@ void BoatWatchBLE::notify() {
         _navChar->notify();
         _lastNavNotify = now;
         _navDirty = false;
+    }
+
+    // Engine state when updated, or at least every 1s
+    if ((_engineDirty && (now - _lastEngineNotify >= BW_MIN_ENGINE_INTERVAL_MS))
+        || (now - _lastEngineNotify >= BW_ENGINE_INTERVAL_MS)) {
+        _engineChar->setValue(_engineBuffer, BW_ENGINE_PAYLOAD_LEN);
+        _engineChar->notify();
+        _lastEngineNotify = now;
+        _engineDirty = false;
     }
 
 
@@ -182,6 +197,11 @@ void BoatWatchBLE::setNavState(double lat, double lon, double cog, double sog,
     writeU32(_navBuffer, pos, log);                             // Log (already in metres)
 
     _navDirty = true;
+}
+
+void BoatWatchBLE::setEngineState(const EngineBlePayload& p) {
+    encodeEngineBle(_engineBuffer, &p);
+    _engineDirty = true;
 }
 
 void BoatWatchBLE::setAutopilotState(uint8_t mode, uint16_t heading,
