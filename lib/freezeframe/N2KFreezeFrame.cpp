@@ -96,7 +96,7 @@ void N2KFreezeFrame::evaluateStatus(uint16_t lastStatus,
         for(int i = 0; i < 16; i++) {
             if (((lastStatus & c) == 0x00) && ((newStatus & c) == c)) {
                 bitsSet++;
-            } else if (((lastStatus & c) == c) && ((newStatus & c) == c)) {
+            } else if (((lastStatus & c) == c) && ((newStatus & c) == 0x00)) {
                 bitsCleared++;
             }
             c = c<<1;
@@ -122,10 +122,17 @@ void N2KFreezeFrame::logFreezeFrame() {
             }
             Serial.print("Creating ");Serial.println(filename);
             f = SPIFFS.open(filename,"a");
+            if ( !f ) {
+                Serial.print("freezeframe: open failed ");Serial.println(filename);
+                return;
+            }
             f.println("time,logTime,lat,long,log,engineHours,status1,status2,rpm,coolantTemp,exhaustT,oilPress,alternatorT,altenatorV,engineBatteryV,serviceBatteryV,serviceBatteryA,serviceBatteryT,engineRoomT,senseT1,senseT2,senseT3,senseT4");
         } else {
-            //Serial.print("Opening ");Serial.println(filename);
             f = SPIFFS.open(filename,"a");
+            if ( !f ) {
+                Serial.print("freezeframe: open failed ");Serial.println(filename);
+                return;
+            }
         }
 
         f.printf("%04d-%02d-%02dT%02d:%02d:%02dZ",tm.Year+1970, tm.Month, tm.Day,tm.Hour,tm.Minute,tm.Second);

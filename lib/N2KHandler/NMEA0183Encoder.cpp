@@ -141,7 +141,7 @@ void NMEA0183Encoder::appendTimeUTC(double secondsSinceMidnight) {
   int hh = (int)(secondsSinceMidnight/3600.0);
   int mm = (int)((secondsSinceMidnight-(hh*3600.0))/60.0);
   double ss = secondsSinceMidnight-(hh*3600.0)-(mm*60.0);
-  sprintf(inbuffer, "%02d%02d%05.2f", hh, mm, ss);
+  snprintf(inbuffer, INBUF_LEN, "%02d%02d%05.2f", hh, mm, ss);
   checkBuffer("utc");
   append(inbuffer);
 }
@@ -155,7 +155,7 @@ void NMEA0183Encoder::appendLatitude(double latitude) {
   }
   int dd = (int)latitude;
   double mm = (latitude - dd)*60.0;
-  sprintf(inbuffer, "%02d%08.5f", dd, mm);
+  snprintf(inbuffer, INBUF_LEN, "%02d%08.5f", dd, mm);
   checkBuffer("latitude");
   append(inbuffer);
   append(ns);
@@ -169,7 +169,7 @@ void NMEA0183Encoder::appendLongitude(double longitude) {
   }
   int dd = (int)longitude;
   double mm = (longitude - dd)*60.0;
-  sprintf(inbuffer, "%03d%08.5f", dd, mm);
+  snprintf(inbuffer, INBUF_LEN, "%03d%08.5f", dd, mm);
   checkBuffer("latitude");
   append(inbuffer);
   append(ew);
@@ -178,14 +178,14 @@ void NMEA0183Encoder::appendLongitude(double longitude) {
 void NMEA0183Encoder::appendDMY(uint16_t daysSince1970) {
   time_t d = ((uint32_t)(daysSince1970)*3600UL*24UL);
   struct tm * tmd = gmtime(&d);
-  sprintf(inbuffer, "%02d,%02d,%04d",tmd->tm_mday, tmd->tm_mon+1, tmd->tm_year+1900);
+  snprintf(inbuffer, INBUF_LEN, "%02d,%02d,%04d",tmd->tm_mday, tmd->tm_mon+1, tmd->tm_year+1900);
   checkBuffer("dmy");
   append(inbuffer);
 }
 void NMEA0183Encoder::appendDate(uint16_t daysSince1970) {
   time_t d = ((uint32_t)(daysSince1970)*3600UL*24UL);
   struct tm * tmd = gmtime(&d);
-  sprintf(inbuffer, "%02d%02d%02d",tmd->tm_mday,tmd->tm_mon+1,tmd->tm_year%100);
+  snprintf(inbuffer, INBUF_LEN, "%02d%02d%02d",tmd->tm_mday,tmd->tm_mon+1,tmd->tm_year%100);
   append(inbuffer);
 }
 

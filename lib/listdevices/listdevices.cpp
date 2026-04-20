@@ -57,15 +57,17 @@ void ListDevices::printDevice(Print *stream, const tNMEA2000::tDevice *pDevice) 
 void ListDevices::list(bool force) {
   static bool StartDelayDone=false;
   static int StartDelayCount=0;
-  static unsigned long NextStartDelay=0;
+  static unsigned long LastTick=0;          // wrap-safe: store last tick, compare delta
   if ( !StartDelayDone ) { // We let system first collect data to avoid printing all changes
-    if ( millis()>NextStartDelay ) {
-      if ( StartDelayCount==0 ) {
-        OutputStream->print("Reading device information from bus ");
-        NextStartDelay=millis();
-      }
+    unsigned long now = millis();
+    if ( StartDelayCount==0 ) {
+      OutputStream->print("Reading device information from bus ");
+      LastTick = now;
       OutputStream->print(".");
-      NextStartDelay+=1000;
+      StartDelayCount++;
+    } else if ( (now - LastTick) >= 1000 ) {
+      LastTick += 1000;
+      OutputStream->print(".");
       StartDelayCount++;
       if ( StartDelayCount>START_DELAY_IN_S ) {
         StartDelayDone=true;

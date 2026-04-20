@@ -92,7 +92,7 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
 
 bool BoatWatchBLE::hasAuthenticatedClients() const {
     for (auto &it : _clients) {
-        if (it.second) return true;
+        if (it.second.authed) return true;
     }
     return false;
 }
@@ -109,6 +109,26 @@ void BoatWatchBLE::notify() {
     }
 
     unsigned long now = millis();
+
+    // Disconnect any client that connected but never authenticated within the
+    // idle window. Stops an attacker (or a broken client) from holding the
+    // BW_MAX_CLIENTS connection slots and denying service to legitimate peers.
+    // Collect handles first and disconnect after the loop so we don't mutate
+    // the map while iterating.
+    uint16_t idleHandles[BW_MAX_CLIENTS];
+    size_t nIdle = 0;
+    for (auto &kv : _clients) {
+        if (!kv.second.authed
+            && (now - kv.second.connectedAtMs) > BW_UNAUTH_IDLE_TIMEOUT_MS
+            && nIdle < BW_MAX_CLIENTS) {
+            idleHandles[nIdle++] = kv.first;
+        }
+    }
+    for (size_t i = 0; i < nIdle; i++) {
+        ESP_LOGW(TAG, "Client %u idle-unauth timeout — disconnecting",
+                 idleHandles[i]);
+        _server->disconnect(idleHandles[i]);
+    }
 
     if (!hasAuthenticatedClients()) return;
 
@@ -291,7 +311,7 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
 
 void BoatWatchBLE::onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     uint16_t connHandle = connInfo.getConnHandle();
-    _clients[connHandle] = false;
+    _clients[connHandle] = ClientState{false, 0, 0, millis()};
     ESP_LOGI(TAG, "Client %d connected — awaiting auth (%d clients)", connHandle, _clients.size());
 
     // Keep advertising so more clients can connect (up to BW_MAX_CLIENTS)
@@ -327,28 +347,75 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
 
     uint8_t cmd = data[1];
 
-    // Auth command — always allowed
+    auto it = _clients.find(connHandle);
+    if (it == _clients.end()) return;  // unknown handle, e.g. post-disconnect race
+    ClientState &state = it->second;
+
+    // Auth command — allowed, but rate-limited per connection AND globally.
     if (cmd == BW_CMD_AUTH) {
+        unsigned long now = millis();
+
+        // Global lockout (survives reconnects): blocks brute-force attempts
+        // that try to reset the per-connection counter by disconnecting.
+        if (_globalBlockUntilMs != 0 && (long)(_globalBlockUntilMs - now) > 0) {
+            ESP_LOGW(TAG, "Auth rejected: global lockout active");
+            sendAuthResponse(connHandle, false);
+            return;
+        }
+        // Window expired — clear global state so legitimate users start fresh.
+        if (_globalBlockUntilMs != 0) {
+            _globalBlockUntilMs = 0;
+            _globalAuthFailures = 0;
+        }
+
+        if (state.blockUntilMs != 0 && (long)(state.blockUntilMs - now) > 0) {
+            ESP_LOGW(TAG, "Client %d auth attempt during lockout (failures=%u)",
+                     connHandle, state.failures);
+            sendAuthResponse(connHandle, false);
+            return;
+        }
+        bool ok = false;
         if (len >= 6) {
             char pin[5] = {0};
             memcpy(pin, data + 2, 4);
-            if (_pin.equals(pin)) {
-                _clients[connHandle] = true;
-                sendAuthResponse(connHandle, true);
-                ESP_LOGI(TAG, "Client %d auth accepted", connHandle);
-            } else {
-                sendAuthResponse(connHandle, false);
-                ESP_LOGW(TAG, "Client %d auth denied (PIN: %s)", connHandle, pin);
-            }
+            if (_pin.equals(pin)) ok = true;
+        }
+        if (ok) {
+            state.authed = true;
+            state.failures = 0;
+            state.blockUntilMs = 0;
+            _globalAuthFailures = 0;
+            _globalBlockUntilMs = 0;
+            sendAuthResponse(connHandle, true);
+            ESP_LOGI(TAG, "Client %d auth accepted", connHandle);
         } else {
+            state.failures++;
+            _globalAuthFailures++;
             sendAuthResponse(connHandle, false);
+            ESP_LOGW(TAG, "Client %d auth denied (failures=%u global=%u)",
+                     connHandle, state.failures, _globalAuthFailures);
+            if (state.failures >= BW_AUTH_MAX_FAILURES) {
+                ESP_LOGW(TAG, "Client %d exceeded per-connection limit — disconnecting",
+                         connHandle);
+                _server->disconnect(connHandle);
+                return;
+            }
+            if (state.failures % BW_AUTH_LOCKOUT_FAILURES == 0) {
+                state.blockUntilMs = now + BW_AUTH_LOCKOUT_MS;
+                ESP_LOGW(TAG, "Client %d entering %lu ms auth lockout", connHandle,
+                         (unsigned long)BW_AUTH_LOCKOUT_MS);
+            }
+            if (_globalAuthFailures >= BW_AUTH_GLOBAL_LOCKOUT_FAILURES) {
+                _globalBlockUntilMs = now + BW_AUTH_GLOBAL_LOCKOUT_MS;
+                ESP_LOGW(TAG, "Global auth lockout engaged for %lu ms",
+                         (unsigned long)BW_AUTH_GLOBAL_LOCKOUT_MS);
+            }
         }
         return;
     }
 
     // All other commands require auth
-    auto it = _clients.find(connHandle);
-    if (it == _clients.end() || !it->second) {
+    if (!state.authed) {
         ESP_LOGW(TAG, "Client %d cmd 0x%02X rejected — not authenticated", connHandle, cmd);
         return;
     }

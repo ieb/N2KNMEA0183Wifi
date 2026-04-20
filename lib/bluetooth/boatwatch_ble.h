@@ -53,6 +53,17 @@
 
 #define BW_MAX_CLIENTS 3
 
+// BLE auth brute-force hardening
+#define BW_AUTH_LOCKOUT_FAILURES        5        // consecutive failures per connection before lockout
+#define BW_AUTH_LOCKOUT_MS              30000UL  // 30 s lockout per connection
+#define BW_AUTH_MAX_FAILURES            10       // per-connection total before force-disconnect
+// Global counters survive reconnects, so an attacker cycling connections
+// still accumulates toward a global lockout.
+#define BW_AUTH_GLOBAL_LOCKOUT_FAILURES 20       // cumulative across all connections
+#define BW_AUTH_GLOBAL_LOCKOUT_MS       300000UL // 5 min global lockout
+// Disconnect clients that linger without authenticating.
+#define BW_UNAUTH_IDLE_TIMEOUT_MS       30000UL  // 30 s to authenticate after connect
+
 class BoatWatchBLE : public NimBLEServerCallbacks,
                      public NimBLECharacteristicCallbacks {
 public:
@@ -103,8 +114,22 @@ private:
 
     String _pin;
 
-    // Per-connection auth state: conn_handle -> authenticated
-    std::map<uint16_t, bool> _clients;
+    // Per-connection auth state keyed by conn_handle.
+    // Failure counter and lockout window thwart PIN brute-force: after
+    // BW_AUTH_LOCKOUT_FAILURES consecutive failures the connection is blocked
+    // from AUTH for BW_AUTH_LOCKOUT_MS; after BW_AUTH_MAX_FAILURES total
+    // failures the client is force-disconnected.
+    struct ClientState {
+        bool authed;
+        uint8_t failures;
+        unsigned long blockUntilMs;
+        unsigned long connectedAtMs;   // for unauthenticated-idle disconnect
+    };
+    std::map<uint16_t, ClientState> _clients;
+    // Global auth state — survives reconnects so an attacker cycling
+    // connections still progresses toward a global lockout.
+    uint16_t      _globalAuthFailures = 0;
+    unsigned long _globalBlockUntilMs = 0;
 
     // Autopilot state buffer (10 bytes)
     uint8_t _apBuffer[10] = {0};

@@ -14,6 +14,36 @@
 #define TAG "http"
 
 
+// Paths whose SPIFFS contents must not be served over HTTP without auth.
+// Logbook and freezeframe dumps contain operational telemetry; config.txt
+// holds WiFi credentials and the BLE PIN. Anything containing ".." is also
+// rejected defensively, even though SPIFFS on ESP32 is flat.
+static bool isProtectedPath(const String& path) {
+    return path.startsWith("/logbook/") ||
+           path.startsWith("/freezeframe/") ||
+           path.equals("/config.txt") ||
+           path.indexOf("..") >= 0;
+}
+
+// Reject filesystem paths we do not want a (potentially authenticated but
+// compromised) client writing to or deleting. Callers must have already
+// checked auth; this is defence-in-depth against path traversal and against
+// an authenticated session bricking the device by deleting its config.
+static bool isSafeWritablePath(const String& p) {
+    if ( p.length() == 0 ) return false;
+    if ( !p.startsWith("/") ) return false;            // require absolute
+    if ( p.indexOf("..") >= 0 ) return false;          // no traversal tokens
+    if ( p.indexOf('\0') >= 0 ) return false;          // no embedded NULs
+    if ( p.equals("/config.txt") ) return false;       // protect primary config
+    return true;
+}
+
+// An authenticated admin user can upload a new config 
+static bool isSafeToUploadPath(const String& p) {
+    if ( p.equals("/config.txt") ) return true;
+    return isSafeWritablePath(p);
+}
+
 
 void WebServer::init(const char * configurationFile) {
     seasmartMutex = xSemaphoreCreateMutex();
@@ -47,9 +77,11 @@ void WebServer::init(const char * configurationFile) {
     });
 
 
-    // POST a block of seasmart commands to the N2K Bus
-    // protected by allow list
+    // POST a block of seasmart commands to the N2K Bus.
+    // Authenticated only: this writes frames onto the CAN bus and can spoof
+    // PGNs (autopilot, heading, depth) so it must be gated.
     server.on("/api/seasmart", HTTP_POST, [this](AsyncWebServerRequest *request) {
+            if ( !this->authorized(request) ) return;
             String message = "{ \"ok\": false, \"msg\":\"not found\"}";
             uint16_t code = 404;
             if (request->hasParam("msg", true)) {
@@ -66,7 +98,7 @@ void WebServer::init(const char * configurationFile) {
             }
             AsyncWebServerResponse * response = request->beginResponse(code, "application/json", message);
             addCORS(request, response);
-            request->send(response); 
+            request->send(response);
     });
 
     server.on("/api/nmea0183", HTTP_GET, [this](AsyncWebServerRequest *request) {
@@ -78,6 +110,7 @@ void WebServer::init(const char * configurationFile) {
 
 
     // store contents in NMEA2000 raw units as csv lines.
+    // Non admin access is allowed
     server.on("/api/store", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if (storeOutputFn == NULL) {
             request->send(404);
@@ -191,9 +224,19 @@ void WebServer::init(const char * configurationFile) {
             response->printf("{ \"ok\":false,\"msg\":\"layout required\"}\n");
             request->send(response);
         } else {
+            // Reject layout names that would escape the /layout-*.json namespace.
+            String layoutName = layout->value();
+            if ( layoutName.indexOf('/') >= 0 || layoutName.indexOf("..") >= 0
+                 || layoutName.indexOf('\0') >= 0 || layoutName.length() == 0 ) {
+                AsyncResponseStream *response = request->beginResponseStream("application/json");
+                addCORS(request, response);
+                response->setCode(400);
+                response->printf("{ \"ok\":false,\"msg\":\"invalid layout name\"}\n");
+                request->send(response);
+                return;
+            }
             String layoutFile = "/layout-";
-            // checked
-            layoutFile = layoutFile + layout->value() + ".json";
+            layoutFile = layoutFile + layoutName + ".json";
             ESP_LOGI(TAG, "%s", layoutFile);
             AsyncWebServerResponse * fileResponse = request->beginResponse(SPIFFS, layoutFile, "application/json");
             if ( fileResponse == NULL) {
@@ -234,7 +277,11 @@ void WebServer::init(const char * configurationFile) {
                     request->send(response);
                 } else {
                     String filePath = path->value();
-                    if ( SPIFFS.exists(filePath) ) {
+                    if ( !isSafeWritablePath(filePath) ) {
+                        response->setCode(400);
+                        response->println("{ \"ok\":false,\"msg\":\"invalid path\"}");
+                        request->send(response);
+                    } else if ( SPIFFS.exists(filePath) ) {
                         SPIFFS.remove(filePath);
                         response->setCode(200);
                         response->println("{ \"ok\":true,\"msg\":\"deleted\"}");
@@ -243,7 +290,7 @@ void WebServer::init(const char * configurationFile) {
                         response->setCode(404);
                         response->println("{ \"ok\":false,\"msg\":\"not found\"}");
                         request->send(response);
-                    }                    
+                    }
                 }
             } else if ( op->value() == "upload") {
 
@@ -276,7 +323,9 @@ void WebServer::init(const char * configurationFile) {
             const AsyncWebParameter * path = request->getParam("path", true, false);
             const AsyncWebParameter * op = request->getParam("op", true, false);
             if ( path != NULL && op != NULL && op->value() == "upload" ) {
-                if ( request->_tempObject != NULL ) {
+                if ( !isSafeToUploadPath(path->value()) ) {
+                    ESP_LOGE(TAG, "Upload rejected: unsafe path");
+                } else if ( request->_tempObject != NULL ) {
                     ESP_LOGE(TAG, "Upload only supports one file at a time");
                 } else {
                     if ( request->_tempFile ) {
@@ -329,6 +378,7 @@ void WebServer::init(const char * configurationFile) {
     // management
 
     server.on("/api/statusDump", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if ( !this->authorized(request) ) return;
         if (statusOutputFn == NULL) {
             request->send(404);
         } else {
@@ -390,6 +440,9 @@ void WebServer::init(const char * configurationFile) {
         if ( path.endsWith("/") ) {
             path = path + "index.html";
         }
+        if ( isProtectedPath(path) ) {
+            if ( !this->authorized(request) ) return;  // 401 sent by authorized()
+        }
         if (SPIFFS.exists(path) || SPIFFS.exists(path+".gz") )  {
            AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, String());
            this->addCORS(request, response);
@@ -400,10 +453,14 @@ void WebServer::init(const char * configurationFile) {
 
 
 
-    // everything else, serve static.
+    // everything else, serve static. A filter blocks the catch-all from
+    // serving anything isProtectedPath() would otherwise auth-gate above.
     server.serveStatic("/", SPIFFS, "/" )
         .setDefaultFile("index.html")
-        .setCacheControl("max-age=600");
+        .setCacheControl("max-age=600")
+        .setFilter([](AsyncWebServerRequest *request) {
+            return !isProtectedPath(request->url());
+        });
 
 
     server.onNotFound([this](AsyncWebServerRequest *request) {
