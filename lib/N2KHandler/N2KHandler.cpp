@@ -742,6 +742,7 @@ N2KHandler::NavState N2KHandler::getNavState() const {
 }
 
 bool N2KHandler::isEngineStateDirty() {
+    expireStaleEngineData();
     return dirtyEngineState;
 }
 
@@ -750,38 +751,69 @@ void N2KHandler::setCleanEngineState() {
 }
 
 N2KHandler::EngineState N2KHandler::getEngineState() {
-    // 5 s staleness window for fields that are only emitted while the engine
-    // is running (PGN 127488 rpm, PGN 127489 dynamic). Fuel level, engine-room
-    // and exhaust temperatures and the cranking battery are not expired here
-    // because N2KEngine keeps transmitting them when the engine is off.
-    const unsigned long now = millis();
-    const unsigned long ENGINE_RUNNING_TIMEOUT_MS = 5000;
-
-    double   rpm     = engineSpeed;
-    double   coolant = engineCoolantTemp;
-    double   altT    = alternatorTemp;
-    double   altV    = alternatorVoltage;
-    double   oilP    = engineOilPressure;
-    uint32_t hours   = engineHoursSec;
-    uint16_t s1      = engineStatus1;
-    uint16_t s2      = engineStatus2;
-
-    if ( lastEngineSpeedUpdate == 0 ||
-         (now - lastEngineSpeedUpdate) > ENGINE_RUNNING_TIMEOUT_MS ) {
-        rpm = -1e9;
-    }
-    if ( lastEngineDynamicUpdate == 0 ||
-         (now - lastEngineDynamicUpdate) > ENGINE_RUNNING_TIMEOUT_MS ) {
-        coolant = altT = altV = oilP = -1e9;
-        hours = 0xFFFFFFFFu;
-        s1 = s2 = 0xFFFF;
-    }
-
     return {
-        rpm, coolant, altT, altV, oilP,
-        exhaustTemp, engineRoomTemp, engineBattVoltage, fuelLevelPct,
-        hours, s1, s2,
+        engineSpeed, engineCoolantTemp, alternatorTemp, alternatorVoltage,
+        engineOilPressure, exhaustTemp, engineRoomTemp, engineBattVoltage,
+        fuelLevelPct, engineHoursSec, engineStatus1, engineStatus2,
     };
+}
+
+void N2KHandler::expireStaleEngineData() {
+    // Revert each engine field to its "not available" sentinel when its source
+    // PGN has stopped arriving. Fast timeout (5 s) for fields only emitted
+    // while the engine runs; slow timeout (15 s) for fields N2KEngine keeps
+    // transmitting regardless (fuel level, engine-room / exhaust T, cranking
+    // battery). On any live -> stale transition, flag the state dirty so the
+    // BLE characteristic notifies the sentinels.
+    const unsigned long now = millis();
+    const unsigned long FAST_TIMEOUT_MS = 5000;
+    const unsigned long SLOW_TIMEOUT_MS = 15000;
+    bool changed = false;
+
+    // PGN 127488 rapid: rpm
+    if ( engineSpeed != -1e9
+         && (now - lastEngineSpeedUpdate) > FAST_TIMEOUT_MS ) {
+        engineSpeed = -1e9;
+        changed = true;
+    }
+
+    // PGN 127489 dynamic: coolant, alternator T/V, oil, hours, status1/2
+    if ( (now - lastEngineDynamicUpdate) > FAST_TIMEOUT_MS ) {
+        if ( engineCoolantTemp  != -1e9 ) { engineCoolantTemp  = -1e9;         changed = true; }
+        if ( alternatorTemp     != -1e9 ) { alternatorTemp     = -1e9;         changed = true; }
+        if ( alternatorVoltage  != -1e9 ) { alternatorVoltage  = -1e9;         changed = true; }
+        if ( engineOilPressure  != -1e9 ) { engineOilPressure  = -1e9;         changed = true; }
+        if ( engineHoursSec     != 0xFFFFFFFFu ) { engineHoursSec = 0xFFFFFFFFu; changed = true; }
+        if ( engineStatus1      != 0xFFFF ) { engineStatus1    = 0xFFFF;       changed = true; }
+        if ( engineStatus2      != 0xFFFF ) { engineStatus2    = 0xFFFF;       changed = true; }
+    }
+
+    // PGN 130316 source 14: exhaust
+    if ( exhaustTemp != -1e9
+         && (now - lastExhaustTempUpdate) > SLOW_TIMEOUT_MS ) {
+        exhaustTemp = -1e9;
+        changed = true;
+    }
+    // PGN 130316 source 3: engine room
+    if ( engineRoomTemp != -1e9
+         && (now - lastEngineRoomTempUpdate) > SLOW_TIMEOUT_MS ) {
+        engineRoomTemp = -1e9;
+        changed = true;
+    }
+    // PGN 127508 instance 0: cranking battery
+    if ( engineBattVoltage != -1e9
+         && (now - lastEngineBattUpdate) > SLOW_TIMEOUT_MS ) {
+        engineBattVoltage = -1e9;
+        changed = true;
+    }
+    // PGN 127505 instance 0: fuel level
+    if ( fuelLevelPct != -1e9
+         && (now - lastFuelLevelUpdate) > SLOW_TIMEOUT_MS ) {
+        fuelLevelPct = -1e9;
+        changed = true;
+    }
+
+    if ( changed ) dirtyEngineState = true;
 }
 
 

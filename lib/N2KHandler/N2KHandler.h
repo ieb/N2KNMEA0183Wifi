@@ -150,6 +150,8 @@ private:
     void handle130313(const tN2kMsg &N2kMsg);
 
 
+    void expireStaleEngineData();
+
     bool parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint16_t &DaysSince1970, double &SecondsSinceMidnight,
                      double &Latitude, double &Longitude, double &Altitude,
                      tN2kGNSStype &GNSStype, tN2kGNSSmethod &GNSSmethod,
