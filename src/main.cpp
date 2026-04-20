@@ -271,6 +271,7 @@ void showHelp() {
   OutputStream->println("  - Send 'p' set udp port");
   OutputStream->println("  - Send 'N' to toggle Network");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
+  OutputStream->println("  - Send 'C' to clear boot reasons");
   OutputStream->println("  - Send 'R' to restart");
 }
 
@@ -416,6 +417,66 @@ void monitorAlertsTask(void *pvParameters) {
     vTaskDelete(NULL);
 }
 
+// Capture reset reason in NVS *before* any heavy init so a silent brownout
+// loop still leaves an audit trail readable on the next clean boot.
+// Counters are keyed by esp_reset_reason_t (small ints, stable across SDKs).
+static esp_reset_reason_t _bootResetReason = ESP_RST_UNKNOWN;
+static uint32_t _bootResetCounts[16] = {0};
+
+static const char* resetReasonName(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "POWERON";
+    case ESP_RST_EXT:       return "EXT";
+    case ESP_RST_SW:        return "SW";
+    case ESP_RST_PANIC:     return "PANIC";
+    case ESP_RST_INT_WDT:   return "INT_WDT";
+    case ESP_RST_TASK_WDT:  return "TASK_WDT";
+    case ESP_RST_WDT:       return "WDT";
+    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT";
+    case ESP_RST_SDIO:      return "SDIO";
+    default:                return "UNKNOWN";
+  }
+}
+
+static void recordBootReason() {
+  _bootResetReason = esp_reset_reason();
+  Preferences p;
+  if (!p.begin("boot", false)) return;
+  char key[8];
+  snprintf(key, sizeof(key), "r%d", (int)_bootResetReason);
+  uint32_t n = p.getUInt(key, 0) + 1;
+  p.putUInt(key, n);
+  for (int i = 0; i < 16; i++) {
+    snprintf(key, sizeof(key), "r%d", i);
+    _bootResetCounts[i] = p.getUInt(key, 0);
+  }
+  p.end();
+}
+
+static void clearBootReasons() {
+  Preferences p;
+  if (!p.begin("boot", false)) return;
+  char key[8];
+  for (int i = 0; i < 16; i++) {
+    snprintf(key, sizeof(key), "r%d", i);
+    p.putUInt(key, 0);
+    _bootResetCounts[i] = 0;
+  }
+  p.end();
+}
+
+
+static void reportBootCounts() {
+  for (int i = 0; i < 16; i++) {
+    if (_bootResetCounts[i] > 0) {
+      ESP_LOGW(TAG, "  %-10s count=%u",
+               resetReasonName((esp_reset_reason_t)i),
+               (unsigned)_bootResetCounts[i]);
+    }
+  }    
+}
+
 void printStatus(Print *stream) {
   stream->print("Total heap:  ");stream->println(ESP.getHeapSize());
   stream->print("Free heap:   ");stream->println(ESP.getFreeHeap());
@@ -424,6 +485,8 @@ void printStatus(Print *stream) {
   stream->print("Has PSRAM:");stream->println(psramFound());
   stream->print("Total PSRAM: ");stream->println(ESP.getPsramSize());
   stream->print("Free PSRAM:  ");stream->println(ESP.getFreePsram());
+
+  reportBootCounts();
 
 
   twaiAlertStatus(stream);
@@ -650,65 +713,20 @@ void onDisableNetwork() {
 }
 
 
-// Capture reset reason in NVS *before* any heavy init so a silent brownout
-// loop still leaves an audit trail readable on the next clean boot.
-// Counters are keyed by esp_reset_reason_t (small ints, stable across SDKs).
-static esp_reset_reason_t _bootResetReason = ESP_RST_UNKNOWN;
-static uint32_t _bootResetCounts[16] = {0};
 
-static const char* resetReasonName(esp_reset_reason_t r) {
-  switch (r) {
-    case ESP_RST_POWERON:   return "POWERON";
-    case ESP_RST_EXT:       return "EXT";
-    case ESP_RST_SW:        return "SW";
-    case ESP_RST_PANIC:     return "PANIC";
-    case ESP_RST_INT_WDT:   return "INT_WDT";
-    case ESP_RST_TASK_WDT:  return "TASK_WDT";
-    case ESP_RST_WDT:       return "WDT";
-    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
-    case ESP_RST_BROWNOUT:  return "BROWNOUT";
-    case ESP_RST_SDIO:      return "SDIO";
-    default:                return "UNKNOWN";
-  }
-}
-
-static void recordBootReason() {
-  _bootResetReason = esp_reset_reason();
-  Preferences p;
-  if (!p.begin("boot", false)) return;
-  char key[8];
-  snprintf(key, sizeof(key), "r%d", (int)_bootResetReason);
-  uint32_t n = p.getUInt(key, 0) + 1;
-  p.putUInt(key, n);
-  for (int i = 0; i < 16; i++) {
-    snprintf(key, sizeof(key), "r%d", i);
-    _bootResetCounts[i] = p.getUInt(key, 0);
-  }
-  p.end();
-}
 
 void setup() {
   recordBootReason();
   Serial.begin(115200);
+
   delay(1000); // to avoid boot loops.
 
   ESP_LOGW(TAG, "Boot reason: %s (%d)",
            resetReasonName(_bootResetReason), (int)_bootResetReason);
-  for (int i = 0; i < 16; i++) {
-    if (_bootResetCounts[i] > 0) {
-      ESP_LOGW(TAG, "  %-10s count=%u",
-               resetReasonName((esp_reset_reason_t)i),
-               (unsigned)_bootResetCounts[i]);
-    }
-  }
+  reportBootCounts();
+
 
   ConfigurationFile::begin();
-    // show what levels are supported
-  ESP_LOGE("MyApp", "Error Reporting On");
-  ESP_LOGW("MyApp", "Warning Reporting On");
-  ESP_LOGI("MyApp", "Information Reporting On");
-  ESP_LOGD("MyApp", "Debug Reporting On");
-  ESP_LOGV("MyApp", "Verbose Reporting On");
 
   if ( !psramInit() ) {
 
@@ -722,6 +740,7 @@ void setup() {
     ESP_LOGE(TAG, "An Error has occurred while mounting SPIFFS");
   }
 
+
   ESP_LOGE(TAG, "Starting BMS Stack");
   #ifdef ESP_32_BOARD
   Serial1.begin(9600,SERIAL_8N1);
@@ -731,12 +750,19 @@ void setup() {
   bms.setSerial(&Serial1);
   bms.begin();
   // Start BLE server
+
+
   bleServer.begin("BoatWatch");
   bleServer.setCommandCallback(handleBleCommand);
+
+  delay(1000); // wait for any supply caps to get back up to power.
 
   setupCanStack();
   setupNetworkStack();
   pinMode(CAN_ON_PIN, INPUT);
+  // enaling too soon causes a brownout.
+  pinMode(BLE_LED_PIN, OUTPUT);
+  digitalWrite(BLE_LED_PIN, false);
   ESP_LOGE(TAG, "Running.....");
   showHelp();
 }
@@ -842,6 +868,10 @@ void CheckCommand() {
             onEnableNetwork();
             networkUp = true;
         }
+        break;
+      case 'C':
+        clearBootReasons();
+        reportBootCounts();
         break;
     }
   }

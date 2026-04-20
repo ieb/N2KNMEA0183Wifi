@@ -86,7 +86,7 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
 
 
     pinMode(BLE_LED_PIN, OUTPUT);
-    digitalWrite(BLE_LED_PIN, _ledOn);
+    digitalWrite(BLE_LED_PIN, false);
 
 }
 
