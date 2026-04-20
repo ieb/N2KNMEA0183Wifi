@@ -65,6 +65,13 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         BW_NAV_ENGINE_CHAR_UUID,
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
+
+    // Prime with an all-sentinel payload so initial reads and the 1 Hz keep-alive
+    // notify carry a valid frame (magic 0xDD + 0xFF fill) before any engine PGN arrives.
+    EngineBlePayload empty;
+    engineBlePayloadInitNA(&empty);
+    encodeEngineBle(_engineBuffer, &empty);
+    _engineChar->setValue(_engineBuffer, BW_ENGINE_PAYLOAD_LEN);
     // deprecated navService->start();
 
     // Start advertising both services

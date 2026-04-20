@@ -41,6 +41,24 @@ static inline void _engineWriteU32LE(uint8_t* buf, size_t* pos, uint32_t val) {
     buf[(*pos)++] = (uint8_t)((val >> 24) & 0xFF);
 }
 
+// Initialise payload with all fields marked "not available". Used to prime
+// the characteristic buffer before any engine PGN has arrived, so apps
+// connecting early read / receive a valid sentinel frame instead of zeros.
+static inline void engineBlePayloadInitNA(EngineBlePayload* p) {
+    p->rpm              = -1e9;
+    p->coolantTemp      = -1e9;
+    p->alternatorTemp   = -1e9;
+    p->alternatorVolts  = -1e9;
+    p->oilPressure      = -1e9;
+    p->exhaustTemp      = -1e9;
+    p->engineRoomTemp   = -1e9;
+    p->engineBattVolts  = -1e9;
+    p->fuelLevel        = -1e9;
+    p->engineHours      = 0xFFFFFFFFu;
+    p->status1          = 0xFFFF;
+    p->status2          = 0xFFFF;
+}
+
 static inline size_t encodeEngineBle(uint8_t* buf, const EngineBlePayload* p) {
     size_t pos = 0;
     buf[pos++] = BW_MAGIC_ENGINE;
