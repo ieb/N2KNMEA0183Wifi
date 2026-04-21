@@ -40,15 +40,15 @@ function updateBattery() {
   }
 };
 
-/** 
- * the JBD BLE to Uart coverter sends these messages 4 times on startup 
+/**
+ * the JBD BLE to Uart coverter sends these messages 4 times on startup
  * to enter factory mode.
- * 
+ *
 Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
                 ^^ write
                    ^^ register 0  factory mode
                       ^^ length 2
-                         ^^^^^ Enter factory mode 
+                         ^^^^^ Enter factory mode
                                ^^^^ checksum
 Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
 Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
@@ -57,111 +57,145 @@ Got  <Buffer dd 5a 00 02 56 78 ff 30 77>
 
 let rstate = 0;
 let factoryMode = false;
+let writeMode = false;
+let reg = 0;
+let inBuffer;
 let inBufferLen = 0;
-serialPort.on('data', function (data) {
-  //console.log("Got ",data);
-  data.forEach((val) => {
-    if ( rstate === 0 && val === 0xdd) {
-        rstate = 1;
-    } else if ( rstate === 1 ) {
-        if ( val === 0xa5 ) {
-            rstate = 2;
-            writeMode = true;
-        } else if ( val === 0x5a ) {
-            rstate = 2;
-            writeMode = false;
-        } else {
-            rstate = 0;
-        }
-    } else if ( rstate === 2  ) {
-        reg = val;
-        rstate = 3;
-    } else if ( rstate === 3 ) {
-      if( val === 0x00  ) {
-        rstate = 4;
-        inBuffer = undefined;
-      } else {
-        inBuffer = [];
-        inBufferLen = val;
-        rstate = 41;
-      }
-    } else if ( rstate == 41 ) {
-      inBuffer.push(val);
-      if ( inBufferLen == inBuffer.length ) {
-        rstate = 4;
-      }
-    } else if ( rstate === 4 ) {
-        csum = val<<8;
-        rstate = 5;
-    } else if ( rstate === 5 ) {
-        csum = csum | val;
-        rstate = 6;
-    } else if ( rstate === 6 ) {
-        if ( val == 0x77 ) {
-             //console.log(`End of package writeMode:${writeMode} factoryMode:${factoryMode} reg:${reg} csum:${csum} inbufferLen:${inBufferLen}`);
-            const calcCsum = checksum(reg, inBuffer);
-            if ( calcCsum != csum ) {
-              console.log("Checsum failed");
-            } else {
-              if ( reg == 0x00 ) {
-                if ( inBufferLen == 2 
-                  && inBuffer[0] == 0x56 
-                  && inBuffer[1] == 0x78  ) {
-                  // enter factor mode
-                  console.log("Switch on factoryMode ");
-                  factoryMode = true;
-                  sendOk(reg);
-                }
-              } else if ( reg == 0x01 ) {
-                if ( inBufferLen == 2 
-                  && inBuffer[0] == 0x0 
-                  && inBuffer[1] == 0x0 ) {
-                  // edit factory mode
-                  factoryMode = false;
-                  console.log("Switch off factoryMode ");
-                  sendOk(reg);
-                } else if (inBufferLen == 2 
-                  && inBuffer[0] == 0x28 
-                  && inBuffer[1] == 0x28) {
-                  // edit factory mode and reset counters
-                  console.log("Switch off factoryMode and reset");
-                  factoryMode = false;
-                  sendOk(reg);
-                }
-              } else if ( reg === 0x03 ) {
-                if ( lastSend !== 0x04 && lastSend !== 0x05  ) {
-                  console.log('Got 0x03, missed 0x04, got', lastSend);
-                }
-                updateBattery();
-                send(0x03, 0x00, createReg03(voltage,current,capacity));
-              } else if ( reg == 0x04  ) {
-                if ( lastSend !== 0x03 && lastSend !== 0x05 ) {
-                  console.log('Got 0x04, missed 0x03, got', lastSend)
-                }
-                send(0x04, 0x00, createReg04());
-              } else if ( reg == 0x05 ) {
-                send(0x05, 0x00, createReg05());
-              } else if ( reg == 0xAA ) {
-                send(0xAA, 0x00, createRegAA());
-              } else if ( reg == 0xFA ) {
-                send(0xFA, 0x00, 
-                  createParameterReponse((inBuffer[0]<<8 | inBuffer[1]&0xff),
-                  inBuffer[2]));                                          
-              } else if ( reg == 0xA2 ) {
-                console.log("Reg 0xA2");
-                sendError(reg);
-              } else {
-                console.log("Error Unhandled reg, not factory mode ", reg, reg.toString(16));
-                sendError(reg);
-              }
-            }
-        }
-        //console.log("Back to state 0");
-        rstate = 0;
+let csum = 0;
+let lastByteMs = 0;
+const FRAME_IDLE_TIMEOUT_MS = 200;
+
+function processFrame() {
+  const calcCsum = checksum(reg, inBuffer);
+  if (calcCsum != csum) {
+    console.log("Checsum failed");
+    return;
+  }
+  if (reg == 0x00) {
+    if (inBufferLen == 2 && inBuffer[0] == 0x56 && inBuffer[1] == 0x78) {
+      console.log("Switch on factoryMode ");
+      factoryMode = true;
+      sendOk(reg);
     }
-    return 1;
+  } else if (reg == 0x01) {
+    if (inBufferLen == 2 && inBuffer[0] == 0x0 && inBuffer[1] == 0x0) {
+      factoryMode = false;
+      console.log("Switch off factoryMode ");
+      sendOk(reg);
+    } else if (inBufferLen == 2 && inBuffer[0] == 0x28 && inBuffer[1] == 0x28) {
+      console.log("Switch off factoryMode and reset");
+      factoryMode = false;
+      sendOk(reg);
+    }
+  } else if (reg === 0x03) {
+    if (lastSend !== 0x04 && lastSend !== 0x05) {
+      console.log('Got 0x03, missed 0x04, got', lastSend);
+    }
+    updateBattery();
+    send(0x03, 0x00, createReg03(voltage, current, capacity));
+  } else if (reg == 0x04) {
+    if (lastSend !== 0x03 && lastSend !== 0x05) {
+      console.log('Got 0x04, missed 0x03, got', lastSend);
+    }
+    send(0x04, 0x00, createReg04());
+  } else if (reg == 0x05) {
+    send(0x05, 0x00, createReg05());
+  } else if (reg == 0xAA) {
+    send(0xAA, 0x00, createRegAA());
+  } else if (reg == 0xFA) {
+    send(0xFA, 0x00,
+      createParameterReponse((inBuffer[0] << 8 | inBuffer[1] & 0xff),
+        inBuffer[2]));
+  } else if (reg == 0xA2) {
+    console.log("Reg 0xA2");
+    sendError(reg);
+  } else {
+    console.log("Error Unhandled reg, not factory mode ", reg, reg.toString(16));
+    sendError(reg);
+  }
+}
+
+serialPort.on('data', function (data) {
+  data.forEach((val) => {
+    lastByteMs = Date.now();
+    // Resync-safe parser: on any unexpected byte, drop back to state 0 and
+    // re-examine the same byte so a stray or misaligned 0xdd still starts a
+    // new frame. The `step` flag implements that re-dispatch.
+    let step = true;
+    while (step) {
+      step = false;
+      switch (rstate) {
+        case 0:
+          if (val === 0xdd) rstate = 1;
+          break;
+        case 1:
+          if (val === 0xa5) {
+            writeMode = false;
+            rstate = 2;
+          } else if (val === 0x5a) {
+            writeMode = true;
+            rstate = 2;
+          } else {
+            rstate = 0;
+            step = true; // re-examine val as possible SOF
+          }
+          break;
+        case 2:
+          reg = val;
+          rstate = 3;
+          break;
+        case 3:
+          if (val === 0x00) {
+            inBuffer = undefined;
+            inBufferLen = 0;
+            rstate = 4;
+          } else {
+            inBuffer = [];
+            inBufferLen = val;
+            rstate = 41;
+          }
+          break;
+        case 41:
+          inBuffer.push(val);
+          if (inBufferLen === inBuffer.length) {
+            rstate = 4;
+          }
+          break;
+        case 4:
+          csum = val << 8;
+          rstate = 5;
+          break;
+        case 5:
+          csum = csum | val;
+          rstate = 6;
+          break;
+        case 6:
+          if (val === 0x77) {
+            processFrame();
+            rstate = 0;
+          } else {
+            rstate = 0;
+            step = true; // re-examine val as possible SOF
+          }
+          break;
+        default:
+          rstate = 0;
+          step = true;
+          break;
+      }
+    }
   });
 });
+
+// If we're stuck mid-frame (byte loss, firmware reboot, truncated frame),
+// reset to state 0 so the next SOF can restart parsing. Without this, a
+// single dropped byte can silently consume every subsequent frame.
+setInterval(() => {
+  if (rstate !== 0 && lastByteMs !== 0
+      && (Date.now() - lastByteMs) > FRAME_IDLE_TIMEOUT_MS) {
+    rstate = 0;
+  }
+}, 250);
 
 serialPort.on("open", function() {
   console.log("-- Connection opened --");
@@ -227,20 +261,20 @@ function createRegAA() {
   view.setUint16(18, 10); //Overall number of overvoltages
   view.setUint16(20, 0); //Overall undervoltage times
   view.setUint16(22, 121);//Number of system restarts
-  return b
+  return new Uint8Array(buffer);
 }
 function createParameterReponse(start, len) {
-  const buffer = new ArrayBuffer(24);
+  const buffer = new ArrayBuffer(10);
   const view = new DataView(buffer);
-  view.setUint16(0,(305/0.01)); // nominal capacity
-  view.setUint16(0,(286/0.01)); // nominal capacity
-  view.setUint16(0,(3412/0.001)); // full voltage
-  view.setUint16(0,(2600/0.001)); // vent voltage
-  view.setUint16(0,25); // power consumption
-
+  view.setUint16(0, (305/0.01)); // nominal capacity
+  view.setUint16(2, (286/0.01)); // cycle capacity
+  view.setUint16(4, (3412/0.001)); // full voltage
+  view.setUint16(6, (2600/0.001)); // vent voltage
+  view.setUint16(8, 25); // power consumption
+  return new Uint8Array(buffer);
 }
 function encodeDate(y,m,d) {
-  return (d&0x1f) | (((m&0xff)<<5)&0x1e0) | ((((y-2000)&0xff)<<9)&0xfe00); 
+  return (d&0x1f) | (((m&0xff)<<5)&0x1e0) | ((((y-2000)&0xff)<<9)&0xfe00);
 }
 
 function sendError(regNo) {
@@ -272,8 +306,8 @@ function send(regNo, response, buffer) {
     sent[regNo].last = Date.now();
     sent[regNo].min = Math.min(sent[regNo].min, period);
     sent[regNo].max = Math.max(sent[regNo].max, period);
-    sent[regNo].sum = sent[regNo].sum + period;    
-    sent[regNo].count++;    
+    sent[regNo].sum = sent[regNo].sum + period;
+    sent[regNo].count++;
   }
   lastSend = regNo;
 
@@ -289,9 +323,8 @@ function checksum(response, buffer) {
        sum = (sum+buffer.length)& 0xffff;
        for (var i = 0; i < buffer.length; i++) {
          sum = (sum+buffer[i])& 0xffff;
-       }      
-     } 
+       }
+     }
     return 0x10000-sum;
 }
-
 

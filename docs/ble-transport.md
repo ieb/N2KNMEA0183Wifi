@@ -17,11 +17,13 @@ Byte order is **little-endian** for all multi-byte values throughout both servic
 
 ## BoatWatch Service (0xAA00)
 
+Intended mostly for use by wearOS Apps.
+
 | UUID | Characteristic | Properties | Direction |
 |------|---------------|-----------|-----------|
 | `0000AA00-0000-1000-8000-00805f9b34fb` | Service | -- | -- |
 | `0000AA01-0000-1000-8000-00805f9b34fb` | Autopilot State | NOTIFY, READ | Firmware -> Client |
-| `0000AA02-0000-1000-8000-00805f9b34fb` | Autopilot Command | WRITE | Client -> Firmware |
+| `0000AA02-0000-1000-8000-00805f9b34fb` | Command | WRITE | Client -> Firmware |
 | `0000AA03-0000-1000-8000-00805f9b34fb` | Battery State | NOTIFY, READ | Firmware -> Client |
 
 ### Authentication
@@ -54,11 +56,11 @@ Magic byte: `0xAA`. Payload: 10 bytes. Update rate: every 5 seconds or on change
 | 6 | 2 | S16 | target_wind | 0.01 deg (-18000 to +18000) |
 | 8 | 2 | U16 | reserved | `0x0000` |
 
-### Autopilot Commands (0xAA02)
+### Commands (0xAA02)
 
 Magic byte: `0xAA`. All commands require prior authentication.
 
-**Mode commands (2 bytes, no payload):**
+**Autopilot Mode commands (2 bytes, no payload):**
 
 | Cmd | Name |
 |-----|------|
@@ -67,19 +69,29 @@ Magic byte: `0xAA`. All commands require prior authentication.
 | `0x03` | WIND_AWA (apparent wind) |
 | `0x04` | WIND_TWA (true wind) |
 
-**Set commands (4 bytes, U16 or S16 payload):**
+
+**Autopilot Set commands (4 bytes, U16 or S16 payload):**
 
 | Cmd | Name | Payload | Unit |
 |-----|------|---------|------|
 | `0x10` | SET_HEADING | U16 | 0.01 deg (0-36000) |
 | `0x11` | SET_WIND | S16 | 0.01 deg |
 
-**Adjust commands (4 bytes, S16 payload):**
+**Autopilot Adjust commands (4 bytes, S16 payload):**
 
 | Cmd | Name | Payload | Unit |
 |-----|------|---------|------|
 | `0x20` | ADJUST_HEADING | S16 | 0.01 deg delta |
 | `0x21` | ADJUST_WIND | S16 | 0.01 deg delta |
+
+**Wifi Adjust commands (2 bytes, No payload):**
+
+| Cmd | Name | Payload | Unit |
+|-----|------|---------|------|
+| `0x40` | ENABLE_WIFI | None | NA |
+| `0x41` | DISABLE_WIFI | None | NA |
+
+
 
 ### Battery State (0xAA03)
 
@@ -110,6 +122,7 @@ Magic byte: `0xBB`. Payload: variable (typically 31 bytes for 4 cells, 3 NTC). U
 | `0000FF00-0000-1000-8000-00805f9b34fb` | Service | -- | -- |
 | `0000FF01-0000-1000-8000-00805f9b34fb` | Navigation State | NOTIFY, READ | Firmware -> Client |
 | `0000FF02-0000-1000-8000-00805f9b34fb` | Engine State | NOTIFY, READ | Firmware -> Client |
+| `0000FF03-0000-1000-8000-00805f9b34fb` | System | Write |  Client -> Firmware |
 
 Authentication required. Only Authenticated clients receive navigation and engine data.
 
@@ -221,7 +234,7 @@ Decodes to: RPM 1800, engine_hours 543 h (1,954,800 s), coolant 85.0 degC, alter
 
 ---
 
-## Data Sources
+#### Data Sources
 
 | Field | NMEA 2000 PGN | Notes |
 |-------|---------------|-------|
@@ -241,3 +254,8 @@ Decodes to: RPM 1800, engine_hours 543 h (1,954,800 s), coolant 85.0 degC, alter
 | Engine room temp | 130316 src 3  | Temperature Extended Range |
 | Engine battery volts | 127508 instance 0 | Cranking battery |
 | Fuel level | 127505 instance 0 | Diesel, 60 L capacity |
+
+
+
+
+
