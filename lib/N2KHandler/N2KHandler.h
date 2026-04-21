@@ -64,6 +64,12 @@ public:
   bool isEngineStateDirty();
   void setCleanEngineState();
 
+  // Timeout for nav fields. Longest source PGN cadence on the wire is ~1 Hz
+  // (128275 log, 127258 variation), so 15 s means ~15 missed messages before
+  // we publish NA — long enough to ride out single packet drops but short
+  // enough that stale data doesn't linger on the BLE characteristic.
+  static constexpr unsigned long NAV_TIMEOUT_MS = 15000;
+
 private:
 
     NMEA0183N2KMessages &messageEncoder;
@@ -79,6 +85,11 @@ private:
     unsigned long lastAwsUpdate=0;
     unsigned long lastStwUpdate=0;
     unsigned long lastRollUpdate=0;
+    unsigned long lastLatLonUpdate=0;
+    unsigned long lastVariationUpdate=0;
+    unsigned long lastHeadingUpdate=0;
+    unsigned long lastDepthUpdate=0;
+    unsigned long lastLogUpdate=0;
     unsigned long lastEngineSpeedUpdate=0;
     unsigned long lastEngineCoolantUpdate=0;
     unsigned long lastEngineDynamicUpdate=0;    // shared timeout for all PGN 127489 fields
@@ -151,6 +162,7 @@ private:
 
 
     void expireStaleEngineData();
+    void expireStaleNavData();
 
     bool parsePGN129029(const tN2kMsg &N2kMsg, unsigned char &SID, uint16_t &DaysSince1970, double &SecondsSinceMidnight,
                      double &Latitude, double &Longitude, double &Altitude,

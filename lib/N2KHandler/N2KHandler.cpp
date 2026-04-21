@@ -212,6 +212,7 @@ void N2KHandler::handle127258(const tN2kMsg &N2kMsg) {
     }
     if (_variation != -1e9 ) {
         variation = _variation;
+        lastVariationUpdate = millis();
     }
   }
 }
@@ -231,6 +232,7 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
         dirtyNavState = true;
       }
       variation = _variation;
+      lastVariationUpdate = millis();
     }
     if ( ref==N2khr_magnetic ) {
       if (headingMagnetic != _heading) {
@@ -239,6 +241,7 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
       }
       if ( _heading != -1e9 ) {
         headingMagnetic = _heading;
+        lastHeadingUpdate = millis();
         if ( variation != -1e9 ) {
           headingTrue = headingMagnetic - variation;
         }
@@ -255,6 +258,7 @@ void N2KHandler::handle127250(const tN2kMsg &N2kMsg) {
       // normally the message is mag heading.
       if ( _heading != -1e9 && headingMagnetic == -1e9 ) {
         headingTrue = _heading;
+        lastHeadingUpdate = millis();
         if ( variation != -1e9 ) {
           headingMagnetic =  headingTrue + variation;
         }
@@ -313,6 +317,9 @@ void N2KHandler::handle128267(const tN2kMsg &N2kMsg) {
       dirtyNavState = true;
     }
     depth = _depthBelowTransducer;
+    if ( _depthBelowTransducer != -1e9 ) {
+      lastDepthUpdate = millis();
+    }
     messageEncoder.sendDBT(_depthBelowTransducer);
     messageEncoder.sendDPT(_depthBelowTransducer, _offset);
   }
@@ -334,6 +341,9 @@ void N2KHandler::handle128275(const tN2kMsg &N2kMsg) {
     }
     log = _log;
     tripLog = _tripLog;
+    if ( _log != 0xffffffff ) {
+      lastLogUpdate = millis();
+    }
     messageEncoder.sendVLW(_log, _tripLog);
   }
 }
@@ -383,12 +393,14 @@ void N2KHandler::handle129029(const tN2kMsg &N2kMsg) {
       daysSince1970 = _daysSince1970;
       latitude = _latitude;
       longitude = _longitude;
+      lastLatLonUpdate = now;
     } else if ( now - faaLastValid > 5000 ) {
       faaValid = false;
       fixSecondsSinceMidnight = _secondsSinceMidnight;
       daysSince1970 = _daysSince1970;
       latitude = _latitude;
       longitude = _longitude;
+      lastLatLonUpdate = now;
     }
 
     messageEncoder.sendGGA(fixSecondsSinceMidnight, latitude, longitude, (uint8_t)_GNSSmethod, 
@@ -409,8 +421,9 @@ void N2KHandler::handle129025(const tN2kMsg &N2kMsg) {
     }
     latitude = _latitude;
     longitude = _longitude;
+    lastLatLonUpdate = millis();
     messageEncoder.sendGLL(fixSecondsSinceMidnight, latitude, longitude, getFaaValid());
-    messageEncoder.sendRMC(fixSecondsSinceMidnight, latitude, longitude, sog, cogt, 
+    messageEncoder.sendRMC(fixSecondsSinceMidnight, latitude, longitude, sog, cogt,
       daysSince1970, variation, getFaaValid() );
 
   }
@@ -726,6 +739,7 @@ void N2KHandler::handle130313(const tN2kMsg &N2kMsg) {
 } // Humidity(N2kMsg); break;
 
 bool N2KHandler::isNavStateDirty() {
+  expireStaleNavData();
   return dirtyNavState;
 }
 
@@ -756,6 +770,66 @@ N2KHandler::EngineState N2KHandler::getEngineState() {
         engineOilPressure, exhaustTemp, engineRoomTemp, engineBattVoltage,
         fuelLevelPct, engineHoursSec, engineStatus1, engineStatus2,
     };
+}
+
+void N2KHandler::expireStaleNavData() {
+    // Revert each nav field to its "not available" sentinel when its source
+    // PGN has stopped arriving for longer than NAV_TIMEOUT_MS. Source PGNs
+    // for these fields run at 1-10 Hz, so 15 s absorbs transient dropouts
+    // while preventing the BLE nav characteristic from publishing stale data.
+    // On any live -> stale transition flag dirtyNavState so the next notify()
+    // pushes NA sentinels to the client.
+    const unsigned long now = millis();
+    bool changed = false;
+
+    if ( latitude != -1e9 && (now - lastLatLonUpdate) > NAV_TIMEOUT_MS ) {
+        latitude = -1e9;
+        longitude = -1e9;
+        changed = true;
+    }
+    if ( cogt != -1e9 && (now - lastCogtUpdate) > NAV_TIMEOUT_MS ) {
+        cogt = -1e9;
+        changed = true;
+    }
+    if ( cogm != -1e9 && (now - lastCogmUpdate) > NAV_TIMEOUT_MS ) {
+        cogm = -1e9;
+        changed = true;
+    }
+    if ( sog != -1e9 && (now - lastSogUpdate) > NAV_TIMEOUT_MS ) {
+        sog = -1e9;
+        changed = true;
+    }
+    if ( variation != -1e9 && (now - lastVariationUpdate) > NAV_TIMEOUT_MS ) {
+        variation = -1e9;
+        changed = true;
+    }
+    if ( headingMagnetic != -1e9 && (now - lastHeadingUpdate) > NAV_TIMEOUT_MS ) {
+        headingMagnetic = -1e9;
+        headingTrue = -1e9;
+        changed = true;
+    }
+    if ( depth != -1e9 && (now - lastDepthUpdate) > NAV_TIMEOUT_MS ) {
+        depth = -1e9;
+        changed = true;
+    }
+    if ( aparentWindAngle != -1e9 && (now - lastAwaUpdate) > NAV_TIMEOUT_MS ) {
+        aparentWindAngle = -1e9;
+        changed = true;
+    }
+    if ( aparentWindSpeed != -1e9 && (now - lastAwsUpdate) > NAV_TIMEOUT_MS ) {
+        aparentWindSpeed = -1e9;
+        changed = true;
+    }
+    if ( waterSpeed != -1e9 && (now - lastStwUpdate) > NAV_TIMEOUT_MS ) {
+        waterSpeed = -1e9;
+        changed = true;
+    }
+    if ( log != 0xffffffff && (now - lastLogUpdate) > NAV_TIMEOUT_MS ) {
+        log = 0xffffffff;
+        changed = true;
+    }
+
+    if ( changed ) dirtyNavState = true;
 }
 
 void N2KHandler::expireStaleEngineData() {
