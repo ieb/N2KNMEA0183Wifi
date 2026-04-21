@@ -34,7 +34,8 @@
 #define BW_CMD_SET_WIND       0x11
 #define BW_CMD_ADJUST_HEADING 0x20
 #define BW_CMD_ADJUST_WIND    0x21
-
+#define BW_CMD_ENABLE_NETWORK 0x40
+#define BW_CMD_DISABLE_NETWORK 0x42
 // Autopilot mode values
 #define BW_MODE_STANDBY  0
 #define BW_MODE_COMPASS  1

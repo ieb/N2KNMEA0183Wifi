@@ -14,7 +14,9 @@ NB the JDB BMS is BigEndian, but CAN is LittleEndian so all multi byte represent
 
 ## -> BLE pass through
 
-Unfortunately the BLE stack in ESP32 for Arduino uses 40% of the flash and does not appear to be stable so the code for the GATT server has been moved to the archive and is no longer used.
+--Unfortunately the BLE stack in ESP32 for Arduino uses 40% of the flash and does not appear to be stable so the code for the GATT server has been moved to the archive and is no longer used.--
+
+Update 2025. ESP32 BLE stack is now fixed and working using NimBLEDevice. See lib/bluetooth/
 
 
 

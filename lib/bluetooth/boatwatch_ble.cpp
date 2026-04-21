@@ -85,8 +85,6 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
 
 
-    pinMode(BLE_LED_PIN, OUTPUT);
-    digitalWrite(BLE_LED_PIN, false);
 
 }
 

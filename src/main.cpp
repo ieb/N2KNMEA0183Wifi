@@ -126,6 +126,7 @@ JBDBmsSimulator simulator;
 JdbBMS bms;
 bool bmsSimulatorOn = false;
 bool networkUp = false;
+bool canUp = false;
 
 BoatWatchBLE bleServer;
 AutopilotBleState apBleState;
@@ -192,7 +193,9 @@ uint16_t HandleSeasmartMsg(const char *msg) {
     // NB this is an allow filter, not a drop filter.
     if ( inputAllowFilter.isPgnFiltered(N2kMsg.PGN) ) {
       // The source is set to this device in send.
-      NMEA2000.SendMsg(N2kMsg);
+      if (canUp) {
+        NMEA2000.SendMsg(N2kMsg);
+      }
       return 200;      
     }
     return 403;
@@ -221,6 +224,9 @@ bool allowRateLimit(const tN2kMsg &N2kMsg) {
 
 void sendAsSeaSmart(const tN2kMsg &N2kMsg) {
   static char seaSmartBuffer[MAX_NMEA2000_MESSAGE_SEASMART_SIZE];
+  // far simpler to not send when the network is down.
+  if ( !networkUp ) return;
+  // only if the network is up.
   // send over tcp or http as a N2K message en
   // but only if the pgn is in the frame filter since there is not enough processing to 
   // handle a full 250KBit stream.
@@ -279,6 +285,7 @@ void showHelp() {
 // This must not block as it is called while parsing messages.
 
 void SendNMEA0183Message(const char * buf) {
+  if (!networkUp) return;
   nmeaServer.sendBufToClients(buf); // TCP
   nmeaSender.sendBufToClients(buf); // UDP
 #ifdef NMEA0183_WEBSOC
@@ -514,6 +521,8 @@ static void encodeAngle(double degrees, uint8_t* out) {
     out[1] = (raw >> 8) & 0xFF;
 }
 
+void onEnableNetwork();
+void onDisableNetwork();
 void handleBleCommand(uint8_t cmd, const uint8_t* payload, size_t len) {
     tN2kMsg N2kMsg;
     N2kMsg.Init(6, 126208L, 50, 0xFF);  // priority 6, PGN 126208, source 50
@@ -596,13 +605,21 @@ void handleBleCommand(uint8_t cmd, const uint8_t* payload, size_t len) {
             N2kMsg.DataLen = 14;
             break;
         }
+        case BW_CMD_ENABLE_NETWORK: {
+            onEnableNetwork();
+            return;
+        }
+        case BW_CMD_DISABLE_NETWORK: {
+            onDisableNetwork();
+            return;
+        }
         default:
             ESP_LOGW(TAG, "Unknown BLE command: 0x%02X", cmd);
             return;
     }
 
     // Send to N2K bus
-    if (networkUp && N2kMsg.DataLen > 0) {
+    if (canUp && N2kMsg.DataLen > 0) {
         NMEA2000.SendMsg(N2kMsg);
         ESP_LOGI(TAG, "BLE cmd 0x%02X -> N2K PGN 126208 (%d bytes)", cmd, N2kMsg.DataLen);
     }
@@ -673,45 +690,63 @@ void setupNetworkStack() {
 }
 
 
+
+
 void onEnableNetwork() {
-  if (NMEA2000.IsOpen()) {
-    NMEA2000.Resume();
-    NMEA2000.Restart();
-  } else {
-    NMEA2000.Open();
+  if (!networkUp) {
+      ESP_LOGI(TAG, "Starting Wifi");
+      wifi.begin();
+      // start MDNS  so others can register.
+      ESP_LOGI(TAG, "Starting MDNS");
+      MDNS.begin("boatsystems");
+
+      ESP_LOGE(TAG, "Starting TCP Servers xxx");
+      echoServer.begin();
+      nmeaServer.begin();
+      nmeaSender.begin();
+      if (dnsServer.start()) {
+        Serial.println("Started DNS server");
+      } else {
+        Serial.println("DNS Server not started, not in AP mode");
+      }
+
+      ESP_LOGE(TAG, "Starting Http Server xxxx");
+
+      webServer.begin();
+      networkUp = true;
   }
-
-  ESP_LOGI(TAG, "Starting Wifi");
-  wifi.begin();
-  // start MDNS  so others can register.
-  ESP_LOGI(TAG, "Starting MDNS");
-  MDNS.begin("boatsystems");
-
-  ESP_LOGE(TAG, "Starting TCP Servers xxx");
-  echoServer.begin();
-  nmeaServer.begin();
-  nmeaSender.begin();
-  if (dnsServer.start()) {
-    Serial.println("Started DNS server");
-  } else {
-    Serial.println("DNS Server not started, not in AP mode");
-  }
-
-  ESP_LOGE(TAG, "Starting Http Server xxxx");
-
-  webServer.begin();
 }
 
 void onDisableNetwork() {
-  NMEA2000.Suspend();
-  webServer.end();
-  dnsServer.stop();
-  nmeaSender.end();
-  nmeaServer.end();
-  echoServer.end();
-  MDNS.end();
-  wifi.end();
+  if (networkUp) {
+      webServer.end();
+      dnsServer.stop();
+      nmeaSender.end();
+      nmeaServer.end();
+      echoServer.end();
+      MDNS.end();
+      wifi.end();
+      networkUp = false;
+  }
 
+}
+
+void onEnableCan() {
+  if ( !canUp ) {
+      if (NMEA2000.IsOpen()) {
+        NMEA2000.Resume();
+        NMEA2000.Restart();
+      } else {
+        NMEA2000.Open();
+      }    
+      canUp = true;    
+  }
+}
+void onDisableCan() {
+  if (canUp) {
+    NMEA2000.Suspend();
+    canUp = false;    
+  }
 }
 
 
@@ -864,11 +899,9 @@ void CheckCommand() {
         if (networkUp) {
             ESP_LOGE(TAG, "Stopping Network");
             onDisableNetwork();
-            networkUp = false;
         } else {
             ESP_LOGE(TAG, "Starting Nework");
             onEnableNetwork();
-            networkUp = true;
         }
         break;
       case 'C':
@@ -888,7 +921,7 @@ void EmitMessages() {
     if ( bms.setN2KMsg(N2kMsg) )  {
         HandleNMEA2000Msg(N2kMsg);
     }
-    if (!NMEA2000.IsProprietaryMessage(N2kMsg.PGN) ) {
+    if (canUp && !NMEA2000.IsProprietaryMessage(N2kMsg.PGN) ) {
       NMEA2000.SendMsg(N2kMsg);
     }        
 }
@@ -943,23 +976,21 @@ void loop() {
   unsigned long lastBmsUpdate = millis();
   unsigned long lastPilotUpdate = millis();
   unsigned long now = millis();
-  if ( networkUp ) {
+  if ( canUp ) {
       NMEA2000.ParseMessages();
       if ( now - last > 200) {
         ESP_LOGE(TAG, "ParseMessages %ld %ld %d" ,now, last, (now - last));
       }
   }
   if ( digitalRead(CAN_ON_PIN) == LOW ) {
-    if (!networkUp) {
-        ESP_LOGE(TAG, "Starting Network, CAN is up");
-        onEnableNetwork();
-        networkUp = true;
+    if (!canUp) {
+        ESP_LOGE(TAG, "CAN is up");
+        onEnableCan();
     }
   } else {
-    if (networkUp) {
-        ESP_LOGE(TAG, "Stopping Network, can is down");
-        onDisableNetwork();
-        networkUp = false;
+    if (canUp) {
+        ESP_LOGE(TAG, "Can is down");
+        onDisableCan();
     }
   }
   last = now;
@@ -975,7 +1006,7 @@ void loop() {
     ESP_LOGE(TAG, "bms.update %ld %ld %d" ,now, last, (now - last));
   }
   last = now;
-  if (networkUp) {
+  if (canUp) {
       EmitMessages();
       now = millis();
       if ( now - last > 100) {
