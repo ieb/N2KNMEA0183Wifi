@@ -63,6 +63,15 @@ let inBuffer;
 let inBufferLen = 0;
 let csum = 0;
 let lastByteMs = 0;
+// Ring buffer of recent RX bytes so we can dump context on parse failures.
+const rxTrace = [];
+function traceByte(v) {
+  rxTrace.push(v);
+  if (rxTrace.length > 32) rxTrace.shift();
+}
+function traceHex() {
+  return rxTrace.map(b => b.toString(16).padStart(2, '0')).join(' ');
+}
 // 1 s is deliberately conservative. A legitimate 7-byte frame at 9600 baud
 // takes ~7 ms end-to-end, but USB-UART adapters can batch packets with
 // surprising latency under load. Any real stuck-mid-frame case still clears
@@ -88,7 +97,8 @@ function processFrame() {
     console.log("Checksum failed reg=0x" + reg.toString(16)
       + " len=" + inBufferLen
       + " got=0x" + csum.toString(16)
-      + " want=0x" + calcCsum.toString(16));
+      + " want=0x" + calcCsum.toString(16)
+      + " rx=[" + traceHex() + "]");
     return;
   }
   if (reg == 0x00) {
@@ -138,6 +148,7 @@ function processFrame() {
 serialPort.on('data', function (data) {
   data.forEach((val) => {
     lastByteMs = Date.now();
+    traceByte(val);
     // Resync-safe parser: on any unexpected byte, drop back to state 0 and
     // re-examine the same byte so a stray or misaligned 0xdd still starts a
     // new frame. The `step` flag implements that re-dispatch.
@@ -196,6 +207,10 @@ serialPort.on('data', function (data) {
             rstate = 0;
           } else {
             stats.resync6++;
+            console.log("resync6 reg=0x" + reg.toString(16)
+              + " len=" + inBufferLen
+              + " trailer=0x" + val.toString(16)
+              + " rx=[" + traceHex() + "]");
             rstate = 0;
             step = true; // re-examine val as possible SOF
           }
