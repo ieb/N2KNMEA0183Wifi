@@ -63,12 +63,32 @@ let inBuffer;
 let inBufferLen = 0;
 let csum = 0;
 let lastByteMs = 0;
-const FRAME_IDLE_TIMEOUT_MS = 200;
+// 1 s is deliberately conservative. A legitimate 7-byte frame at 9600 baud
+// takes ~7 ms end-to-end, but USB-UART adapters can batch packets with
+// surprising latency under load. Any real stuck-mid-frame case still clears
+// inside 1 s, and this threshold won't false-trip on a chunking hiccup.
+const FRAME_IDLE_TIMEOUT_MS = 1000;
+
+// Parser diagnostics — counters are printed every 10 s so you can tell at a
+// glance why the firmware thinks a request went unanswered.
+let stats = {
+  frames: 0,
+  checksumFail: 0,
+  resync1: 0,     // state 1 got a non-a5/5a byte
+  resync6: 0,     // state 6 got a non-0x77 byte
+  timeout: 0,     // mid-frame idle timeout fired
+  timeoutState: {}
+};
 
 function processFrame() {
+  stats.frames++;
   const calcCsum = checksum(reg, inBuffer);
   if (calcCsum != csum) {
-    console.log("Checsum failed");
+    stats.checksumFail++;
+    console.log("Checksum failed reg=0x" + reg.toString(16)
+      + " len=" + inBufferLen
+      + " got=0x" + csum.toString(16)
+      + " want=0x" + calcCsum.toString(16));
     return;
   }
   if (reg == 0x00) {
@@ -136,6 +156,7 @@ serialPort.on('data', function (data) {
             writeMode = true;
             rstate = 2;
           } else {
+            stats.resync1++;
             rstate = 0;
             step = true; // re-examine val as possible SOF
           }
@@ -174,6 +195,7 @@ serialPort.on('data', function (data) {
             processFrame();
             rstate = 0;
           } else {
+            stats.resync6++;
             rstate = 0;
             step = true; // re-examine val as possible SOF
           }
@@ -193,9 +215,15 @@ serialPort.on('data', function (data) {
 setInterval(() => {
   if (rstate !== 0 && lastByteMs !== 0
       && (Date.now() - lastByteMs) > FRAME_IDLE_TIMEOUT_MS) {
+    stats.timeout++;
+    stats.timeoutState[rstate] = (stats.timeoutState[rstate] || 0) + 1;
     rstate = 0;
   }
 }, 250);
+
+setInterval(() => {
+  console.log("stats", JSON.stringify(stats));
+}, 10000);
 
 serialPort.on("open", function() {
   console.log("-- Connection opened --");
