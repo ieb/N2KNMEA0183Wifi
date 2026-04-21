@@ -478,6 +478,7 @@ static void reportBootCounts() {
 }
 
 void printStatus(Print *stream) {
+  stream->println("======= Status ==============");
   stream->print("Total heap:  ");stream->println(ESP.getHeapSize());
   stream->print("Free heap:   ");stream->println(ESP.getFreeHeap());
   // ESP32-WROOM chips which are common dont have PSRAM. 
@@ -495,6 +496,7 @@ void printStatus(Print *stream) {
   nmeaServer.printStatus(stream);
   webServer.printStatus(stream);
   bms.printStatus(stream);
+  stream->println("=====================");
 }
 
 

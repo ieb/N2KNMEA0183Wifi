@@ -15,6 +15,8 @@ let errors = 0x0000;
 let ntc1 = 5;
 let ntc2 = 10;
 let ntc3 = 15;
+let sent = {};
+let lastSend = 0;
 
 function updateBattery() {
   voltage = voltage - 0.01;
@@ -57,7 +59,7 @@ let rstate = 0;
 let factoryMode = false;
 let inBufferLen = 0;
 serialPort.on('data', function (data) {
-  console.log("Got ",data);
+  //console.log("Got ",data);
   data.forEach((val) => {
     if ( rstate === 0 && val === 0xdd) {
         rstate = 1;
@@ -96,7 +98,7 @@ serialPort.on('data', function (data) {
         rstate = 6;
     } else if ( rstate === 6 ) {
         if ( val == 0x77 ) {
-             console.log(`End of package writeMode:${writeMode} factoryMode:${factoryMode} reg:${reg} csum:${csum} inbufferLen:${inBufferLen}`);
+             //console.log(`End of package writeMode:${writeMode} factoryMode:${factoryMode} reg:${reg} csum:${csum} inbufferLen:${inBufferLen}`);
             const calcCsum = checksum(reg, inBuffer);
             if ( calcCsum != csum ) {
               console.log("Checsum failed");
@@ -127,9 +129,15 @@ serialPort.on('data', function (data) {
                   sendOk(reg);
                 }
               } else if ( reg === 0x03 ) {
+                if ( lastSend !== 0x04 && lastSend !== 0x05  ) {
+                  console.log('Got 0x03, missed 0x04, got', lastSend);
+                }
                 updateBattery();
                 send(0x03, 0x00, createReg03(voltage,current,capacity));
               } else if ( reg == 0x04  ) {
+                if ( lastSend !== 0x03 && lastSend !== 0x05 ) {
+                  console.log('Got 0x04, missed 0x03, got', lastSend)
+                }
                 send(0x04, 0x00, createReg04());
               } else if ( reg == 0x05 ) {
                 send(0x05, 0x00, createReg05());
@@ -148,7 +156,7 @@ serialPort.on('data', function (data) {
               }
             }
         }
-        console.log("Back to state 0");
+        //console.log("Back to state 0");
         rstate = 0;
     }
     return 1;
@@ -161,7 +169,7 @@ serialPort.on("open", function() {
 
 
 function createReg03(voltage, current, capacity) {
-  console.log("V, C ", voltage, current);
+  //console.log("V, C ", voltage, current);
   const buffer = new ArrayBuffer(38);
   const view = new DataView(buffer);
   view.setUint16(0, voltage/0.01); //REG_VOLTAGE_U16
@@ -250,7 +258,25 @@ function sendOk(regNo) {
 }
 
 function send(regNo, response, buffer) {
-  console.log("Sending ", regNo, buffer);
+  //console.log("Sending ", regNo, buffer);
+  if ( sent[regNo] == undefined ) {
+    sent[regNo] = {
+      last: Date.now(),
+      sum: 0,
+      min: 1000000,
+      max: 0,
+      count: 0,
+    };
+  } else {
+    const period = Date.now()- sent[regNo].last;
+    sent[regNo].last = Date.now();
+    sent[regNo].min = Math.min(sent[regNo].min, period);
+    sent[regNo].max = Math.max(sent[regNo].max, period);
+    sent[regNo].sum = sent[regNo].sum + period;    
+    sent[regNo].count++;    
+  }
+  lastSend = regNo;
+
   serialPort.write(Uint8Array.from([ 0xdd, regNo, response, buffer.length]));
   serialPort.write(buffer);
   const csum = checksum(response, buffer)

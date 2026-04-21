@@ -123,6 +123,7 @@ void JdbBMS::update() {
     // deal with timeouts 
     unsigned long now = millis();
     if ( (now - lastSend) > 2000 ) {
+        timeouts++;
         sendNext = true;
     } 
 
@@ -133,7 +134,7 @@ void JdbBMS::update() {
         sendNext = false;
         if ( requestReg05 == 0) {
             requestRegister(0x05);
-            requestReg05 = 15;
+            requestReg05 = 200;
         } else {
             if ( reg > maxReqRegs) {
                 reg = REQ_REGSTART;
@@ -154,6 +155,7 @@ void JdbBMS::requestRegister(uint8_t regNo) {
         Serial.println(regNo,HEX);
     }
     io->write(cmd, 7);
+    requestReg++;
 }
 
 int JdbBMS::processFrame(int from) {
@@ -172,6 +174,7 @@ int JdbBMS::processFrame(int from) {
     if ( buffer[endPacketPos] != END_OF_PACKET ) {
         // invalid not seeing an end of packet where expected.
         sendNext = true;
+        invalidEnd++;
         return -2;
     }
     uint16_t sum = 0;
@@ -182,6 +185,7 @@ int JdbBMS::processFrame(int from) {
     if ( (((sum&0xff00)>>8) != buffer[checkSumPos]) 
         || ((sum&0xff) != buffer[checkSumPos+1]) ) {
         // bad checksum
+        checksumFail++;
         sendNext = true;
         return -3;
     } 
@@ -189,6 +193,7 @@ int JdbBMS::processFrame(int from) {
     if ( errorCode != RESPONSE_OK) {
         dumpBuffer("Error Frame",buffer, from, endPacketPos);
         sendNext = true;
+        errorFrame++;
         return -4;
     }
     dumpBuffer("Got Frame",buffer, from, endPacketPos);
@@ -197,12 +202,18 @@ int JdbBMS::processFrame(int from) {
         copyReg03(&buffer[from+4], dataLength);
         register03Length = dataLength;
         sid++;
+        countReg03++;
     } else if (responseReg == 0x04) {
         copyReg04(&buffer[from+4], dataLength);
         register04Length = dataLength;
+        countReg04++;
     } else if (responseReg == 0x05) {
         copyReg05(&buffer[from+4], dataLength);
         register05Length = dataLength;
+        countReg05++;
+    } else {
+        countRegOther++;
+
     }
     sendNext = true;
     return endPacketPos+1;
@@ -518,6 +529,17 @@ void JdbBMS::printStatus(Print *stream) {
     printStatus03(stream);
     printStatus04(stream);
     printStatus05(stream);
+    stream->println("BMS Stats:");
+    stream->print("  totalReq:    : ");stream->println(requestReg);
+    stream->print("  totalRec     : ");stream->println(countReg03+countReg04+countReg05+countRegOther);
+    stream->print("  timeouts     : ");stream->println(timeouts);
+    stream->print("  checksumFail : ");stream->println(checksumFail);
+    stream->print("  errorFrame   : ");stream->println(errorFrame);
+    stream->print("  invalidEnd   : ");stream->println(invalidEnd);
+    stream->print("  countReg03   : ");stream->println(countReg03);
+    stream->print("  countReg04   : ");stream->println(countReg04);
+    stream->print("  countReg05   : ");stream->println(countReg05);
+    stream->print("  countRegOther: ");stream->println(countRegOther);
 }
 void JdbBMS::printStatus03(Print *stream) {
     stream->print("BMS Reg03 dataLength:");stream->println(register03Length);

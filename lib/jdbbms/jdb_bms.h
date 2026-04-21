@@ -86,6 +86,16 @@ private:
     unsigned long reg03Update = 0;
     unsigned long reg04Update = 0;
 
+    uint16_t timeouts = 0;
+    uint16_t checksumFail = 0;
+    uint16_t requestReg = 0;
+    uint16_t errorFrame = 0;
+    uint16_t countReg03 = 0;
+    uint16_t countReg04 = 0;
+    uint16_t countReg05 = 0;
+    uint16_t countRegOther = 0;
+    uint16_t invalidEnd = 0;
+
     uint8_t reg = 3;
     uint8_t requestReg05 = 0;
     uint8_t maxReqRegs = 4;
