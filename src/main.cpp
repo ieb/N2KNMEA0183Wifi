@@ -127,6 +127,7 @@ JdbBMS bms;
 bool bmsSimulatorOn = false;
 bool networkUp = false;
 bool canUp = false;
+bool forcedCanUp = false;
 
 BoatWatchBLE bleServer;
 AutopilotBleState apBleState;
@@ -909,9 +910,11 @@ void CheckCommand() {
         if (canUp) {
             ESP_LOGE(TAG, "Stopping CAN");
             onDisableCan();
+            forcedCanUp = false;
         } else {
             ESP_LOGE(TAG, "Starting CAN");
             onEnableCan();
+            forcedCanUp = true;
         }
         break;
       case 'C':
@@ -998,7 +1001,7 @@ void loop() {
         onEnableCan();
     }
   } else {
-    if (canUp) {
+    if (canUp && !forcedCanUp) {
         ESP_LOGE(TAG, "Can is down");
         onDisableCan();
     }
