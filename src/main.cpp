@@ -275,6 +275,7 @@ void showHelp() {
   OutputStream->println("  - Send 'f' to trigger freeze frame");
   OutputStream->println("  - Send 'S' to toggle BMS simulator");
   OutputStream->println("  - Send 'p' set udp port");
+  OutputStream->println("  - Send 'c' to toggle Can/NMEA2000");
   OutputStream->println("  - Send 'N' to toggle Network");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
   OutputStream->println("  - Send 'C' to clear boot reasons");
@@ -902,6 +903,15 @@ void CheckCommand() {
         } else {
             ESP_LOGE(TAG, "Starting Nework");
             onEnableNetwork();
+        }
+        break;
+      case 'c':
+        if (canUp) {
+            ESP_LOGE(TAG, "Stopping CAN");
+            onDisableCan();
+        } else {
+            ESP_LOGE(TAG, "Starting CAN");
+            onEnableCan();
         }
         break;
       case 'C':
