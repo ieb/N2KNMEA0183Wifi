@@ -1,547 +1,176 @@
-# N2K and NMEA0183 Wifi server exposing http, tcp and udp services.
+# N2K / NMEA0183 WiFi + BLE bridge
 
-* Runs on a ESP32.   (Currently targetting ESP32-C2 Mini)
-* Connects to a NMEA2000 bus using the ESP CAN device and a CAN Driver as a CAN Node. 
-* Parses NMEA2000 messages and stores them with history. 
-* Emits NMEA0183 messages on tcp and udp.
-* Emits SeaSmart messages on tcp with PGN filtering.
-* Exposes NMEA0183 and SeaSmart streams over http (chunked encoding)
-* Exposes a http admin interface for configuration.
-* Runs either as an WiFi station or as an Access Point.
+ESP32-C3 firmware that bridges an NMEA2000 (CAN) bus to WiFi and Bluetooth LE
+clients. Parses a working subset of N2K PGNs, emits NMEA0183 and SeaSmart over
+TCP/UDP/HTTP streams, serves a local web UI and admin, and publishes a
+compact binary boat-state feed over BLE GATT for mobile PWAs.
 
-# UI
+Also bridges a JBD / JDB BMS over TTL/UART, exposing register data both as
+custom PGNs on the N2K bus and as a dedicated BLE battery characteristic.
 
-There are 4 UIs available for use with this firware 3 are web based, and one is a Java Swing UI for Kindle 4 Paperwhites.
+## Features
 
-* https://github.com/ieb/N2KBMSFwUi  for a the Flash based firmware UI, read only, itended for use on a mobile device.
-* https://github.com/ieb/N2KUi for a install-able PWA App with admin capabilities.
-* https://github.com/ieb/N2KLifePo4 for an install-able PWA App focused on the LiFePo4 BMS
-* https://github.com/ieb/NMEA2000_Booklet a Kindle4 Booklet for use on deck in full sunlight.
+* NMEA2000 CAN node — parse + emit, built on top of the NMEA2000 library.
+* NMEA0183 generation from N2K PGNs (see `lib/N2KHandler/NMEA0183N2KMessages.h`).
+* TCP server on port 10110, UDP broadcast, and long-lived chunked HTTP streams
+  (`/api/nmea0183`, `/api/seasmart`) with per-client PGN filtering.
+* SeaSmart (PCDIN) passthrough with filter negotiation.
+* BLE GATT server (`BoatWatchBLE`) — see `docs/ble-transport.md`:
+  * `0xAA00` service — autopilot state, command channel, battery.
+  * `0xFF00` service — navigation state (lat/lon, COG/SOG, heading, wind,
+    depth, STW, log) and engine state (RPM, temps, volts, pressures, hours,
+    status bits).
+  * PIN-based auth with per-connection and global brute-force lockouts.
+  * Fields revert to "not available" sentinels when their source PGN stops
+    arriving (≤15 s for nav and slow-cadence engine fields; 5 s for
+    engine-running-only fields), so clients don't see stale values.
+* JBD BMS bridge over UART — cell voltages, pack V/I/SoC, temps, FET status,
+  errors.
+* Engine freeze-frame logging to flash (`lib/freezeframe`).
+* Performance calculations (polar VMG, target boat speed, target wind angle,
+  leeway — see `lib/performance`).
+* Logbook to SPIFFS (`lib/logbook`).
+* HTTP admin interface (config upload, FS operations, reboot, status).
+* WiFi station or AP mode, mDNS.
 
+## UIs
 
-# Hardware
+The UIs live in their own repos and talk to the firmware over HTTP streams
+or BLE:
+
+* [N2KBMSFwUi](https://github.com/ieb/N2KBMSFwUi) — read-only SPIFFS-hosted UI
+  for mobile browsers.
+* [N2KUi](https://github.com/ieb/N2KUi) — installable PWA with admin.
+* [N2KLifePo4](https://github.com/ieb/N2KLifePo4) — installable PWA for the
+  LiFePO4 BMS (BLE).
+* [NMEA2000_Booklet](https://github.com/ieb/NMEA2000_Booklet) — Kindle 4
+  booklet for use on deck in sunlight.
+
+## Hardware
+
+Current target is an ESP32-C3 on a custom PCB (see `pcb/`). Brownout
+threshold is lowered from the 3.1 V default to 2.8 V to ride out BLE radio
+bring-up transients. CAN transceiver, isolated UART to the BMS, LED, and
+connectors are documented in the schematic.
 
 <div>
 <img alt="ESP32-C3 board" src="screenshots/Screenshot 2024-12-17 at 16.58.34.png" />
 </div>
 
+## HTTP API
 
+All paths marked "admin only" require HTTP basic auth against credentials in
+`config.txt`.
 
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| GET  | `/**`              | Static file from SPIFFS (UI bundle). |
+| GET  | `/api/store`       | Current store snapshot, CSV. |
+| GET  | `/api/devices`     | Devices seen on the N2K bus, text. |
+| GET  | `/api/nmea0183`    | Chunked NMEA0183 stream. |
+| GET  | `/api/seasmart`    | Chunked SeaSmart stream; `?pgns=...` filters. |
+| GET  | `/api/status.json` | Filesystem + heap status. *admin* |
+| GET  | `/api/fs.json`     | Filesystem listing. *admin* |
+| POST | `/api/fs.json`     | `op=delete` or `op=upload` (multipart). *admin* |
+| GET  | `/config.txt`      | Current configuration file. *admin* |
+| POST | `/api/reboot.json` | Reboot. *admin* |
 
-# ToDo
+Simulators for the HTTP/TCP/BMS side live under `simulator/`.
 
-* [x] Setup Wifi
-* [x] Setup MDNS registration
-* [x] Implement webserver
-* [x] Serve files from Flash (SPIFFS)
-* [x] Implement data api /api/data/<n> where n == 0-10.
-* [x] Expose set of standard CAN messages on /api/data
-* [x] Implement simple UI in Javascript hosted on SPIFFS, targetting eink and normal browsers (based on SignalK eink)
-* [x] Implement admin interface.
-* [x] Support configuration and calibration via web browser.
-* [x] Implement TCP server 
-* [x] Implement NMEA0183 bridge
-* [x] Reduce Wifi power to 2dbm, also helps avoid can brownouts and hangs.
-* [x] Test NMEA0183 with NKE, Navionics and NMea android apps.
-* [x] Implement UDP server 
-* [x] Implement WebSocket Server
-* [-] ~~Wire Store into NMEA0183 outputs~~
-* [x] Expose message stream over websockets
-* [x] Emit NMEA0183 messages generated from calculations
-* [x] Verify performance messages
-* [x] Remove N2KCollector
-* [x] Emit data for websockets in raw form tbd.
-* [x] Emit raw pgn messages in some form.
-* [x] Port in web apps from Electron NMEA App in ui/v2
-* [x] Fix messages display in v2 ui
-* [x] Apply eslint
-* [x] Convert to installable PWA
-* [-] ~~Support ESP32 on https for PWA~~  Too much effort, AsyncTCP support not there. Workaround: allow insecure content on localhost and load service worker from localhost.
-* [x] Implement service worker cache
-* [x] Implement Admin Login without relying on Browser, as BasicAuth popups in ServciceWorkers dont work offlin. On fixing found out: Explicitly setting headers works, but service workers use preflight on GET urls and are stricter about the cors headers than a direct fetch from a window context.  Username and password are now stored in sessionStorage and logout works.
-* [x] Urls not easy to use to nav (Workaround, open in browser, change url, open in app)
-* [x] Add ability to set the server url for data
-* [x] Add day night themes.
-* [x] Fix menu system.
-* [x] Add can debug view to v2 ui.
-* [x] Replace layout editing and storage on esp32 with localstorage
-* [x] Add PWA for LifePo4 battery management, standalone PWA over BLE. 
-* [x] Support upload and download of layouts for local editing.
-* [x] Verify target VMG down wind.
-* [x] Support debugging store behavior in debug view to verify polar and calculations.
-* [x] Load default layouts over http.
-* [x] Persist history in local storage
-* [x] Port eink displays
-* [x] Deprecate WebSockets as they are unsabled and cause segv in the hardware.
-* [x] Implement http streams with SeaSmart format on and same on tcp, with filtering.
-* [x] Implement bridge to JBD BMS over TTL/Uart with isolation and expose BMS registeres in custom PGNs.
-* [x] Port BMS UI fro BLE to Http streams
-* [x] Design ESP32-C3 board
-* [x] Build and test new boards. 
-* [x] Update BMS app to use streaming http api
-* [x] Add gitsha1 to firmware, press h to see on serial
-* [x] Bench tested E2E with BMS simulator
-* [x] Backport BMS seasmart stream handler to main ui
-* [x] Fixed admin ui bug, buttons without type=button cause form submissions.
-* [x] Fixed processing of temperature messages PGN 130312 and PGN 127506 battery status.
-* [x] Implement a workable UI that can be used on a Android phone to quickly see the status of the BMS.
-* [x] Http streams appear to be not cleaned up correctly, according to the status information - checked, working as expected.
-* [x] Split the UIs out into seperate git repos.
-* [x] Implement engine freeze frame functionality to file, see N2KFreezeFrame.cpp
-* [ ] Test BLE UI on ChromeOS.
-* [x] Test Booklet UI
-* [ ] Log BMS data to flash
-* [ ] Fix hangs, see Hangs...
+## TCP / UDP (port 10110)
 
+Emits NMEA0183 sentences by default. A client can switch its session to
+SeaSmart by sending a PGN filter request — once switched, the stream stays
+in SeaSmart mode for that client. Some noisy PGNs (e.g. Raymarine pilot
+updates) are filtered by default to protect bandwidth.
 
-## HTTP APIs
+    $PCDCM,1,7,127489,127505,127488,128259,129026,130312,128267*77
 
-### GET /api/fs.json - admin only
+UDP is used for broadcast to LAN clients. Note that ChromeOS blocks UDP
+broadcast to Android apps running in containers, so the TCP and HTTP stream
+paths exist as a workaround.
 
-lists the filesystem as json
+## BLE
 
-### POST /api/fs.json - admin only
+See `docs/ble-transport.md` for the binary frame layouts, magic bytes,
+scaling factors, and notification cadence. Characteristics notify at ≤2 Hz
+when data changes, and fall back to a 1 Hz keep-alive carrying the latest
+values (or NA sentinels if the source PGN has gone stale).
 
-Filesystem operations.
+Authentication is a 4-digit PIN (`ble.pin` in `config.txt`). Brute force is
+bounded by a per-connection lockout (30 s after 5 failures, disconnect after
+10) and a global lockout (5 min after 20 cumulative failures across all
+connections). Unauthenticated clients are disconnected after 30 s.
 
-* op=delete deletes the file defined by path
-* op=upload multipart, uploads the first file to the location defined by the path param, limited by filesystemspace.
+## SeaSmart format reference
 
-
-### GET /api/store
-
-Gets the store from the ESP32 in csv format, see code for details on the values.
-
-### GET /api/devices 
-
-Gets a text version of the devices on the bus
-
-
-### GET /api/status.json - admin only
-
-Gets the status of filesystem and heap
-
-### POST /api/reboot.json - admin only
-
-Reboots the ESP32.
-
-### GET /config.txt - admin only
-
-Gets the congiuration file
-
-### GET /**
-
-gets the file from the filesystem, query params are ignored.
-
-Various simulators for both the http api and the TCP service can be found in simulators/
-
-## TCP/UDP
-
-Runs on 10110 and emits NMEA0183 sentences, see lib/NMEA0183N2KMessages.h for a list of messages, will switch to SeaSmart if the client sends a PGN filter request message, eg as below which filters the stream to only those PGNs in the message. Once in SeaSmart mode, the TCP stream will not revert to standard NMEA0183 for that client. Some PGNs are filtered by default to avoid over load (eg high volume proprietary Raymarine pilot updates)
-
-     $PCDCM,1,7,127489,127505,127488,128259,129026,130312,128267*77
-
-
-## WebSocket
-
-This was deprecated since there are bugs in the ESP32AsyncWebServer code that cause the ESP to crash when more than 1 client connects.
-
-## HTTP Stream
-
-/api/seasmart streams SeaSmart sentences chunked encoded. Clients should read this as a ReadableStream since the http stream will continue forever.  Filtering of pgns is available via by setting the pgns query parameter to a list of pgns to be filtered on.
-
-/api/nmea0183 streams NMEA0183 sentences chunked encoded.
-
-
-
-# NMEA183 PCDIN aka Seasmart /ws/seasmart - implemented
-
-http://www.seasmart.net/pdf/SeaSmart_HTTP_Protocol_RevG_043012.pdf
+SeaSmart/PCDIN sentences published on the NMEA0183 streams:
 
     $PCDIN,01F119,00000000,0F,2AAF00D1067414FF*59
                                                ^^ checksum
                               ^^^^^^^^^^^^^^^^ data (whole message)
                            ^^ source
-                  ^^^^^^^^ Hex time
+                  ^^^^^^^^ hex time
            ^^^^^^ PGN
     ^^^^^^ NMEA0183 id
 
-Decoding hex time is done as 
-
-    ((parseInt(value,32)/1024)+1262304000)*1000 
-
-result in ms since 1/1/1970.  No idea what base 32 looks like, but tests don't make sense.
-Should probably avoid, however it does have the advantage of being able to mix with NMEA0183 traffic provided
-the bandwidth is enough.  Looks like it was designed to send over http.
-
-There is also a command protocol, PCDIC
-
-It is unlikely that I want to use applications supporting this protocol, but it is used by a few. D
-
-Seasmart compact, can be expanded by the client into seasmart by adding the missing fields.
-
-    01F119,0F,2AAF00D1067414FF
-              ^^^^^^^^^^^^^^^^ base64 data
-          ^^ source
-    ^^^^^^ PGN
-
-# Other formats that were tried and dropped while using WebSockets
-
-### Candump version 3 modified, /ws/candump3m  - not implemented yet
-
-    89f10d16#01f997fc3cfeffff\n
-             ^^^^^^^^^^^^^^^^ data
-    ^^^^^^^^ can id
-
-Bare minimim, should be easy to covert into candump3 on the client, needs access to the raw stream before fastpackets are handled, or needs to reconstruct fast packets where the length is > 8.
-
-### Candump version 3, /ws/candump3 - implemented
-
-    (1713293415.384000) slcan0 89f10d16#01f997fc3cfeffff
-                                        ^^^^^^^^^^^^^^^^ frame
-                               ^^^^^^^^ can id
-                        ^^^^^^ device
-    ^^^^^^^^^^^^^^^^^^^ time in seconds
-
-Very low cost to output, but high volume and the frame has to be processed for fast packets in the client. 
-
-### Yacht Devces Raw /ws/raw - no plans to implement
-
-    19F51323 01 02<CR><LF>
-             ^^^^^ frame data hex space separated 
-    ^^^^^^^^ canID
-
-    17:33:21.107 R 19F51323 01 2F 30 70 00 2F 30 70
-    may also be prefixed by a timestamp and direction
-
-Very low cost to output, but high volume and the frame has to be processed for fast packets in the client. 
-Senders need to slice up the data, PGN 126720 (proprietary fast packet) gets special treatment why tbd.
-
-This is close or the same as the log files produced by Raymarine e7 MFDs and other devices.
-
-
-### NMEA183 MXPGN  /ws/nmea0183 - not implemented
-
-https://opencpn.org/wiki/dokuwiki/lib/exe/fetch.php?media=opencpn:software:mxpgn_sentence.pdf
-
-
-    $MXPGN,01F801,2801,C1308AC40C5DE343*19
-                                        ^^ checksum
-                       ^^^^^^^^^^^^^^^^ data (frame only, since lenght limited to 8 max)
-                    ^^ src
-                  ^^ data length + priority encoded 
-           ^^^^^^ PGN
-    ^^^^^^ NMEA0183 id
-
-    data length bits 28 -> hex, padded to 8 eg  
-    0b00101000
-          ^^^^ DLC  1-8 length or 9-15 class 2 transmission ID, length always 8 in this case.
-       ^^^ priority eg 2
-      ^ send/rec eg rec
-
-
-
-### NMEA184 iKonvert /ws/nmea0183 - not supported
-
-    !PDGY,126992,3,2,255,0.563,d2009e45b3b8821d*23
-                                                ^^ checksum
-                               ^^^^^^^^^^^^^^^^ data base64 encoded.
-                         ^^^^^ timer seems it might be optional.
-                     ^^^ dest
-                   ^ source
-                 ^ priority
-          ^^^^^^ PGN decimal
-    ^^^^^ NMEA183 id, ! probably means binary
-
-
-
-### candump1  /ws/candump1  - not implemented
-
-    <0x18eeff01> [8] 05 a0 be 1c 00 a0 a0 c0
-                     ^^^^^^^^^^^^^^^^^^^^^^^ frame
-                 ^^^ len 
-    ^^^^^^^^^^^^ canID
-
-### candump2 /ws/candump3  - not implemented
-
-    can0  09F8027F   [8]  00 FC FF FF 00 00 FF FF
-                          ^^^^^^^^^^^^^^^^^^^^^^^ frame
-                      ^ len
-          ^^^^^^^^ canid
-    ^^^^ device
-
-### Actisense /ws/actisense  - not implemented
-
-    2016-02-28T19:57:02.364Z,2,127250,7,255,8,ff,10,3b,ff,7f,ce,f5,fc
-                                              ^^^^^^^^^^^^^^^^^^^^^^^ data
-                                            ^ length
-                                        ^^^ destination
-                                      ^ source
-                               ^^^^^^ pgn
-                             ^ priority
-    ^^^^^^^^^^^^^^^^^^^^^^^^ ISO date
-
-
-Easy to read, a bit of a standard, but also verbose.
-For date we would need to capture the date from GPS.
-
-### Actisense N2K ASCII - not supported
-
-    A764027.880 05FF7 1EF00 E59861060202FFFFFFFF03030000FFFFFFFFFFFFFFFFFFFF0000FFFFFF7FFFFFFF7FFFFFFF7F0000FF7F
-                      ^^^^^^^^^^^ full can message, upto 400 chars
-                    ^ priority
-                  ^^ dest
-                ^^ src
-     ^^^^^^^^^^ timestamp
-
-
-Full messages are problematic with memory.
-
-
-### Data Link encoded  - not implemented
-
-Binary format see apenedix F in https://www.yachtd.com/downloads/ydnu02.pdf
-
-Below is a copy
-
-        APPENDIX F. Format of Messages in N2K Mode
-        In N2K mode, messages are encoded in a binary format. This format is based on Data Link Escape encoding
-        partially compatible with ActiSense NGT format and widely support by modern marine applications.
-        This format is very similar to Garmin Serial Protocol (see section 3.1 of Garmin Device Interface
-        Specification 001-00063-00 for details).
-        All data are transferred in byte-oriented packets. A packet contains a four-byte header (DLE, STX, ID,
-        and Size), followed by a variable number of data bytes, followed by a three-byte trailer (Checksum, DLE,
-        and ETX). The following table shows the format of a packet:
-        
-        Table 1. Packet format
-        
-        Byte Number Byte Description Note
-        ---------------------------------
-        0           Data Link Escape ASCII DLE character (16 decimal)
-        1           Start of Text ASCII STX character (02 decimal)
-        2           Packet ID Identifies the type of packet
-        3           Size of Packet Data Number of bytes of packet data (bytes 4 to n-4)
-        4 to n—4    Packet Data 0 to 255 bytes, see Table 2
-        n—3         Checksum 2's complement of the sum of all bytes from byte 1 to byte n-4
-        n—2         Data Link Escape ASCII DLE character (16 decimal)
-        n—1         End of Text ASCII ETX character (03 decimal)
-        
-        If any byte in the Size, Packet Data, or Checksum fields is equal to DLE, then a second DLE is inserted
-        immediately following the byte. This extra DLE is not included in the size or checksum calculation.
-        This procedure allows the DLE character to be used to delimit the boundaries of a packet.
-        Packets with NMEA 2000 messages transmitted to the PC application (incoming) have ID 0x93
-        (147 decimal), packets with NMEA 2000 messages sent by the application to the Device (outgoing)
-        have ID 0x94 (148 decimal).
-       
-        Byte Number Byte Description Note
-        ----------------------------------
-        0           Message Priority Bits 0 - 2 are significant, other bits are ignored
-        1 to 3      NMEA 2000 PGN Least significant byte is first
-        4           Destination Address Or 255 decimal for global addressed messages
-        5           Source Address Ignored for outgoing messages, Device address is used
-        6—9         Time Stamp Device’s time in milliseconds, ignored in outgoing messages
-        10          Size of Payload Number of bytes in NMEA 2000 message payload (1..232)
-        11+         Message Payload 1 to 232 bytes of message payload
-        
-        The format of NMEA 2000 messages is available in Appendix B of NMEA 2000 Standard, which
-        can be purchased on the site www.nmea.org.
-
-Probably too much of a pain to implement.
-
-
-# Hangs
-
-At times, the device appears to hang, with no data being emitted, but clients still able to connect. The symptoms are no data being recieved over CAN, however this only apparent at the NMEA2000.parseMessages call and not in the underlying ESP32 hardware. Most probably cause seems to be that a network problem causes the single core on the ESP32-C3 to block which blocks the main loop, which then causes the ESP32 recieve buffer to overflow since NMEA2000.parseMessages is not being called frequently enough to read the messages. Some of the pauses are 20s as per below.
-
-
-        [562578][E][main.cpp:388] monitorAlertsTask(): [main] Rx Queue Full 60
-        [564735][E][main.cpp:690] loop(): [main] ParseMessages 564735 544725 20010
-        Sentence recieved as []
-        Checksum Calculated as 0
-        Checksum from 192.168.4.4 Bad :
-        Sentence recieved as []
-        Checksum Calculated as 0
-        Checksum from 192.168.4.4 Bad :
-        Sentence recieved as []
-        Checksum Calculated as 0
-        Checksum from192.168.4.4 Bad :
-        Sentence recieved as []
-        Checksum Calculated as 0
-        Checksum from 192.168.4.4 Bad :
-        Client Connected on tcp from:192.168.4.2
-        [582584][E][main.cpp:388] monitorAlertsTask(): [main] Rx Queue Full 80
-        [583798][E][WiFiClient.cpp:429] write(): fail on fd 50, errno: 104, "Connection reset by peer"
-        Client Disconnected: 192.168.4.2
-        Client Disconnected: 192.168.4.2
-        [583825][E][main.cpp:690] loop(): [main] ParseMessages 583825 564749 19076
-        Client Connected on tcp from:192.168.4.2
-
-In this case it was caused by a connected client, 192.168.4.2 disabling its WiFi blocking writes in the WiFiCLient code. When this is not happening the device is easilly capable of handlng a CAN bus fully loaded running at 250Kbit.
-
-The problem is in the implementation of the TCP server which is blocking, and hence blocks the parser.
-
-Switching to UDP fixes this, but ChromeOS blocks all UDP broadcast traffic to Android Apps. Android Apps on Android do not do this and work perfectly on UDP. (sigh!), there was a report that binding to a udp port will open the port to traffic, but this doesnt work, tested in python.  So have to fix the TCP sockets implementation.
-
-Implemented a AsyncTcpSever (and done the same for the Echoserver) which fixes the problem of hangs. Tested at 100% CAN Buss load. Device appears stable, but will continue to soak test.
-
-ChromeOS still blocks all UDP traffic to containers. This is due to the permissions_borker in ChromeOS not setting up the correct IPTables when a UDP listener is opened by a Android device. On the version of ChromeOS I am on, there is no fix and I cant upgrade since upgrading will breal all ChromeOS Apps including the ChromeOS WebServer app. May be forecd to implement a SSD card in the wifi server to serve files  if forced to upgrade. There is a DBus API in ChromeOS called ModifyPortRule which accepts Protobuf and can be called from within a container to setup rules, however calling this would be hard to automate. So in the end, I gave up on UDP. Pitty.
-
-
-## Archived functionality
-
-The project was forked from CanDiagnose https://github.com/ieb/CanDiagnose wip branch which contains the functionality below.
-
-* [x] Implement BPM280 source  (moved to archive)
-* [x] Implement calibration mechanism using DAC (moved to archive)
-* [Fail] Implement ADC Source (esp adc not sufficiently accurate)
-* [x] Redesign PCB to use 16bit ADC over i2c  (ADS1115)
-* [x] Implement ADC sensor code (move to archive)
-* [x] Add OLED display  (moved to archive)
-* [x] Add touch sensor to control oled display (moved to archive)
-* [x] Bench Calibrate expecialy shunt (moved to archive)
-* [x] Install test and calibrate. - Failed, the distance between the board and the batteries is too great to get reliable shunt measurements. 
-* [x] Investigate using a shunt amplifier as used by VRA Alternator controller
-* [x] Implement remote battery sensor using Modbus  (see BatterySensor project) (moved to archive)
-* [x] Reimplement PCB to have no BME280 and no ADS1115 replacing with a RS485 interface to ModBus devices.  (see CanPressure for Can based pressure, humidity, temperature sensor) (moved to archive)
-* [x] Implement Modbus master (moved to archive)
-* [x] Support Configuraiton of single and differential ADC.
-
-
-# Usage
-
-The device will boot and connect to wifi controlled by its burned in config file (data/config.txt). 
-There are 2 modes it can run in, a WiFi client or a AP. If its configured to be an AP, then join its network. If its a client find its ip. From now on this will be <ip>
-
-Go to its ip on http://<ip> and you will see a data view of the data it is capturing.
-Go to http://<ip>/admin.html and you will see a admin view with the ability to upload a new configuration file and reboot.
-
-Both these views are SPAs served from static files burned into the ESP32 Flash using APIs.
-
-Connecting to the serial port monitor allows lower level control and diagnostics, enter 'h<CR>' to get help.
-
-# Developing
-
-Project uses PlatformIO.  WebUI is in  ui/v2. This can be developed locally using node http-server in ui/vi/src or by updating the flash drive of a device running the firmare over http, using ui/v2/build.sh
-
-## PIO commands
-
-because I always forget.
-
-build the disk image in data/ and upload, to recreate data checkout https://github.com/ieb/N2KBMSFwUi.git
-
-* pio run --target buildfs --environment esp32-c3
-* pio run --target uploadfs --environment esp32-c3
-* pio run -t upload
-* pio device monitor
-
-See buildui.sh for SPIFFS image commands. Don't use this to update the flashdrive, its easier to use the admin ui or curl.
-
-# PCB
-
-There have been a few version including ones with TFT screens which were too power hungry and not very good to use. look at pcb for details.
-
-# Archived Functionality
-
-
-Rather than using dedicated hardware displays I have decided to switch to apps since the power consumption is better and they require no installation onboard.  Most of the display code is in the archive subfolder.
-
-
-## eInk Waveshare display  (archived)
-
-This uses SPI output only with a bunch of additional pins.
-
-    eInk DIN <-  f  SPI MOSI GPIO32
-    eInk CLK <-  e  SPI SCK  GPIO33
-    eInk CS  <-  d  SPI CS   GPIO25
-    eInk DC  <-  c  SPI DC   GPIO26
-    eInk RST <-  b  SPI RST  GPIO12
-    eInk BUSY -> a  SPI BL   GPIO13
-
- 
-
-## 4 inch TFT display 480x320 24 bit colour driven by a ILI9488 driver. (archived)
-
-uses SPI + a PWM blacklight. Control via a TPP233 Touch switch. Library is TFT_eSPI library. Pin mappings defined as compile definitions.
-
-    -D TFT_MISO=GPIO_NUM_35
-    -D TFT_MOSI=GPIO_NUM_32
-    -D TFT_SCLK=GPIO_NUM_33
-    -D TFT_CS=GPIO_NUM_25
-    -D TFT_DC=GPIO_NUM_26
-    -D TFT_RST=GPIO_NUM_27
-    -D TFT_PWM_BL=GPIO_NUM_14
-    -D ILI9488_DRIVER
-
-The display sleeps after 60s of inactivity to reduce power drain, but turning off the backlight. Sleeping the IMI9488 driver has not been done as of yet.  Pages are implemented as classes using widgets. When a page is selected it is allocated into heap and does not exist while not displaying. On other drivers here all pages were compiled in, however the RAM usage is higher on account of full colour and display size. 
-
-In most cases attempts to update the screen, on screen causes flickering so double buffering of updates is done using sprits with DMA transfers from the sprite to the screen. Images for screen are stored in jpg on flash, consuming about 30KB per screen.
-
-Drawing to sprites also works in 1bpp, 4bpp or 16bpp.
-
-### TFT case 
-
-3d printed case, with 2 touch sensors and round shielded cable, as ribbon will emit too much interference to nearby devices. 
-
-Wires
-
-|| color || designation || ESP32 Pin ||
----------------------------------------
-| Red    |  5v          | 5v           |
-| black  |  0v          | 0v           |
-| pink   |  CS          | GPIO_NUM_25  |
-| cyan   |  Reset       | GPIO_NUM_27  |
-| white  |  DC/RS       | GPIO_NUM_26  |
-| blue   |  SDI(MOSI)   | GPIO_NUM_32  |
-| green  |  SCK         | GPIO_NUM_33  |
-| grey   |  LED         | GPIO_NUM_14  |
-| Purple |  SDO(MISO)   | GPIO_NUM_35  |
-| Orange |  3.3v        | 3.3v         |
-| Brown  | Touch Lower  | GPIO_NUM_19  |
-| Yellow | Touch Top    | TBD          |
-
-Due to the additional touch pins a fresh PCB is probably needed.
-
-
-
-# Firmware crash
-
-Most of the code is single threaded with no malloc or new operations, and hence it is stable. The only crash I have seen in 4 years has been websockets as below. AFAICT, not fixed upstream with no prospects. Hence removed websockets code. This also makes it easier to implement http clients.
-
-PgnFilter ,5,128259,130306,127250,127257,127258,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
-ws[/ws/seasmart][6] error(1002): WebSocket Protocol Error
-ws[/ws/seasmart][6] disconnect
-ws[/ws/seasmart][7] connect
-ws[/ws/seasmart][7] pong[0]: 
-Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
-Core 1 register dump:
-PC      : 0x400da7fb  PS      : 0x00060630  A0      : 0x800db1d1  A1      : 0x3ffb1cd0  
-A2      : 0x3ffc31ec  A3      : 0x3ffd26b4  A4      : 0x00000001  A5      : 0x3ffc325c  
-A6      : 0x00000000  A7      : 0x3ffc7fd8  A8      : 0x800da830  A9      : 0x3ffb1cb0  
-A10     : 0x3ffd26b4  A11     : 0x3ffd26b4  A12     : 0x3ffb5110  A13     : 0x00000000  
-A14     : 0x00000000  A15     : 0x00000034  SAR     : 0x00000010  EXCCAUSE: 0x0000001c  
-EXCVADDR: 0x00000001  LBEG    : 0x4000c349  LEND    : 0x4000c36b  LCOUNT  : 0x00000000  
-
-ELF file SHA256: 0000000000000000
-
-Backtrace: 0x400da7fb:0x3ffb1cd0 0x400db1ce:0x3ffb1d00 0x400db1e7:0x3ffb1d20 0x400db1fd:0x3ffb1d40 0x400db20d:0x3ffb1d60 0x400ea220:0x3ffb1d80 0x400d1b4e:0x3ffb1da0 0x400eef46:0x3ffb1dc0 0x400eef9d:0x3ffb1de0 0x400ee570:0x3ffb1e10 0x400eed32:0x3ffb1e70 0x400d1a41:0x3ffb1f10 0x4019a42e:0x3ffb1f30 0x400d6859:0x3ffb1f50 0x400d1e78:0x3ffb1f90 0x400f3370:0x3ffb1fb0 0x400899d2:0x3ffb1fd0
-  #0  0x400da7fb:0x3ffb1cd0 in AsyncWebSocket::_cleanBuffers() at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
-  #1  0x400db1ce:0x3ffb1d00 in AsyncWebSocket::textAll(AsyncWebSocketMessageBuffer*) at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
-  #2  0x400db1e7:0x3ffb1d20 in AsyncWebSocket::textAll(char const*, unsigned int) at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
-  #3  0x400db1fd:0x3ffb1d40 in AsyncWebSocket::textAll(char*) at .pio/libdeps/nodemcu-32s/ESP Async WebServer/src/AsyncWebSocket.cpp:842
-  #4  0x400db20d:0x3ffb1d60 in AsyncWebSocket::textAll(char const*) at ??:?
-  #5  0x400ea220:0x3ffb1d80 in WebServer::sendN0183(char const*) at lib/network/httpserver.cpp:382
-  #6  0x400d1b4e:0x3ffb1da0 in SendNMEA0183Message(char const*) at src/main.cpp:393
-  #7  0x400eef46:0x3ffb1dc0 in NMEA0183N2KMessages::send() at lib/N2KHandler/NMEA0183N2KMessages.cpp:443
-  #8  0x400eef9d:0x3ffb1de0 in NMEA0183N2KMessages::sendHDG(double, double, double) at lib/N2KHandler/NMEA0183N2KMessages.cpp:45
-  #9  0x400ee570:0x3ffb1e10 in N2KHandler::handle127250(tN2kMsg const&) at lib/N2KHandler/N2KHandler.cpp:229
-  #10 0x400eed32:0x3ffb1e70 in N2KHandler::handle(tN2kMsg const&) at lib/N2KHandler/N2KHandler.cpp:82
-  #11 0x400d1a41:0x3ffb1f10 in HandleNMEA2000Msg(tN2kMsg const&) at src/main.cpp:393
-  #12 0x4019a42e:0x3ffb1f30 in tNMEA2000::RunMessageHandlers(tN2kMsg const&) at .pio/libdeps/nodemcu-32s/NMEA2000-library/src/NMEA2000.cpp:2314
-  #13 0x400d6859:0x3ffb1f50 in tNMEA2000::ParseMessages() at .pio/libdeps/nodemcu-32s/NMEA2000-library/src/NMEA2000.cpp:2314
-  #14 0x400d1e78:0x3ffb1f90 in loop() at src/main.cpp:400
-  #15 0x400f3370:0x3ffb1fb0 in loopTask(void*) at /Users/ieb/.platformio/packages/framework-arduinoespressif32/cores/esp32/main.cpp:23
-  #16 0x400899d2:0x3ffb1fd0 in vPortTaskWrapper at /home/runner/work/esp32-arduino-lib-builder/esp32-arduino-lib-builder/esp-idf/components/freertos/port.c:355 (discriminator 1)
-
-Rebooting...
-
-
+Hex time decoded as `((parseInt(value,32)/1024)+1262304000)*1000` giving ms
+since 1970. Reference: [SeaSmart protocol PDF](http://www.seasmart.net/pdf/SeaSmart_HTTP_Protocol_RevG_043012.pdf).
+
+## Usage
+
+On boot the firmware reads `data/config.txt` from SPIFFS and either joins
+the configured WiFi network (station mode) or starts its own AP. Find the
+resulting IP, then:
+
+* `http://<ip>/`          — data / status view.
+* `http://<ip>/admin.html` — admin view (upload config, reboot).
+
+A serial monitor on the ESP32 gives lower-level diagnostics; press `h<CR>`
+for a help screen. The running git SHA is printed with `h`.
+
+## Developing
+
+Project uses PlatformIO. Default environment is `esp32-c3`.
+
+    pio run                                  # build firmware
+    pio run -t upload                        # flash firmware
+    pio run --target buildfs -e esp32-c3     # build SPIFFS image
+    pio run --target uploadfs -e esp32-c3    # flash SPIFFS image
+    pio device monitor                       # serial console
+
+The SPIFFS image is populated from `data/`. To repopulate it from the
+current UI source, clone the relevant UI repo (for the read-only UI that's
+[N2KBMSFwUi](https://github.com/ieb/N2KBMSFwUi)) and run its build script.
+Simulators under `simulator/` are Node-based and useful for exercising the
+HTTP/TCP/BMS paths without hardware.
+
+## Known limitations / history
+
+* WebSockets were removed — the ESP async WebSocket library crashes when
+  more than one client connects and the upstream bug is unfixed. Chunked
+  HTTP streams replaced them and are stable under load.
+* Earlier PCB revisions carried a BME280, ADS1115, TFT display, touch
+  sensors, and an OLED. These are all archived — sensing moved to external
+  CAN-based sensors (see CanPressure) and display moved to apps. The
+  archived code lives under `lib/archive/`.
+* An earlier instability was traced to blocking TCP writes hanging the main
+  loop; fixed by moving to an async TCP server. CAN bus loaded to 100 % is
+  handled without drops.
+
+## Layout
+
+    src/                 firmware entry point
+    lib/
+      N2KHandler/        PGN parsing, NMEA0183 emitters, freeze-frame hooks
+      bluetooth/         BoatWatch BLE server, engine/nav encoders
+      network/           HTTP, TCP, UDP, mDNS, wifi bring-up
+      jdbbms/            JBD/JDB BMS UART driver
+      performance/       polar-based performance calculations
+      logbook/           SPIFFS logbook writer
+      freezeframe/       engine event freeze-frame recorder
+      config/            config.txt loader
+    docs/ble-transport.md   BLE GATT + binary framing spec
+    simulator/           Node-based HTTP/TCP/BMS simulators
+    pcb/                 board design files
+    ui/                  scratch / local UI assets (main UIs are in separate repos)
