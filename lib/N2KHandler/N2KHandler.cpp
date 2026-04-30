@@ -100,10 +100,10 @@ void N2KHandler::handle(const tN2kMsg &N2kMsg) {
     case 130306UL: handle130306(N2kMsg); break; 
     case 130310UL: handle130310(N2kMsg); break; // OutsideEnvironmental(N2kMsg); break;
     case 130311UL: handle130311(N2kMsg); break; //EnvironmentalParameters(N2kMsg); break;
-    case 130312UL: handle130312_sea(N2kMsg); break; 
+    case 130312UL: handle130312(N2kMsg); break;
     case 130313UL: handle130313(N2kMsg); break; // Humidity(N2kMsg); break;
     case 130314UL: handle130314_baro(N2kMsg); break; 
-    case 130316UL: handle130316_air(N2kMsg); break; 
+    case 130316UL: handle130316(N2kMsg); break;
 
 
     //case 127488UL: /* rapid engine data */ break;
@@ -519,9 +519,9 @@ void N2KHandler::handle130306(const tN2kMsg &N2kMsg) {
 
 
 /**
- * sea temperature
+ * temperatures
  */
-void N2KHandler::handle130312_sea(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle130312(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   unsigned char _tempInstance; 
   tN2kTempSource _tempSource;
@@ -532,14 +532,22 @@ void N2KHandler::handle130312_sea(const tN2kMsg &N2kMsg) {
                    _actualTemperature, _setTemperature) ) {
     if ( _tempSource == N2kts_SeaTemperature) {
       messageEncoder.sendMTW(_actualTemperature);
+    } else if ( (uint8_t)_tempSource == N2kts_ExhaustGasTemperature ) {      // Exhaust Gas
+      exhaustTemp = _actualTemperature;
+      lastExhaustTempUpdate = millis();
+      dirtyEngineState = true;
+    } else if ( (uint8_t)_tempSource == N2kts_EngineRoomTemperature ) {       // Engine Room
+      engineRoomTemp = _actualTemperature;
+      lastEngineRoomTempUpdate = millis();
+      dirtyEngineState = true;
     }
   }
 }
 
 /**
- * air temperature
+ * temperatures
  */
-void N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
+void N2KHandler::handle130316(const tN2kMsg &N2kMsg) {
   unsigned char SID;
   unsigned char _tempInstance; 
   tN2kTempSource _tempSource;
@@ -554,13 +562,15 @@ void N2KHandler::handle130316_air(const tN2kMsg &N2kMsg) {
       messageEncoder.sendXDR_airtemp(_actualTemperature);
       messageEncoder.sendMTA(_actualTemperature);
     }
-    // N2KEngine publishes engine-related temperatures on 130316 with numeric
-    // source ids; docs/ble-transport.md "Engine State (0xFF02)" captures them.
-    if ( (uint8_t)_tempSource == 14 ) {             // Exhaust Gas
+    // N2KEngine has been seen emitting these engine-related temperatures on
+    // both legacy PGN 130312 and PGN 130316. Mirror either onto the BLE
+    // engine characteristic; docs/ble-transport.md captures the accepted wire
+    // sources, not just one upstream PGN variant.
+    if ( (uint8_t)_tempSource == N2kts_ExhaustGasTemperature ) {             // Exhaust Gas
       exhaustTemp = _actualTemperature;
       lastExhaustTempUpdate = millis();
       dirtyEngineState = true;
-    } else if ( (uint8_t)_tempSource == 3 ) {       // Engine Room
+    } else if ( (uint8_t)_tempSource == N2kts_EngineRoomTemperature ) {       // Engine Room
       engineRoomTemp = _actualTemperature;
       lastEngineRoomTempUpdate = millis();
       dirtyEngineState = true;
@@ -862,13 +872,13 @@ void N2KHandler::expireStaleEngineData() {
         if ( engineStatus2      != 0xFFFF ) { engineStatus2    = 0xFFFF;       changed = true; }
     }
 
-    // PGN 130316 source 14: exhaust
+    // PGN 130312/130316 source 14: exhaust
     if ( exhaustTemp != -1e9
          && (now - lastExhaustTempUpdate) > SLOW_TIMEOUT_MS ) {
         exhaustTemp = -1e9;
         changed = true;
     }
-    // PGN 130316 source 3: engine room
+    // PGN 130312/130316 source 3: engine room
     if ( engineRoomTemp != -1e9
          && (now - lastEngineRoomTempUpdate) > SLOW_TIMEOUT_MS ) {
         engineRoomTemp = -1e9;
@@ -889,7 +899,6 @@ void N2KHandler::expireStaleEngineData() {
 
     if ( changed ) dirtyEngineState = true;
 }
-
 
 
 

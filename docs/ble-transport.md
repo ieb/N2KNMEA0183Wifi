@@ -177,8 +177,8 @@ The engine is not always running. When 127488 / 127489 stop arriving, the firmwa
 | 9  | 2 | U16 | alternator_temp    | 0.01 K       | convert: `val*0.01 - 273.15` = degC (see Non-Standard Mappings) |
 | 11 | 2 | U16 | alternator_volts   | 0.01 V       | 0-655.34 V |
 | 13 | 2 | U16 | oil_pressure       | 100 Pa/bit   | 0-6553400 Pa (1 hPa per count) |
-| 15 | 2 | U16 | exhaust_temp       | 0.01 K       | PGN 130316 source 14 |
-| 17 | 2 | U16 | engine_room_temp   | 0.01 K       | PGN 130316 source 3 |
+| 15 | 2 | U16 | exhaust_temp       | 0.01 K       | PGN 130312/130316 source 14 |
+| 17 | 2 | U16 | engine_room_temp   | 0.01 K       | PGN 130312/130316 source 3 |
 | 19 | 2 | U16 | engine_batt_volts  | 0.01 V       | cranking battery, PGN 127508 instance 0 |
 | 21 | 2 | U16 | fuel_level         | 0.004 %/bit  | 0-25000 = 0-100 % |
 | 23 | 2 | U16 | status1            | bitmap       | see Status Bits |
@@ -216,7 +216,8 @@ The upstream N2KEngine firmware (https://github.com/ieb/N2KEngine) remaps severa
 
 1. **`alternator_temp` originates from the PGN 127489 engine-oil-temperature field.** The engine has no oil temperature sensor. The firmware comment ("alternator temperature as engineOil temperature, more important with LiFePO4") documents the substitution. True oil temperature is never emitted.
 2. **PGN 127508 instance 2 is a synthetic "battery"** whose Battery Voltage = alternator output and Battery Temperature = alternator NTC. It is not a real battery. `alternator_volts` and `alternator_temp` in this characteristic are sourced from PGN 127489, not from instance 2; clients should ignore PGN 127508 instance 2 entirely.
-3. **PGN 130316 temperature sources 30 and 31+** are firmware-proprietary (outside the NMEA 0-15 range). Source 30 duplicates the alternator NTC and is not surfaced here. Sources 31+N expose OneWire DS18B20 probes of variable count and are not part of this fixed-layout characteristic.
+3. **N2KEngine may emit the engine temperature triplet on legacy PGN 130312 or on PGN 130316.** The bridge accepts either PGN for source 14 (exhaust) and source 3 (engine room) and normalizes them into this characteristic.
+4. **Firmware-proprietary temperature sources 30 and 31+** are not surfaced here. Source 30 duplicates the alternator NTC, while sources 31+N expose OneWire DS18B20 probes of variable count.
 
 Exhaust temperature (source 14) and engine-room temperature (source 3) are standard NMEA 2000 temperature sources.
 
@@ -250,11 +251,10 @@ Decodes to: RPM 1800, engine_hours 543 h (1,954,800 s), coolant 85.0 degC, alter
 | Battery | JDB BMS via serial | Registers 03/04 |
 | Engine RPM | 127488 | Rapid engine, 500 ms |
 | Engine hours, coolant, alternator V, alternator T, oil pressure, status | 127489 | Dynamic engine, 1 s; alternator T carried in oil-temp field (remap) |
-| Exhaust temp | 130316 src 14 | Temperature Extended Range |
-| Engine room temp | 130316 src 3  | Temperature Extended Range |
+| Exhaust temp | 130312/130316 src 14 | Legacy/extended temperature |
+| Engine room temp | 130312/130316 src 3  | Legacy/extended temperature |
 | Engine battery volts | 127508 instance 0 | Cranking battery |
 | Fuel level | 127505 instance 0 | Diesel, 60 L capacity |
-
 
 
 

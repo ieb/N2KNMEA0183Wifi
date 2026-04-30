@@ -16,8 +16,8 @@ typedef struct {
     double   alternatorTemp;    // K   (from PGN 127489 oil-temp slot - remapped by N2KEngine)
     double   alternatorVolts;   // V
     double   oilPressure;       // Pa
-    double   exhaustTemp;       // K   (PGN 130316 source 14)
-    double   engineRoomTemp;    // K   (PGN 130316 source 3)
+    double   exhaustTemp;       // K   (PGN 130312/130316 source 14)
+    double   engineRoomTemp;    // K   (PGN 130312/130316 source 3)
     double   engineBattVolts;   // V   (PGN 127508 instance 0)
     double   fuelLevel;         // %   (PGN 127505 instance 0, diesel)
     uint32_t engineHours;       // seconds; 0xFFFFFFFF => not available

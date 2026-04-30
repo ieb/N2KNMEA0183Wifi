@@ -40,8 +40,8 @@ public:
     double alternatorTemp;     // K (PGN 127489 oil-temp slot, remapped by N2KEngine)
     double alternatorVolts;    // V
     double oilPressure;        // Pa
-    double exhaustTemp;        // K (PGN 130316 source 14)
-    double engineRoomTemp;     // K (PGN 130316 source 3)
+    double exhaustTemp;        // K (PGN 130312/130316 source 14)
+    double engineRoomTemp;     // K (PGN 130312/130316 source 3)
     double engineBattVolts;    // V (PGN 127508 instance 0)
     double fuelLevel;          // %
     uint32_t engineHours;      // seconds; 0xFFFFFFFF => n/a
@@ -146,8 +146,8 @@ private:
     void handle129026(const tN2kMsg &N2kMsg);
     void handle129283(const tN2kMsg &N2kMsg);
     void handle130306(const tN2kMsg &N2kMsg);
-    void handle130312_sea(const tN2kMsg &N2kMsg);
-    void handle130316_air(const tN2kMsg &N2kMsg);
+    void handle130312(const tN2kMsg &N2kMsg);
+    void handle130316(const tN2kMsg &N2kMsg);
     void handle130314_baro(const tN2kMsg &N2kMsg);
     void handle127245(const tN2kMsg &N2kMsg);
     void handle127488(const tN2kMsg &N2kMsg);
@@ -174,6 +174,5 @@ private:
     const char * getFaaValid();
     bool updateWithTimeout(double &v, double iv, unsigned long &lastUpdate, unsigned long period);
 };
-
 
 
