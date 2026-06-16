@@ -51,6 +51,8 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
 
+
+
     // deprecated service->start();
 
     // FF00 — NMEABridge Nav Service
@@ -66,6 +68,14 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
 
+
+    NimBLEService* flowMeterService = _server->createService(BW_FLOWMETER_SERVICE_UUID);
+    _flowMeterChar = flowMeterService->createCharacteristic(
+        BW_FLOWMETER_CHAR_UUID,
+        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+    );
+
+
     // Prime with an all-sentinel payload so initial reads and the 1 Hz keep-alive
     // notify carry a valid frame (magic 0xDD + 0xFF fill) before any engine PGN arrives.
     EngineBlePayload empty;
@@ -80,6 +90,7 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     advertising->setName(deviceName);
     advertising->enableScanResponse(true);
     advertising->addServiceUUID(BW_NAV_SERVICE_UUID);
+    advertising->addServiceUUID(BW_FLOWMETER_SERVICE_UUID);
     advertising->start();
 
     ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
@@ -133,7 +144,11 @@ void BoatWatchBLE::notify() {
     // Autopilot when updated, or at least every 5s
     if ((_navDirty && (now - _lastNavNotify >= BW_MIN_NAV_INTERVAL_MS)) || (now - _lastNavNotify >= BW_NAV_INTERVAL_MS)) {
         _navChar->setValue(_navBuffer, 29);
-        _navChar->notify();
+        for (auto &kv : _clients) {
+            if ( kv.second.authed) {
+                _navChar->notify(kv.first);
+            }
+        }
         _lastNavNotify = now;
         _navDirty = false;
     }
@@ -142,7 +157,11 @@ void BoatWatchBLE::notify() {
     if ((_engineDirty && (now - _lastEngineNotify >= BW_MIN_ENGINE_INTERVAL_MS))
         || (now - _lastEngineNotify >= BW_ENGINE_INTERVAL_MS)) {
         _engineChar->setValue(_engineBuffer, BW_ENGINE_PAYLOAD_LEN);
-        _engineChar->notify();
+        for (auto &kv : _clients) {
+            if ( kv.second.authed) {
+                _engineChar->notify(kv.first);
+            }
+        }
         _lastEngineNotify = now;
         _engineDirty = false;
     }
@@ -151,7 +170,11 @@ void BoatWatchBLE::notify() {
     // Autopilot when updated, or at least every 5s
     if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {
         _autopilotChar->setValue(_apBuffer, 10);
-        _autopilotChar->notify();
+        for (auto &kv : _clients) {
+            if ( kv.second.authed) {
+                _autopilotChar->notify(kv.first);
+            }
+        }
         _lastApNotify = now;
         _apDirty = false;
     }
@@ -159,10 +182,27 @@ void BoatWatchBLE::notify() {
     // Battery when updated or at least every 5s
     if (_batLen > 0 && ( _batDirty || (now - _lastBatNotify >= BW_MAX_BATTERY_INTERVAL_MS))) {
         _batteryChar->setValue(_batBuffer, _batLen);
-        _batteryChar->notify();
+        for (auto &kv : _clients) {
+            if ( kv.second.authed) {
+                _batteryChar->notify(kv.first);
+            }
+        }
         _lastBatNotify = now;
         _batDirty = false;
     }
+
+    // Rawwater when updated, or at least every 5s
+    if (_flowMeterDirty || (now - _lastFlowMeterNotify >= BW_MAX_FLOWMETER_INTERVAL_MS)) {
+        _flowMeterChar->setValue(_flowMeterBuffer, 10);
+        for (auto &kv : _clients) {
+            if ( kv.second.authed) {
+                _flowMeterChar->notify(kv.first);
+            }
+        }
+        _lastFlowMeterNotify = now;
+        _flowMeterDirty = false;
+    }
+
     if ( (now - _ledSwitch) > 1000 ) {
         _ledSwitch = now;
         _ledOn = !_ledOn;
@@ -223,6 +263,13 @@ void BoatWatchBLE::setNavState(double lat, double lon, double cog, double sog,
 
     _navDirty = true;
 }
+
+
+void BoatWatchBLE::setFlowMeterState(const uint8_t* payload, size_t len) {
+
+
+}
+
 
 void BoatWatchBLE::setEngineState(const EngineBlePayload& p) {
     encodeEngineBle(_engineBuffer, &p);
@@ -341,7 +388,7 @@ void BoatWatchBLE::onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo
 }
 
 void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_t len) {
-    if (len < 2 || data[0] != BW_MAGIC_AUTOPILOT) return;
+    if (len < 2 || data[0] != BW_MAGIC_AUTOPILOT || data[0] != BW_MAGIC_FLOWMETER) return;
 
     uint8_t cmd = data[1];
 
@@ -418,6 +465,16 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
         return;
     }
 
+    if ( cmd == BW_CMD_FLOWMETER_UPDATE ) {
+        uint8_t pos = 0;
+        _flowMeterBuffer[0] = BW_MAGIC_FLOWMETER;
+        if ( len == 13) {
+            for (int i = 0; i < 11; ++i){
+                _flowMeterBuffer[i+1] = data[i+2];
+            }
+        }
+        _flowMeterDirty = true;
+    }
     if (_commandCallback) {
         const uint8_t* payload = (len > 2) ? data + 2 : nullptr;
         size_t payloadLen = (len > 2) ? len - 2 : 0;

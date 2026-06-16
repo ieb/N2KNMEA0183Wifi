@@ -22,4 +22,5 @@ a.out
 _autosave**
 simulator/spiffs
 dist*
+fp-info-cache
 
