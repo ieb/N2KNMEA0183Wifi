@@ -70,10 +70,13 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
 
 
     NimBLEService* flowMeterService = _server->createService(BW_FLOWMETER_SERVICE_UUID);
+    // WRITE for incoming FlowSensor frames; NOTIFY so the auth result can be
+    // returned to the FlowSensor on this same characteristic (it subscribes here).
     _flowMeterChar = flowMeterService->createCharacteristic(
         BW_FLOWMETER_CHAR_UUID,
-        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY
     );
+    _flowMeterChar->setCallbacks(this);
 
 
     // Prime with an all-sentinel payload so initial reads and the 1 Hz keep-alive
@@ -368,12 +371,15 @@ void BoatWatchBLE::onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo,
 void BoatWatchBLE::onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) {
     NimBLEAttValue val = pCharacteristic->getValue();
     if (val.size() >= 2) {
-        handleCommand(connInfo.getConnHandle(), val.data(), val.size());
+        bool fromFlowMeter = pCharacteristic == _flowMeterChar;
+        handleCommand(connInfo.getConnHandle(), val.data(), val.size(), fromFlowMeter);
     }
 }
 
-void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_t len) {
-    if (len < 2 || data[0] != BW_MAGIC_AUTOPILOT || data[0] != BW_MAGIC_FLOWMETER) return;
+void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_t len, bool fromFlowMeter) {
+    // BoatWatch commands carry magic 0xAA; FlowSensor frames on the FlowMeter
+    // characteristic carry magic 0xEE. Reject anything that is neither.
+    if (len < 2 || (data[0] != BW_MAGIC_AUTOPILOT && data[0] != BW_MAGIC_FLOWMETER)) return;
 
     uint8_t cmd = data[1];
 
@@ -389,7 +395,7 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
         // that try to reset the per-connection counter by disconnecting.
         if (_globalBlockUntilMs != 0 && (long)(_globalBlockUntilMs - now) > 0) {
             ESP_LOGW(TAG, "Auth rejected: global lockout active");
-            sendAuthResponse(connHandle, false);
+            sendAuthResponse(connHandle, false, fromFlowMeter);
             return;
         }
         // Window expired — clear global state so legitimate users start fresh.
@@ -401,7 +407,7 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
         if (state.blockUntilMs != 0 && (long)(state.blockUntilMs - now) > 0) {
             ESP_LOGW(TAG, "Client %d auth attempt during lockout (failures=%u)",
                      connHandle, state.failures);
-            sendAuthResponse(connHandle, false);
+            sendAuthResponse(connHandle, false, fromFlowMeter);
             return;
         }
         bool ok = false;
@@ -416,12 +422,12 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
             state.blockUntilMs = 0;
             _globalAuthFailures = 0;
             _globalBlockUntilMs = 0;
-            sendAuthResponse(connHandle, true);
+            sendAuthResponse(connHandle, true, fromFlowMeter);
             ESP_LOGI(TAG, "Client %d auth accepted", connHandle);
         } else {
             state.failures++;
             _globalAuthFailures++;
-            sendAuthResponse(connHandle, false);
+            sendAuthResponse(connHandle, false, fromFlowMeter);
             ESP_LOGW(TAG, "Client %d auth denied (failures=%u global=%u)",
                      connHandle, state.failures, _globalAuthFailures);
             if (state.failures >= BW_AUTH_MAX_FAILURES) {
@@ -457,8 +463,14 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
     }
 }
 
-void BoatWatchBLE::sendAuthResponse(uint16_t connHandle, bool accepted) {
+void BoatWatchBLE::sendAuthResponse(uint16_t connHandle, bool accepted, bool fromFlowMeter) {
     uint8_t resp[2] = { BW_MAGIC_AUTH_RESP, uint8_t(accepted ? 0x01 : 0x00) };
+    if (fromFlowMeter) {
+        // FlowSensor subscribes to the FlowMeter characteristic for its result.
+        _flowMeterChar->setValue(resp, 2);
+        _flowMeterChar->notify(connHandle);
+        return;
+    }
     _autopilotChar->setValue(resp, 2);
     _autopilotChar->notify(connHandle);
     _batteryChar->setValue(resp, 2);

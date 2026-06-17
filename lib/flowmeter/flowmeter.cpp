@@ -3,7 +3,8 @@
 #define TAG "flowmeter"
 
 void FlowMeter::readU16(const uint8_t* buf, uint8_t &pos, double &val, double scale) {
-	uint16_t raw = buf[pos] | (uint16_t)(buf[pos] << 8);
+	uint16_t raw = buf[pos] | ((uint16_t)buf[pos + 1] << 8);
+	pos += 2;
 	if (raw == 0xFFFF) {
 		val = -1e9;
 	} else {

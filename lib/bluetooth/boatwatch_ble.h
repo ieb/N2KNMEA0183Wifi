@@ -117,8 +117,8 @@ private:
     // NimBLECharacteristicCallbacks
     void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override;
 
-    void handleCommand(uint16_t connHandle, const uint8_t* data, size_t len);
-    void sendAuthResponse(uint16_t connHandle, bool accepted);
+    void handleCommand(uint16_t connHandle, const uint8_t* data, size_t len, bool fromFlowMeter);
+    void sendAuthResponse(uint16_t connHandle, bool accepted, bool fromFlowMeter);
 
     NimBLEServer* _server = nullptr;
     NimBLECharacteristic* _autopilotChar = nullptr;
