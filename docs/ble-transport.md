@@ -183,6 +183,9 @@ The engine is not always running. When 127488 / 127489 stop arriving, the firmwa
 | 21 | 2 | U16 | fuel_level         | 0.004 %/bit  | 0-25000 = 0-100 % |
 | 23 | 2 | U16 | status1            | bitmap       | see Status Bits |
 | 25 | 2 | U16 | status2            | bitmap       | see Status Bits |
+| 27 | 2 | U16 | raw_water_flow     | 0.01 lpm     | From FlowSensor |
+| 29 | 2 | U16 | raw_water_temp     | 0.01 K       | From FlowSensor |
+| 31 | 1 | U8  | flowmeter_status   | bitmap       | see FlowSensor Bits |
 
 **Data Not Available sentinels** (same convention as Navigation State): `U16 = 0xFFFF`, `U32 = 0xFFFFFFFF`.
 
@@ -209,6 +212,16 @@ The engine is not always running. When 127488 / 127489 stop arriving, the firmwa
 | 7 | `0x0080` | ENGINE_SHUTTING_DOWN  | RPM dropped below 500 with alarms latched |
 
 All other bits are reserved and should be masked off by clients.
+
+`flow_meter_status` from FLowSensor
+
+0x01 == NO Fluid
+0x02 == Still
+0x03 == Flowing
+
+Other bits not relevant.
+
+
 
 #### Non-Standard Mappings
 
@@ -268,7 +281,7 @@ The FlowMeter Service accepts messages from a FlowSensor. This firmware writes t
 | UUID | Characteristic | Properties | Direction |
 |------|---------------|-----------|-----------|
 | `0000AC00-0000-1000-8000-00805f9b34fb` | Remote FlowMeter Service | -- | -- |
-| `0000AC01-0000-1000-8000-00805f9b34fb` | Remote FlowMeter Characteristic | WRITE | Firmware -> Service |
+| `0000AC01-0000-1000-8000-00805f9b34fb` | Remote FlowMeter Characteristic | WRITE | FlowSenor -> Firmware |
 
 
 The firmware may be configured to write to a remote FlowMeter. FLow Meters require authenticaton.
@@ -294,7 +307,7 @@ Authentication required. Only Authenticated clients receive navigation and engin
 
 ### FlowMeter State (0xAC01)
 
-Write Magic byte: `0xDD`. Payload: 13 bytes. 
+Write Magic byte: `0xEE`. Payload: 13 bytes. 
 Write Command byte: `0x50`. 
 
 Note the NMEA2000 standard for Fluid FLow rate is L/h however, that would limit the maximum
@@ -305,15 +318,24 @@ U16 no data (aka sentinals are) 0xFFFF
 
 | Offset | Size | Type | Field | Scale/Values |
 |--------|------|------|-------|-------------|
-| 0  | 1 | U8 | magic | `0xDD` |
+| 0  | 1 | U8 | magic | `0xEE` |
 | 1  | 1 | U8 | magic | `0x50` |
-| 2  | 1 | U8 | state | FF=UNDEFINED, 1=NO_FLUID, 2=STILL, 4=FLOWING|
+| 2  | 1 | U8 | state | See Status U8 |
 | 3  | 2 | U16 | flowRateLPM | 0.01 lpm (0-650) |  
 | 5  | 2 | U16 | upstreamC | 0.01 K (0-650) |
 | 7  | 2 | U16 | downstreamC | 0.01 K (0-650) |
 | 9  | 2 | U16 | voltage | 0.01 V (0-650) |
 | 11 | 2 | U16 | power | 0.01 W (0-650) |
 
+## Status U8
+
+	Bitmap bits 0-1
+	0x01=NO_FLUID 
+	0x02=STILL
+	0x03=FLOWING
+	bit 2 FlowMeter Confgigured (address + pin)
+	bit 3 FlowMeter Paired (address exists)
+	bit 4 FlowMeter authenticated (pin valid)
 
 
 **Data Not Available sentinels (NMEA 2000 convention):**

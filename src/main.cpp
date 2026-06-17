@@ -92,6 +92,7 @@ tNMEA2000_esp32 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_P
 
 #include "esp32-hal-psram.h"
 #include <map>
+#include "flowmeter.h"
 
 
 
@@ -130,6 +131,7 @@ bool canUp = false;
 
 BoatWatchBLE bleServer;
 AutopilotBleState apBleState;
+FlowMeter flowMeter;
 
 
 
@@ -613,6 +615,11 @@ void handleBleCommand(uint8_t cmd, const uint8_t* payload, size_t len) {
             onDisableNetwork();
             return;
         }
+        case BW_CMD_FLOWMETER_UPDATE: {
+          flowMeter.update(payload, len);
+          return;
+        }
+
         default:
             ESP_LOGW(TAG, "Unknown BLE command: 0x%02X", cmd);
             return;
@@ -1035,7 +1042,8 @@ void loop() {
       EngineBlePayload p{ e.rpm, e.coolantTemp, e.alternatorTemp, e.alternatorVolts,
                           e.oilPressure, e.exhaustTemp, e.engineRoomTemp,
                           e.engineBattVolts, e.fuelLevel,
-                          e.engineHours, e.status1, e.status2 };
+                          e.engineHours, e.status1, e.status2, 
+                          flowMeter.getFlowRate(), flowMeter.getFlowTemp(), flowMeter.getStatus() };
       bleServer.setEngineState(p);
       n2kHander.setCleanEngineState();
   }

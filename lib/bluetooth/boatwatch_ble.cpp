@@ -191,18 +191,7 @@ void BoatWatchBLE::notify() {
         _batDirty = false;
     }
 
-    // Rawwater when updated, or at least every 5s
-    if (_flowMeterDirty || (now - _lastFlowMeterNotify >= BW_MAX_FLOWMETER_INTERVAL_MS)) {
-        _flowMeterChar->setValue(_flowMeterBuffer, 10);
-        for (auto &kv : _clients) {
-            if ( kv.second.authed) {
-                _flowMeterChar->notify(kv.first);
-            }
-        }
-        _lastFlowMeterNotify = now;
-        _flowMeterDirty = false;
-    }
-
+ 
     if ( (now - _ledSwitch) > 1000 ) {
         _ledSwitch = now;
         _ledOn = !_ledOn;
@@ -265,10 +254,6 @@ void BoatWatchBLE::setNavState(double lat, double lon, double cog, double sog,
 }
 
 
-void BoatWatchBLE::setFlowMeterState(const uint8_t* payload, size_t len) {
-
-
-}
 
 
 void BoatWatchBLE::setEngineState(const EngineBlePayload& p) {
@@ -465,16 +450,6 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
         return;
     }
 
-    if ( cmd == BW_CMD_FLOWMETER_UPDATE ) {
-        uint8_t pos = 0;
-        _flowMeterBuffer[0] = BW_MAGIC_FLOWMETER;
-        if ( len == 13) {
-            for (int i = 0; i < 11; ++i){
-                _flowMeterBuffer[i+1] = data[i+2];
-            }
-        }
-        _flowMeterDirty = true;
-    }
     if (_commandCallback) {
         const uint8_t* payload = (len > 2) ? data + 2 : nullptr;
         size_t payloadLen = (len > 2) ? len - 2 : 0;

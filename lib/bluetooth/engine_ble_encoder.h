@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 #define BW_MAGIC_ENGINE        0xDD
-#define BW_ENGINE_PAYLOAD_LEN  27
+#define BW_ENGINE_PAYLOAD_LEN  32
 
 typedef struct {
     double   rpm;               // rpm;  <= -1e8 => not available
@@ -23,6 +23,10 @@ typedef struct {
     uint32_t engineHours;       // seconds; 0xFFFFFFFF => not available
     uint16_t status1;           // PGN 127489 status1 bitmap; 0xFFFF => not available
     uint16_t status2;           // PGN 127489 status2 bitmap; 0xFFFF => not available
+    double   rawWaterFlow;      // l/m FlowMeter
+    double   rawWaterTemp;      // L   FlowMeter
+    uint8_t  rawWaterStatus;     // Bitmap FlowMeter
+
 } EngineBlePayload;
 
 static inline void _engineWriteU16LE(uint8_t* buf, size_t* pos, double val,
@@ -57,6 +61,9 @@ static inline void engineBlePayloadInitNA(EngineBlePayload* p) {
     p->engineHours      = 0xFFFFFFFFu;
     p->status1          = 0xFFFF;
     p->status2          = 0xFFFF;
+    p->rawWaterFlow     = -1e9;
+    p->rawWaterTemp     = -1e9;
+    p->rawWaterStatus   = 0xFF;
 }
 
 static inline size_t encodeEngineBle(uint8_t* buf, const EngineBlePayload* p) {
@@ -68,7 +75,7 @@ static inline size_t encodeEngineBle(uint8_t* buf, const EngineBlePayload* p) {
     _engineWriteU16LE(buf, &pos, p->alternatorTemp,   100.0, 0xFFFF);
     _engineWriteU16LE(buf, &pos, p->alternatorVolts,  100.0, 0xFFFF); // 0.01 V/bit
     _engineWriteU16LE(buf, &pos, p->oilPressure,      0.01,  0xFFFF); // 100 Pa/bit
-    _engineWriteU16LE(buf, &pos, p->exhaustTemp,      100.0, 0xFFFF);
+    _engineWriteU16LE(buf, &pos, p->exhaustTemp,      100.0, 0xFFFF); 
     _engineWriteU16LE(buf, &pos, p->engineRoomTemp,   100.0, 0xFFFF);
     _engineWriteU16LE(buf, &pos, p->engineBattVolts,  100.0, 0xFFFF);
     _engineWriteU16LE(buf, &pos, p->fuelLevel,        250.0, 0xFFFF); // 0.004 %/bit
@@ -76,6 +83,10 @@ static inline size_t encodeEngineBle(uint8_t* buf, const EngineBlePayload* p) {
     buf[pos++] = (uint8_t)((p->status1 >> 8) & 0xFF);
     buf[pos++] = (uint8_t)(p->status2 & 0xFF);
     buf[pos++] = (uint8_t)((p->status2 >> 8) & 0xFF);
+    // added with Flowmeter, clients may not support.
+    _engineWriteU16LE(buf, &pos, p->rawWaterFlow,  100.0, 0xFFFF); 
+    _engineWriteU16LE(buf, &pos, p->rawWaterTemp,  100.0, 0xFFFF); // 0.004 %/bit
+    buf[pos++] = (uint8_t)(p->rawWaterStatus & 0xFF);
     return pos;
 }
 

@@ -17,7 +17,7 @@
 #define BW_NAV_STATE_CHAR_UUID  "0000ff01-0000-1000-8000-00805f9b34fb"
 #define BW_NAV_ENGINE_CHAR_UUID "0000ff02-0000-1000-8000-00805f9b34fb"
 
-// Flowmeter Service
+// Flowmeter Service recieve only
 
 #define BW_FLOWMETER_SERVICE_UUID     "0000AC00-0000-1000-8000-00805f9b34fb"
 #define BW_FLOWMETER_CHAR_UUID        "0000AC01-0000-1000-8000-00805f9b34fb"
@@ -27,7 +27,8 @@
 #define BW_MAGIC_BATTERY   0xBB
 #define BW_MAGIC_AUTH_RESP 0xAF
 #define BW_MAGIC_NAV       0xCC
-#define BW_MAGIC_FLOWMETER 0xDD
+// in engine_ble_encoder.h #define BW_MAGIC_ENGINE    0xDD
+#define BW_MAGIC_FLOWMETER 0xEE
 
 // BW_MAGIC_ENGINE and BW_ENGINE_PAYLOAD_LEN come from engine_ble_encoder.h
 
@@ -96,7 +97,6 @@ public:
                          const uint8_t* reg04, size_t reg04Len);
 
 
-    void setFlowMeterState(const uint8_t* payload, size_t len);
 
 
     // Set engine state for next notification on 0xFF02
@@ -164,11 +164,8 @@ private:
     bool _navDirty = false;
     bool _ledOn = false;
 
-    // RawWater buffer (6 bytes)
-    uint8_t _flowMeterBuffer[12] = {0};
-    bool _flowMeterDirty = false;
 
-    // Engine state buffer (27 bytes)
+    // Engine state buffer (32 bytes)
     uint8_t _engineBuffer[BW_ENGINE_PAYLOAD_LEN] = {0};
     bool _engineDirty = false;
 
@@ -176,6 +173,5 @@ private:
     unsigned long _lastBatNotify = 0;
     unsigned long _lastNavNotify = 0;
     unsigned long _lastEngineNotify = 0;
-    unsigned long _lastFlowMeterNotify = 0;
     unsigned long _ledSwitch = 0;
 };
