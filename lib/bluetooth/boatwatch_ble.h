@@ -17,19 +17,11 @@
 #define BW_NAV_STATE_CHAR_UUID  "0000ff01-0000-1000-8000-00805f9b34fb"
 #define BW_NAV_ENGINE_CHAR_UUID "0000ff02-0000-1000-8000-00805f9b34fb"
 
-// Flowmeter Service recieve only
-
-#define BW_FLOWMETER_SERVICE_UUID     "0000AC00-0000-1000-8000-00805f9b34fb"
-#define BW_FLOWMETER_CHAR_UUID        "0000AC01-0000-1000-8000-00805f9b34fb"
-
 // Binary protocol constants
 #define BW_MAGIC_AUTOPILOT 0xAA
 #define BW_MAGIC_BATTERY   0xBB
 #define BW_MAGIC_AUTH_RESP 0xAF
 #define BW_MAGIC_NAV       0xCC
-// in engine_ble_encoder.h #define BW_MAGIC_ENGINE    0xDD
-#define BW_MAGIC_FLOWMETER 0xEE
-
 // BW_MAGIC_ENGINE and BW_ENGINE_PAYLOAD_LEN come from engine_ble_encoder.h
 
 // Command IDs
@@ -44,7 +36,6 @@
 #define BW_CMD_ADJUST_WIND    0x21
 #define BW_CMD_ENABLE_NETWORK 0x40
 #define BW_CMD_DISABLE_NETWORK 0x41
-#define BW_CMD_FLOWMETER_UPDATE 0x50
 // Autopilot mode values
 #define BW_MODE_STANDBY  0
 #define BW_MODE_COMPASS  1
@@ -58,8 +49,6 @@
 #define BW_MIN_NAV_INTERVAL_MS        500   // max 2Hz
 #define BW_ENGINE_INTERVAL_MS        1000   // 1 Hz
 #define BW_MIN_ENGINE_INTERVAL_MS     500   // max 2Hz
-
-#define BW_MAX_FLOWMETER_INTERVAL_MS 5000
 
 #define BLE_LED_PIN 8
 
@@ -96,13 +85,8 @@ public:
     void setBatteryState(const uint8_t* reg03, size_t reg03Len,
                          const uint8_t* reg04, size_t reg04Len);
 
-
-
-
     // Set engine state for next notification on 0xFF02
     void setEngineState(const EngineBlePayload& p);
-
-
 
     // Set callback for autopilot commands (mode, heading, wind)
     void setCommandCallback(CommandCallback cb) { _commandCallback = cb; }
@@ -117,8 +101,8 @@ private:
     // NimBLECharacteristicCallbacks
     void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override;
 
-    void handleCommand(uint16_t connHandle, const uint8_t* data, size_t len, bool fromFlowMeter);
-    void sendAuthResponse(uint16_t connHandle, bool accepted, bool fromFlowMeter);
+    void handleCommand(uint16_t connHandle, const uint8_t* data, size_t len);
+    void sendAuthResponse(uint16_t connHandle, bool accepted);
 
     NimBLEServer* _server = nullptr;
     NimBLECharacteristic* _autopilotChar = nullptr;
@@ -126,8 +110,6 @@ private:
     NimBLECharacteristic* _batteryChar = nullptr;
     NimBLECharacteristic* _navChar = nullptr;
     NimBLECharacteristic* _engineChar = nullptr;
-    NimBLECharacteristic* _flowMeterChar = nullptr;
-    
 
     CommandCallback _commandCallback;
 
@@ -164,8 +146,7 @@ private:
     bool _navDirty = false;
     bool _ledOn = false;
 
-
-    // Engine state buffer (32 bytes)
+    // Engine state buffer (27 bytes)
     uint8_t _engineBuffer[BW_ENGINE_PAYLOAD_LEN] = {0};
     bool _engineDirty = false;
 

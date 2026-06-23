@@ -164,7 +164,7 @@ Decodes to: 50.0700 N, 009.5000 W, COG 90.0 deg, SOG 2.57 m/s, VAR 0.5 deg E, HD
 
 ### Engine State (0xFF02)
 
-Magic byte: `0xDD`. Payload: 32 bytes. Update rate: 1 Hz max, notify on change. Single engine (instance 0).
+Magic byte: `0xDD`. Payload: 27 bytes. Update rate: 1 Hz max, notify on change. Single engine (instance 0).
 
 The engine is not always running. When 127488 / 127489 stop arriving, the firmware applies a 5 s staleness timeout and reports the "not available" sentinel for RPM, coolant, alternator V/T, oil pressure and status bits. Fuel level, engine-room temperature and engine battery voltage continue to update regardless.
 
@@ -183,9 +183,6 @@ The engine is not always running. When 127488 / 127489 stop arriving, the firmwa
 | 21 | 2 | U16 | fuel_level         | 0.004 %/bit  | 0-25000 = 0-100 % |
 | 23 | 2 | U16 | status1            | bitmap       | see Status Bits |
 | 25 | 2 | U16 | status2            | bitmap       | see Status Bits |
-| 27 | 2 | U16 | raw_water_flow     | 0.01 lpm     | From FlowSensor |
-| 29 | 2 | U16 | raw_water_temp     | 0.01 K       | From FlowSensor |
-| 31 | 1 | U8  | flowmeter_status   | bitmap       | see FlowSensor Bits |
 
 **Data Not Available sentinels** (same convention as Navigation State): `U16 = 0xFFFF`, `U32 = 0xFFFFFFFF`.
 
@@ -213,16 +210,6 @@ The engine is not always running. When 127488 / 127489 stop arriving, the firmwa
 
 All other bits are reserved and should be masked off by clients.
 
-`flow_meter_status` from FLowSensor
-
-0x01 == NO Fluid
-0x02 == Still
-0x03 == Flowing
-
-Other bits not relevant.
-
-
-
 #### Non-Standard Mappings
 
 The upstream N2KEngine firmware (https://github.com/ieb/N2KEngine) remaps several PGN fields to carry measurements that have no standard slot. Consumers that read the source PGNs directly must be aware of these remappings; this characteristic presents the decoded values in their logical positions.
@@ -241,10 +228,10 @@ The N2KEngine firmware never populates fuel rate, coolant pressure, fuel pressur
 ### Example payload
 
 ```
-hex: DD 20 1C F0 D3 1D 00 E7 8B FF 87 8C 05 AC 0D B3 E7 4B 73 EC 04 3E 49 00 00 00 00 FF FF FF FF FF
+hex: DD 20 1C F0 D3 1D 00 E7 8B FF 87 8C 05 AC 0D B3 E7 4B 73 EC 04 3E 49 00 00 00 00
 ```
 
-Decodes to: RPM 1800, engine_hours 543 h (1,954,800 s), coolant 85.0 degC, alternator 75.0 degC / 14.20 V, oil pressure 350 kPa, exhaust 320.0 degC, engine room 22.0 degC, engine battery 12.60 V, fuel 75.0 %, no alarms, raw water flow / temp / status not available.
+Decodes to: RPM 1800, engine_hours 543 h (1,954,800 s), coolant 85.0 degC, alternator 75.0 degC / 14.20 V, oil pressure 350 kPa, exhaust 320.0 degC, engine room 22.0 degC, engine battery 12.60 V, fuel 75.0 %, no alarms.
 
 ---
 
@@ -270,78 +257,5 @@ Decodes to: RPM 1800, engine_hours 543 h (1,954,800 s), coolant 85.0 degC, alter
 | Fuel level | 127505 instance 0 | Diesel, 60 L capacity |
 
 
----
 
-
-## FlowMeter Service (0xAC00)
-
-The FlowMeter Service is hosted by the FlowMeter / NMEABridge host firmware. A FlowSensor
-connects as a BLE client and writes flow measurement frames to it. The host returns the
-authentication result to the FlowSensor on the same characteristic (notify).
-
-| UUID | Characteristic | Properties | Direction |
-|------|---------------|-----------|-----------|
-| `0000AC00-0000-1000-8000-00805f9b34fb` | Remote FlowMeter Service | -- | -- |
-| `0000AC01-0000-1000-8000-00805f9b34fb` | Remote FlowMeter Characteristic | WRITE, NOTIFY | FlowSensor -> Host (data); Host -> FlowSensor (auth result) |
-
-### Authentication
-
-FlowMeter writes require authentication. Before writing data, the FlowSensor writes an auth
-command to `0xAC01`:
-
-| Offset | Size | Type | Field | Value |
-|--------|------|------|-------|-------|
-| 0 | 1 | U8 | magic | `0xEE` |
-| 1 | 1 | U8 | cmd | `0xF0` (AUTH) |
-| 2 | 4 | char[4] | PIN | ASCII digits, e.g. `"0000"` |
-
-The host responds with an auth result notification on `0xAC01`:
-
-| Offset | Size | Type | Field | Value |
-|--------|------|------|-------|-------|
-| 0 | 1 | U8 | magic | `0xAF` |
-| 1 | 1 | U8 | result | `0x01` = accepted, `0x00` = denied |
-
-Only data frames from authenticated clients are accepted.
-
-### FlowMeter State (0xAC01)
-
-Write magic byte: `0xEE`. Write command byte: `0x50`. Payload: 13 bytes.
-
-Note the NMEA2000 standard for Fluid Flow rate is L/h however, that would limit the maximum
-range to 11 l/m in a U16, so lpm is being used. If using this data packet in a NMEA2000 context
-conversions may be required at the receiving end.
-
-| Offset | Size | Type | Field | Scale/Values |
-|--------|------|------|-------|-------------|
-| 0  | 1 | U8 | magic | `0xEE` |
-| 1  | 1 | U8 | cmd | `0x50` |
-| 2  | 1 | U8 | status | See Status U8 |
-| 3  | 2 | U16 | flowRateLPM | 0.01 lpm (0-650) |  
-| 5  | 2 | U16 | upstreamC | 0.01 K (0-650) |
-| 7  | 2 | U16 | downstreamC | 0.01 K (0-650) |
-| 9  | 2 | U16 | voltage | 0.01 V (0-650) |
-| 11 | 2 | U16 | power | 0.01 W (0-650) |
-
-## Status U8
-
-	Bitmap bits 0-1
-	0x01=NO_FLUID
-	0x02=STILL
-	0x03=FLOWING
-	bit 2 FlowMeter Configured (address + pin)
-	bit 3 FlowMeter Paired (address exists)
-	bit 4 FlowMeter authenticated (pin valid)
-
-**Data Not Available sentinels (NMEA 2000 convention):**
-
-| Type | Sentinel |
-|------|----------|
-| U16 | `0xFFFF` |
-| S16 | `0x7FFF` |
-| U32 | `0xFFFFFFFF` |
-| S32 | `0x7FFFFFFF` |
-
-Note: the FlowSensor firmware currently emits the S16 sentinel `0x7FFF` for the temperature
-fields (`upstreamC`, `downstreamC`) and `0xFFFF` for `flowRateLPM`, `voltage` and `power`.
 

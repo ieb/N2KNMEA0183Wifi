@@ -51,8 +51,6 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
 
-
-
     // deprecated service->start();
 
     // FF00 — NMEABridge Nav Service
@@ -68,17 +66,6 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
 
-
-    NimBLEService* flowMeterService = _server->createService(BW_FLOWMETER_SERVICE_UUID);
-    // WRITE for incoming FlowSensor frames; NOTIFY so the auth result can be
-    // returned to the FlowSensor on this same characteristic (it subscribes here).
-    _flowMeterChar = flowMeterService->createCharacteristic(
-        BW_FLOWMETER_CHAR_UUID,
-        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR | NIMBLE_PROPERTY::NOTIFY
-    );
-    _flowMeterChar->setCallbacks(this);
-
-
     // Prime with an all-sentinel payload so initial reads and the 1 Hz keep-alive
     // notify carry a valid frame (magic 0xDD + 0xFF fill) before any engine PGN arrives.
     EngineBlePayload empty;
@@ -93,7 +80,6 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     advertising->setName(deviceName);
     advertising->enableScanResponse(true);
     advertising->addServiceUUID(BW_NAV_SERVICE_UUID);
-    advertising->addServiceUUID(BW_FLOWMETER_SERVICE_UUID);
     advertising->start();
 
     ESP_LOGI(TAG, "BLE server started: %s (PIN: %s)", deviceName, _pin);
@@ -147,11 +133,7 @@ void BoatWatchBLE::notify() {
     // Autopilot when updated, or at least every 5s
     if ((_navDirty && (now - _lastNavNotify >= BW_MIN_NAV_INTERVAL_MS)) || (now - _lastNavNotify >= BW_NAV_INTERVAL_MS)) {
         _navChar->setValue(_navBuffer, 29);
-        for (auto &kv : _clients) {
-            if ( kv.second.authed) {
-                _navChar->notify(kv.first);
-            }
-        }
+        _navChar->notify();
         _lastNavNotify = now;
         _navDirty = false;
     }
@@ -160,11 +142,7 @@ void BoatWatchBLE::notify() {
     if ((_engineDirty && (now - _lastEngineNotify >= BW_MIN_ENGINE_INTERVAL_MS))
         || (now - _lastEngineNotify >= BW_ENGINE_INTERVAL_MS)) {
         _engineChar->setValue(_engineBuffer, BW_ENGINE_PAYLOAD_LEN);
-        for (auto &kv : _clients) {
-            if ( kv.second.authed) {
-                _engineChar->notify(kv.first);
-            }
-        }
+        _engineChar->notify();
         _lastEngineNotify = now;
         _engineDirty = false;
     }
@@ -173,11 +151,7 @@ void BoatWatchBLE::notify() {
     // Autopilot when updated, or at least every 5s
     if (_apDirty || (now - _lastApNotify >= BW_MAX_AUTOPILOT_INTERVAL_MS)) {
         _autopilotChar->setValue(_apBuffer, 10);
-        for (auto &kv : _clients) {
-            if ( kv.second.authed) {
-                _autopilotChar->notify(kv.first);
-            }
-        }
+        _autopilotChar->notify();
         _lastApNotify = now;
         _apDirty = false;
     }
@@ -185,16 +159,10 @@ void BoatWatchBLE::notify() {
     // Battery when updated or at least every 5s
     if (_batLen > 0 && ( _batDirty || (now - _lastBatNotify >= BW_MAX_BATTERY_INTERVAL_MS))) {
         _batteryChar->setValue(_batBuffer, _batLen);
-        for (auto &kv : _clients) {
-            if ( kv.second.authed) {
-                _batteryChar->notify(kv.first);
-            }
-        }
+        _batteryChar->notify();
         _lastBatNotify = now;
         _batDirty = false;
     }
-
- 
     if ( (now - _ledSwitch) > 1000 ) {
         _ledSwitch = now;
         _ledOn = !_ledOn;
@@ -255,9 +223,6 @@ void BoatWatchBLE::setNavState(double lat, double lon, double cog, double sog,
 
     _navDirty = true;
 }
-
-
-
 
 void BoatWatchBLE::setEngineState(const EngineBlePayload& p) {
     encodeEngineBle(_engineBuffer, &p);
@@ -371,15 +336,12 @@ void BoatWatchBLE::onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo,
 void BoatWatchBLE::onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) {
     NimBLEAttValue val = pCharacteristic->getValue();
     if (val.size() >= 2) {
-        bool fromFlowMeter = pCharacteristic == _flowMeterChar;
-        handleCommand(connInfo.getConnHandle(), val.data(), val.size(), fromFlowMeter);
+        handleCommand(connInfo.getConnHandle(), val.data(), val.size());
     }
 }
 
-void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_t len, bool fromFlowMeter) {
-    // BoatWatch commands carry magic 0xAA; FlowSensor frames on the FlowMeter
-    // characteristic carry magic 0xEE. Reject anything that is neither.
-    if (len < 2 || (data[0] != BW_MAGIC_AUTOPILOT && data[0] != BW_MAGIC_FLOWMETER)) return;
+void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_t len) {
+    if (len < 2 || data[0] != BW_MAGIC_AUTOPILOT) return;
 
     uint8_t cmd = data[1];
 
@@ -395,7 +357,7 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
         // that try to reset the per-connection counter by disconnecting.
         if (_globalBlockUntilMs != 0 && (long)(_globalBlockUntilMs - now) > 0) {
             ESP_LOGW(TAG, "Auth rejected: global lockout active");
-            sendAuthResponse(connHandle, false, fromFlowMeter);
+            sendAuthResponse(connHandle, false);
             return;
         }
         // Window expired — clear global state so legitimate users start fresh.
@@ -407,7 +369,7 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
         if (state.blockUntilMs != 0 && (long)(state.blockUntilMs - now) > 0) {
             ESP_LOGW(TAG, "Client %d auth attempt during lockout (failures=%u)",
                      connHandle, state.failures);
-            sendAuthResponse(connHandle, false, fromFlowMeter);
+            sendAuthResponse(connHandle, false);
             return;
         }
         bool ok = false;
@@ -422,12 +384,12 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
             state.blockUntilMs = 0;
             _globalAuthFailures = 0;
             _globalBlockUntilMs = 0;
-            sendAuthResponse(connHandle, true, fromFlowMeter);
+            sendAuthResponse(connHandle, true);
             ESP_LOGI(TAG, "Client %d auth accepted", connHandle);
         } else {
             state.failures++;
             _globalAuthFailures++;
-            sendAuthResponse(connHandle, false, fromFlowMeter);
+            sendAuthResponse(connHandle, false);
             ESP_LOGW(TAG, "Client %d auth denied (failures=%u global=%u)",
                      connHandle, state.failures, _globalAuthFailures);
             if (state.failures >= BW_AUTH_MAX_FAILURES) {
@@ -463,14 +425,8 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
     }
 }
 
-void BoatWatchBLE::sendAuthResponse(uint16_t connHandle, bool accepted, bool fromFlowMeter) {
+void BoatWatchBLE::sendAuthResponse(uint16_t connHandle, bool accepted) {
     uint8_t resp[2] = { BW_MAGIC_AUTH_RESP, uint8_t(accepted ? 0x01 : 0x00) };
-    if (fromFlowMeter) {
-        // FlowSensor subscribes to the FlowMeter characteristic for its result.
-        _flowMeterChar->setValue(resp, 2);
-        _flowMeterChar->notify(connHandle);
-        return;
-    }
     _autopilotChar->setValue(resp, 2);
     _autopilotChar->notify(connHandle);
     _batteryChar->setValue(resp, 2);
