@@ -48,7 +48,7 @@ void LogBook::demoMode() {
 
 bool LogBook::shouldLog() {
     unsigned long now = millis();
-    return ( (now-lastLogUpdate) >  logPeriod);
+    return loggingEnabled && ( (now-lastLogUpdate) >  logPeriod);
 }
 
 

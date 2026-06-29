@@ -14,6 +14,7 @@ class LogBook {
             double longitude, uint32_t log, uint32_t tripLog, double cog, double sog,
             double stw, double hdg, double aws, double awa, double pressure, double rpm,
             double coolant ); 
+        bool loggingEnabled = true;
     private:
         double relativeAngleToDeg(double a);
         double headingAngleToDeg(double a);

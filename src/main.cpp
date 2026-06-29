@@ -800,6 +800,11 @@ void setup() {
   // enaling too soon causes a brownout.
   pinMode(BLE_LED_PIN, OUTPUT);
   digitalWrite(BLE_LED_PIN, false);
+
+
+  // since we now log in the BLE server, N2K logbook is no longer required.
+  logbook.loggingEnabled = false;
+
   ESP_LOGE(TAG, "Running.....");
   showHelp();
 }
