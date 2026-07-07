@@ -86,6 +86,7 @@ tNMEA2000_esp32 &NMEA2000=*(new tNMEA2000_esp32(ESP32_CAN_TX_PIN, ESP32_CAN_RX_P
 #include "AsyncDNSServer.h"
 #include <ESPmDNS.h>
 #include "jdb_bms.h"
+#include "n2k_sim.h"
 #include "boatwatch_ble.h"
 #include "autopilot_state.h"
 #include "config.h"
@@ -124,7 +125,8 @@ N2KFrameFilter inputAllowFilter;
 
 JBDBmsSimulator simulator;
 JdbBMS bms;
-bool bmsSimulatorOn = false;
+N2KSimulator n2kSim;
+bool simulatorOn = false;
 bool networkUp = false;
 bool canUp = false;
 
@@ -273,7 +275,7 @@ void showHelp() {
   OutputStream->println("  - Send 'd' to toggle packet dump, can be high volume");
   OutputStream->println("  - Send 'b' to toggle bms debug, can be high volume");
   OutputStream->println("  - Send 'f' to trigger freeze frame");
-  OutputStream->println("  - Send 'S' to toggle BMS simulator");
+  OutputStream->println("  - Send 'S' to toggle simulators (BMS + NMEA2000)");
   OutputStream->println("  - Send 'p' set udp port");
   OutputStream->println("  - Send 'N' to toggle Network");
   OutputStream->println("  - Send 'A' to toggle Wifi AP");
@@ -857,13 +859,13 @@ void CheckCommand() {
         NMEA2000.EnableForward(enableForward); 
         break;
       case 'S':
-        if ( bmsSimulatorOn) {
-          ESP_LOGI(TAG, "Disable BMS Simulator");   
-          bmsSimulatorOn = false;
+        if ( simulatorOn) {
+          ESP_LOGI(TAG, "Disable Simulators (BMS + NMEA2000)");
+          simulatorOn = false;
           bms.setSerial(&Serial1);
         } else {
-          ESP_LOGI(TAG, "Enable BMS Simulator");   
-          bmsSimulatorOn = true;
+          ESP_LOGI(TAG, "Enable Simulators (BMS + NMEA2000)");
+          simulatorOn = true;
           bms.setSerial(&simulator);
         }
         break;
@@ -1011,6 +1013,9 @@ void loop() {
     ESP_LOGE(TAG, "bms.update %ld %ld %d" ,now, last, (now - last));
   }
   last = now;
+  if (simulatorOn) {
+    n2kSim.update([](const tN2kMsg& msg){ HandleNMEA2000Msg(msg); });
+  }
   if (canUp) {
       EmitMessages();
       now = millis();

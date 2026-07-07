@@ -200,8 +200,8 @@ size_t JBDBmsSimulator::write(uint8_t val) {
     return 1;
 }
 size_t JBDBmsSimulator::write(const uint8_t *buf, size_t size) {
-    ESP_LOGE(TAG, "Recieved");
-    ESP_LOG_BUFFER_HEXDUMP(TAG, buf, size, ESP_LOG_ERROR);
+    ESP_LOGD(TAG, "Recieved");
+    ESP_LOG_BUFFER_HEXDUMP(TAG, buf, size, ESP_LOG_DEBUG);
     for (int i = 0; i < size; i++) {
         write(buf[i]);
     }
@@ -209,8 +209,8 @@ size_t JBDBmsSimulator::write(const uint8_t *buf, size_t size) {
 }
 
 void JBDBmsSimulator::dumpBuffer(const char * msg) {
-    ESP_LOGE(TAG, "%s", msg);
-    ESP_LOG_BUFFER_HEXDUMP(TAG, buffer, bend, ESP_LOG_ERROR);
+    ESP_LOGD(TAG, "%s", msg);
+    ESP_LOG_BUFFER_HEXDUMP(TAG, buffer, bend, ESP_LOG_DEBUG);
 }
 void JBDBmsSimulator::flush() {
 

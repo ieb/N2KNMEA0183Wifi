@@ -1,9 +1,27 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "esp_log.h"
+#include "esp_system.h"     // esp_get_free_heap_size, esp_get_minimum_free_heap_size
 #include "boatwatch_ble.h"
 #include "config.h"
 
 static const char* TAG = "BW_BLE";
+
+// Small RAII wrapper for a FreeRTOS mutex. Held only for tiny critical
+// sections around _clients / global-auth access — see the mutex comment
+// in boatwatch_ble.h. Portable-tick wait is INT_MAX (effectively forever)
+// because these sections are microseconds long and blocking a caller for
+// them is far preferable to skipping the lock and racing the tree.
+class MutexLock {
+public:
+    explicit MutexLock(SemaphoreHandle_t m) : _m(m) {
+        if (_m) xSemaphoreTake(_m, portMAX_DELAY);
+    }
+    ~MutexLock() { if (_m) xSemaphoreGive(_m); }
+    MutexLock(const MutexLock&) = delete;
+    MutexLock& operator=(const MutexLock&) = delete;
+private:
+    SemaphoreHandle_t _m;
+};
 
 // BMS register offsets (little-endian — byte-swapped from BMS big-endian by copyReg03/copyReg04)
 #define REG03_PACK_V_U16      0
@@ -23,6 +41,10 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
     if ( !ConfigurationFile::get(_configurationFile, "ble.pin", _pin)) {
         _pin = "0000";
     }
+
+    // Must exist before the server is created — the very first onConnect
+    // callback can fire as soon as advertising->start() below.
+    _clientsMutex = xSemaphoreCreateMutex();
 
     NimBLEDevice::init(deviceName);
     NimBLEDevice::setMTU(64);
@@ -88,6 +110,7 @@ void BoatWatchBLE::begin(const char* deviceName, const char* _configurationFile)
 }
 
 bool BoatWatchBLE::hasAuthenticatedClients() const {
+    MutexLock lock(_clientsMutex);
     for (auto &it : _clients) {
         if (it.second.authed) return true;
     }
@@ -95,30 +118,72 @@ bool BoatWatchBLE::hasAuthenticatedClients() const {
 }
 
 void BoatWatchBLE::notify() {
+    unsigned long now = millis();
+
+    // Advertising watchdog. Runs regardless of client count because the
+    // observed failure mode is "connected client(s) present, but advertising
+    // silently stopped and never restarted" — so scanners see nothing and
+    // no new client can connect until an existing one drops. On the ESP32-C3
+    // NimBLE port this has been observed after ~76 back-to-back connect/
+    // disconnect cycles, correlating with heap fragmentation.
+    if ((now - _lastAdvCheckMs) >= BW_ADV_WATCHDOG_MS) {
+        _lastAdvCheckMs = now;
+        NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+        if (adv && !adv->isAdvertising()
+            && _server->getConnectedCount() < BW_MAX_CLIENTS) {
+            if (_advStuckSince == 0) {
+                _advStuckSince = now;
+                ESP_LOGW(TAG,
+                    "Advertising watchdog: stopped despite conn=%d < max=%d "
+                    "(heap=%u min=%u) — restarting",
+                    (int)_server->getConnectedCount(), BW_MAX_CLIENTS,
+                    (unsigned)esp_get_free_heap_size(),
+                    (unsigned)esp_get_minimum_free_heap_size());
+            }
+            adv->start();
+        } else if (_advStuckSince != 0) {
+            ESP_LOGI(TAG,
+                "Advertising watchdog: recovered after %lu ms",
+                (unsigned long)(now - _advStuckSince));
+            _advStuckSince = 0;
+        }
+    }
+
     if (_server->getConnectedCount() == 0) {
-        if (!_clients.empty()) {
-            ESP_LOGW(TAG, "Missed disconnect detected — clearing %d client(s)", _clients.size());
-            _clients.clear();
+        // Missed-disconnect recovery: another (NimBLE) task could touch
+        // _clients while we test/clear. Guard the read *and* the clear.
+        bool wasNonEmpty = false;
+        size_t sz = 0;
+        {
+            MutexLock lock(_clientsMutex);
+            wasNonEmpty = !_clients.empty();
+            sz = _clients.size();
+            if (wasNonEmpty) _clients.clear();
+        }
+        if (wasNonEmpty) {
+            ESP_LOGW(TAG, "Missed disconnect detected — clearing %d client(s)", (int)sz);
             NimBLEDevice::getAdvertising()->start();
             digitalWrite(BLE_LED_PIN, LOW);
         }
         return;
     }
 
-    unsigned long now = millis();
-
     // Disconnect any client that connected but never authenticated within the
     // idle window. Stops an attacker (or a broken client) from holding the
     // BW_MAX_CLIENTS connection slots and denying service to legitimate peers.
-    // Collect handles first and disconnect after the loop so we don't mutate
-    // the map while iterating.
+    // Collect handles under the lock, then call _server->disconnect() OUTSIDE
+    // the lock — that call can synchronously invoke onDisconnect which will
+    // try to take the mutex itself.
     uint16_t idleHandles[BW_MAX_CLIENTS];
     size_t nIdle = 0;
-    for (auto &kv : _clients) {
-        if (!kv.second.authed
-            && (now - kv.second.connectedAtMs) > BW_UNAUTH_IDLE_TIMEOUT_MS
-            && nIdle < BW_MAX_CLIENTS) {
-            idleHandles[nIdle++] = kv.first;
+    {
+        MutexLock lock(_clientsMutex);
+        for (auto &kv : _clients) {
+            if (!kv.second.authed
+                && (now - kv.second.connectedAtMs) > BW_UNAUTH_IDLE_TIMEOUT_MS
+                && nIdle < BW_MAX_CLIENTS) {
+                idleHandles[nIdle++] = kv.first;
+            }
         }
     }
     for (size_t i = 0; i < nIdle; i++) {
@@ -308,8 +373,25 @@ void BoatWatchBLE::setBatteryState(const uint8_t* reg03, size_t reg03Len,
 
 void BoatWatchBLE::onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     uint16_t connHandle = connInfo.getConnHandle();
-    _clients[connHandle] = ClientState{false, 0, 0, millis()};
-    ESP_LOGI(TAG, "Client %d connected — awaiting auth (%d clients)", connHandle, _clients.size());
+    size_t mapSize;
+    {
+        MutexLock lock(_clientsMutex);
+        _clients[connHandle] = ClientState{false, 0, 0, millis()};
+        mapSize = _clients.size();
+    }
+    // Instrumentation: log free heap, min-ever free heap, connected-count vs
+    // map size, and advertising state. Divergence between getConnectedCount()
+    // and _clients.size() is the smoking gun for a per-client-state leak;
+    // a monotonically-falling min-free heap points at a notify/allocation leak.
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    ESP_LOGI(TAG,
+        "Client %d connected — awaiting auth (map=%d conn=%d adv=%d heap=%u min=%u)",
+        connHandle,
+        (int)mapSize,
+        (int)_server->getConnectedCount(),
+        adv ? (int)adv->isAdvertising() : -1,
+        (unsigned)esp_get_free_heap_size(),
+        (unsigned)esp_get_minimum_free_heap_size());
 
     // Keep advertising so more clients can connect (up to BW_MAX_CLIENTS)
     if (_server->getConnectedCount() < BW_MAX_CLIENTS) {
@@ -319,8 +401,22 @@ void BoatWatchBLE::onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
 
 void BoatWatchBLE::onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) {
     uint16_t connHandle = connInfo.getConnHandle();
-    _clients.erase(connHandle);
-    ESP_LOGI(TAG, "Client %d disconnected (reason=%d) — %d clients remain", connHandle, reason, _clients.size());
+    size_t mapSize;
+    {
+        MutexLock lock(_clientsMutex);
+        _clients.erase(connHandle);
+        mapSize = _clients.size();
+    }
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    ESP_LOGI(TAG,
+        "Client %d disconnected (reason=%d) — "
+        "map=%d conn=%d adv=%d heap=%u min=%u",
+        connHandle, reason,
+        (int)mapSize,
+        (int)_server->getConnectedCount(),
+        adv ? (int)adv->isAdvertising() : -1,
+        (unsigned)esp_get_free_heap_size(),
+        (unsigned)esp_get_minimum_free_heap_size());
 
     // Restart advertising if below max
     if (_server->getConnectedCount() < BW_MAX_CLIENTS) {
@@ -344,75 +440,115 @@ void BoatWatchBLE::handleCommand(uint16_t connHandle, const uint8_t* data, size_
 
     uint8_t cmd = data[1];
 
-    auto it = _clients.find(connHandle);
-    if (it == _clients.end()) return;  // unknown handle, e.g. post-disconnect race
-    ClientState &state = it->second;
-
     // Auth command — allowed, but rate-limited per connection AND globally.
     if (cmd == BW_CMD_AUTH) {
-        unsigned long now = millis();
-
-        // Global lockout (survives reconnects): blocks brute-force attempts
-        // that try to reset the per-connection counter by disconnecting.
-        if (_globalBlockUntilMs != 0 && (long)(_globalBlockUntilMs - now) > 0) {
-            ESP_LOGW(TAG, "Auth rejected: global lockout active");
-            sendAuthResponse(connHandle, false);
-            return;
-        }
-        // Window expired — clear global state so legitimate users start fresh.
-        if (_globalBlockUntilMs != 0) {
-            _globalBlockUntilMs = 0;
-            _globalAuthFailures = 0;
-        }
-
-        if (state.blockUntilMs != 0 && (long)(state.blockUntilMs - now) > 0) {
-            ESP_LOGW(TAG, "Client %d auth attempt during lockout (failures=%u)",
-                     connHandle, state.failures);
-            sendAuthResponse(connHandle, false);
-            return;
-        }
-        bool ok = false;
+        // Decode + compare PIN outside the lock; it touches only stack and
+        // _pin (immutable after begin()).
+        bool pinOk = false;
         if (len >= 6) {
             char pin[5] = {0};
             memcpy(pin, data + 2, 4);
-            if (_pin.equals(pin)) ok = true;
+            if (_pin.equals(pin)) pinOk = true;
         }
-        if (ok) {
-            state.authed = true;
-            state.failures = 0;
-            state.blockUntilMs = 0;
-            _globalAuthFailures = 0;
-            _globalBlockUntilMs = 0;
+
+        // Serialise every read/write of _clients / global auth state.
+        // Compute what to *send* under the lock, execute the BLE I/O and the
+        // possible ->disconnect() call OUTSIDE the lock — disconnect() can
+        // synchronously fire onDisconnect on this same task which would
+        // re-enter the mutex.
+        bool respondAccepted = false;
+        bool respondRejected = false;
+        bool forceDisconnect = false;
+        bool logLockout = false;
+        bool logGlobalLockout = false;
+        uint8_t logFailures = 0;
+        uint16_t logGlobalFailures = 0;
+
+        {
+            MutexLock lock(_clientsMutex);
+            auto it = _clients.find(connHandle);
+            if (it == _clients.end()) return;  // post-disconnect race
+            ClientState &state = it->second;
+            unsigned long now = millis();
+
+            if (_globalBlockUntilMs != 0 && (long)(_globalBlockUntilMs - now) > 0) {
+                ESP_LOGW(TAG, "Auth rejected: global lockout active");
+                respondRejected = true;
+            } else {
+                if (_globalBlockUntilMs != 0) {
+                    _globalBlockUntilMs = 0;
+                    _globalAuthFailures = 0;
+                }
+
+                if (state.blockUntilMs != 0 && (long)(state.blockUntilMs - now) > 0) {
+                    ESP_LOGW(TAG, "Client %d auth attempt during lockout (failures=%u)",
+                             connHandle, state.failures);
+                    respondRejected = true;
+                } else if (pinOk) {
+                    state.authed = true;
+                    state.failures = 0;
+                    state.blockUntilMs = 0;
+                    _globalAuthFailures = 0;
+                    _globalBlockUntilMs = 0;
+                    respondAccepted = true;
+                } else {
+                    state.failures++;
+                    _globalAuthFailures++;
+                    logFailures = state.failures;
+                    logGlobalFailures = _globalAuthFailures;
+                    respondRejected = true;
+                    if (state.failures >= BW_AUTH_MAX_FAILURES) {
+                        forceDisconnect = true;
+                    } else if (state.failures % BW_AUTH_LOCKOUT_FAILURES == 0) {
+                        state.blockUntilMs = now + BW_AUTH_LOCKOUT_MS;
+                        logLockout = true;
+                    }
+                    if (_globalAuthFailures >= BW_AUTH_GLOBAL_LOCKOUT_FAILURES) {
+                        _globalBlockUntilMs = now + BW_AUTH_GLOBAL_LOCKOUT_MS;
+                        logGlobalLockout = true;
+                    }
+                }
+            }
+        }
+        // Lock released — BLE I/O and disconnect are safe now.
+        if (respondAccepted) {
             sendAuthResponse(connHandle, true);
             ESP_LOGI(TAG, "Client %d auth accepted", connHandle);
-        } else {
-            state.failures++;
-            _globalAuthFailures++;
+        }
+        if (respondRejected) {
             sendAuthResponse(connHandle, false);
-            ESP_LOGW(TAG, "Client %d auth denied (failures=%u global=%u)",
-                     connHandle, state.failures, _globalAuthFailures);
-            if (state.failures >= BW_AUTH_MAX_FAILURES) {
-                ESP_LOGW(TAG, "Client %d exceeded per-connection limit — disconnecting",
-                         connHandle);
-                _server->disconnect(connHandle);
-                return;
+            if (logFailures) {
+                ESP_LOGW(TAG, "Client %d auth denied (failures=%u global=%u)",
+                         connHandle, logFailures, logGlobalFailures);
             }
-            if (state.failures % BW_AUTH_LOCKOUT_FAILURES == 0) {
-                state.blockUntilMs = now + BW_AUTH_LOCKOUT_MS;
-                ESP_LOGW(TAG, "Client %d entering %lu ms auth lockout", connHandle,
-                         (unsigned long)BW_AUTH_LOCKOUT_MS);
-            }
-            if (_globalAuthFailures >= BW_AUTH_GLOBAL_LOCKOUT_FAILURES) {
-                _globalBlockUntilMs = now + BW_AUTH_GLOBAL_LOCKOUT_MS;
-                ESP_LOGW(TAG, "Global auth lockout engaged for %lu ms",
-                         (unsigned long)BW_AUTH_GLOBAL_LOCKOUT_MS);
-            }
+        }
+        if (logLockout) {
+            ESP_LOGW(TAG, "Client %d entering %lu ms auth lockout", connHandle,
+                     (unsigned long)BW_AUTH_LOCKOUT_MS);
+        }
+        if (logGlobalLockout) {
+            ESP_LOGW(TAG, "Global auth lockout engaged for %lu ms",
+                     (unsigned long)BW_AUTH_GLOBAL_LOCKOUT_MS);
+        }
+        if (forceDisconnect) {
+            ESP_LOGW(TAG, "Client %d exceeded per-connection limit — disconnecting",
+                     connHandle);
+            _server->disconnect(connHandle);
         }
         return;
     }
 
-    // All other commands require auth
-    if (!state.authed) {
+    // All other commands require auth. Copy just the authed flag under the
+    // lock so we don't hold a reference to a map entry that could be erased
+    // during the callback below.
+    bool authed = false;
+    {
+        MutexLock lock(_clientsMutex);
+        auto it = _clients.find(connHandle);
+        if (it == _clients.end()) return;
+        authed = it->second.authed;
+    }
+    if (!authed) {
         ESP_LOGW(TAG, "Client %d cmd 0x%02X rejected — not authenticated", connHandle, cmd);
         return;
     }

@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 #include <NimBLEDevice.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <functional>
 #include <map>
 #include "engine_ble_encoder.h"
@@ -52,7 +54,14 @@
 
 #define BLE_LED_PIN 8
 
-#define BW_MAX_CLIENTS 3
+#define BW_MAX_CLIENTS 6
+
+// Advertising watchdog cadence — see notify(). Guards against the case where
+// NimBLE's advertising handle silently stops (observed on ESP32-C3 after
+// long connect/disconnect stress runs) and neither onConnect nor onDisconnect
+// fires again to restart it. 5s is short enough that recovery is quick,
+// long enough not to spam start() while a connect is being negotiated.
+#define BW_ADV_WATCHDOG_MS 5000UL
 
 // BLE auth brute-force hardening
 #define BW_AUTH_LOCKOUT_FAILURES        5        // consecutive failures per connection before lockout
@@ -60,7 +69,7 @@
 #define BW_AUTH_MAX_FAILURES            10       // per-connection total before force-disconnect
 // Global counters survive reconnects, so an attacker cycling connections
 // still accumulates toward a global lockout.
-#define BW_AUTH_GLOBAL_LOCKOUT_FAILURES 20       // cumulative across all connections
+#define BW_AUTH_GLOBAL_LOCKOUT_FAILURES 30       // cumulative across all connections
 #define BW_AUTH_GLOBAL_LOCKOUT_MS       300000UL // 5 min global lockout
 // Disconnect clients that linger without authenticating.
 #define BW_UNAUTH_IDLE_TIMEOUT_MS       30000UL  // 30 s to authenticate after connect
@@ -127,6 +136,14 @@ private:
         unsigned long connectedAtMs;   // for unauthenticated-idle disconnect
     };
     std::map<uint16_t, ClientState> _clients;
+    // NimBLE callbacks (onConnect/onDisconnect/onWrite) fire on the NimBLE
+    // host task, but notify() runs on the Arduino main-loop task. Both touch
+    // _clients (and the global auth state below). Without serialization the
+    // map's red-black tree can be mutated mid-walk, dereferencing a freed
+    // node — observed as a Guru Meditation "Load access fault" in
+    // std::_Rb_tree_increment. Take _clientsMutex around every _clients or
+    // global-auth access. Held only for tiny critical sections.
+    SemaphoreHandle_t _clientsMutex = nullptr;
     // Global auth state — survives reconnects so an attacker cycling
     // connections still progresses toward a global lockout.
     uint16_t      _globalAuthFailures = 0;
@@ -155,4 +172,11 @@ private:
     unsigned long _lastNavNotify = 0;
     unsigned long _lastEngineNotify = 0;
     unsigned long _ledSwitch = 0;
+
+    // Advertising watchdog bookkeeping. _lastAdvCheckMs paces the check
+    // itself; _advStuckSince records the earliest observation of the
+    // stuck-not-advertising state so recovery only logs once and doesn't
+    // fill the log if start() keeps failing.
+    unsigned long _lastAdvCheckMs = 0;
+    unsigned long _advStuckSince  = 0;
 };
