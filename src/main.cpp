@@ -264,10 +264,17 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
         case 65345: apBleState.handlePGN65345(N2kMsg); break;
     }
 }
+void showVersion() {
+  OutputStream->print("Git Version: ");OutputStream->println(GIT_SHA1_VERSION);
+  if (GIT_LOCAL_CHANGES > 0) {
+    OutputStream->print("Has local changes: ");OutputStream->println(GIT_LOCAL_CHANGES);
+  }
+
+}
 
 void showHelp() {
   OutputStream->println("N2KWifi Bridge.");
-  OutputStream->print("Git Version: ");OutputStream->println(GIT_SHA1_VERSION);
+  showVersion();
   OutputStream->println("  - Send 'h' to show this message");
   OutputStream->println("  - Send 's' to show status");
   OutputStream->println("  - Send 'u' to print latest list of devices");
@@ -764,6 +771,7 @@ void setup() {
            resetReasonName(_bootResetReason), (int)_bootResetReason);
   reportBootCounts();
 
+  showVersion();
 
   ConfigurationFile::begin();
 
