@@ -174,3 +174,16 @@ HTTP/TCP/BMS paths without hardware.
     simulator/           Node-based HTTP/TCP/BMS simulators
     pcb/                 board design files
     ui/                  scratch / local UI assets (main UIs are in separate repos)
+
+
+# BUGS/TODO
+
+* [x] Chromebook and Phone continue to show connection instability. Probably fixed with a 500ppm SCA setting.
+
+
+
+## Chromebook and Phone continue to show connection instability. 
+
+Could be the shared WiFi/BLE chips in both devices, but could also be the ESP32 having a 500ppm sleep clock accuracy (SCA). Default with NimBLE seems to be 60ppm. I see 520 connection closed reasons in the ESP32 logs, https://github.com/apache/mynewt-nimble/issues/1777 indicates SCA could be the cause.
+
+Testing over 48h is not conclusive since the WiFi environment is not as challenging with weak signals causing the OS interfer with BLE while prioritising Wifi. However, there seem to be fewer disconnects due to 520, and on that basis I am keeping the 500ppm setting for SCA in this commit.
