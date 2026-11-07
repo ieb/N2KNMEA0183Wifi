@@ -43,7 +43,7 @@ pcb2gcode \
   --drill-feed 50.0 \
   --drills-available 0.8 1.0 3.0 \
   --offset 0.1 \
-  --mill-diameters 0.25 \
+  --mill-diameters 3.0,0.25,0.12 \
   --path-finding-limit=0 \
   --milling-overlap 20% \
   --isolation-width 20 \

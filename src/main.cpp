@@ -798,6 +798,7 @@ void setup() {
   bms.begin();
   // Start BLE server
 
+  delay(1000); // wait for any supply caps to get back up to power.
 
   bleServer.begin("BoatWatch");
   bleServer.setCommandCallback(handleBleCommand);
